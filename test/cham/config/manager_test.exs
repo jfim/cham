@@ -24,9 +24,7 @@ defmodule Cham.Config.ManagerTest do
   defp start_manager(context, toml_content \\ "") do
     File.write!(context.toml_path, toml_content)
 
-    start_supervised!(
-      {Manager, name: context.name, toml_path: context.toml_path, event_bus: nil}
-    )
+    start_supervised!({Manager, name: context.name, toml_path: context.toml_path, event_bus: nil})
 
     context
   end

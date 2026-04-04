@@ -54,7 +54,8 @@ defmodule Cham.Config.Schema do
     if value in options do
       {:ok, value}
     else
-      {:error, "invalid value for :#{key}, got #{inspect(value)}, expected one of #{inspect(options)}"}
+      {:error,
+       "invalid value for :#{key}, got #{inspect(value)}, expected one of #{inspect(options)}"}
     end
   end
 

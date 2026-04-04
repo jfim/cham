@@ -13,7 +13,14 @@ defmodule Cham.Config.SchemaTest do
 
   describe "validate/2" do
     test "accepts valid values" do
-      values = %{"name" => "hello", "count" => 10, "rate" => 2.5, "enabled" => false, "mode" => "slow"}
+      values = %{
+        "name" => "hello",
+        "count" => 10,
+        "rate" => 2.5,
+        "enabled" => false,
+        "mode" => "slow"
+      }
+
       assert {:ok, validated} = Schema.validate(values, @schema)
       assert validated == %{name: "hello", count: 10, rate: 2.5, enabled: false, mode: "slow"}
     end

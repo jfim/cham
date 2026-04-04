@@ -139,18 +139,34 @@ defmodule Cham.Pipeline.Orchestrator do
   end
 
   defp build_exclusion_set(item_id, artifacts) do
-    completed =
+    # Stages that produced artifacts
+    completed_by_artifacts =
       artifacts
       |> Enum.filter(&(&1.status == "produced"))
       |> Enum.map(& &1.stage)
       |> MapSet.new()
 
+    # Stages that completed (including metadata-only stages that produce no artifacts)
+    completed_by_execution = completed_stage_ids(item_id)
+
     failed = failed_stage_ids(item_id)
     active = active_oban_stage_ids(item_id)
 
-    completed
+    completed_by_artifacts
+    |> MapSet.union(completed_by_execution)
     |> MapSet.union(failed)
     |> MapSet.union(active)
+  end
+
+  defp completed_stage_ids(item_id) do
+    import Ecto.Query
+
+    Cham.Repo.all(
+      from se in Cham.JobTracking.StageExecution,
+        where: se.item_id == ^item_id and se.status == "completed",
+        select: se.stage
+    )
+    |> MapSet.new()
   end
 
   defp failed_stage_ids(item_id) do

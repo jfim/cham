@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trafilatura>=1.6"]
+# dependencies = ["trafilatura>=1.6", "lxml>=5.0"]
 # ///
 
 import json
@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 
 import trafilatura
+from lxml import html as lxml_html
+from trafilatura.metadata import extract_metadata
 
 
 def main():
@@ -31,20 +33,22 @@ def main():
         print("Could not extract article content", file=sys.stderr)
         sys.exit(1)
 
-    meta = trafilatura.bare_extraction(html)
+    # Extract metadata using lxml tree — bare_extraction often returns empty metadata
+    tree = lxml_html.fromstring(html)
+    meta = extract_metadata(tree)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "content.md").write_text(text, encoding="utf-8")
 
     result = {}
     if meta:
-        if getattr(meta, "title", None):
+        if meta.title:
             result["title"] = meta.title
-        if getattr(meta, "author", None):
+        if meta.author:
             result["author"] = meta.author
-        if getattr(meta, "date", None):
+        if meta.date:
             result["date"] = meta.date
-        if getattr(meta, "sitename", None):
+        if meta.sitename:
             result["sitename"] = meta.sitename
 
     print(json.dumps(result))

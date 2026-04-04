@@ -1,3 +1,212 @@
-<div class="min-h-screen bg-gray-50">
-  <p>Dashboard placeholder</p>
+<div class="flex min-h-screen">
+  <%!-- Sidebar --%>
+  <aside class="w-64 bg-white border-r border-gray-200 flex flex-col">
+    <%!-- Logo --%>
+    <div class="px-4 py-5 border-b border-gray-100">
+      <span class="text-xl font-bold text-indigo-600">Cham</span>
+    </div>
+
+    <%!-- Add URL button --%>
+    <div class="px-4 py-3 border-b border-gray-100">
+      <button
+        phx-click={show_modal("submit-modal")}
+        class="w-full flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+      >
+        <.icon name="hero-plus" class="h-4 w-4" /> Add URL
+      </button>
+    </div>
+
+    <%!-- In Progress section --%>
+    <div class="px-4 py-3 border-b border-gray-100">
+      <button
+        phx-click="toggle_in_progress"
+        class="w-full flex items-center justify-between text-sm font-medium text-gray-700 hover:text-gray-900"
+      >
+        <span class="flex items-center gap-2">
+          <.icon name="hero-arrow-path" class="h-4 w-4 text-amber-500" /> In Progress
+          <span
+            :if={@active_count > 0}
+            class="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800"
+          >
+            {@active_count}
+          </span>
+        </span>
+        <.icon
+          name={if @show_in_progress, do: "hero-chevron-down", else: "hero-chevron-right"}
+          class="h-4 w-4 text-gray-400"
+        />
+      </button>
+
+      <div :if={@show_in_progress} class="mt-2 space-y-1">
+        <div :if={Enum.empty?(@in_progress)} class="text-xs text-gray-400 px-2">
+          Nothing in progress
+        </div>
+        <.link
+          :for={item <- @in_progress}
+          navigate={~p"/items/#{item.id}"}
+          class="block px-2 py-1.5 rounded text-xs text-gray-600 hover:bg-gray-50 truncate"
+        >
+          <span class="flex items-center gap-1.5">
+            <.status_badge status={item.status} />
+            <span class="truncate">{item.title || truncate_url(item.url)}</span>
+          </span>
+        </.link>
+      </div>
+    </div>
+
+    <%!-- Content type facets --%>
+    <div class="px-4 py-3 border-b border-gray-100">
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Content Type</p>
+      <div class="space-y-0.5">
+        <button
+          :for={{type, count} <- Enum.sort(@type_counts)}
+          phx-click="filter_type"
+          phx-value-type={type}
+          data-filter-type={type}
+          class={[
+            "w-full flex items-center justify-between px-2 py-1.5 rounded text-sm text-left",
+            if(@active_type == type,
+              do: "bg-indigo-50 text-indigo-700 font-medium",
+              else: "text-gray-600 hover:bg-gray-50"
+            )
+          ]}
+        >
+          <span class="flex items-center gap-2">
+            <.icon
+              name={content_type_icon(type)}
+              class={"h-4 w-4 #{if @active_type == type, do: "text-indigo-500", else: "text-gray-400"}"}
+            />
+            {content_type_label(type)}
+          </span>
+          <span class="text-xs text-gray-400">{count}</span>
+        </button>
+      </div>
+    </div>
+
+    <%!-- Tags --%>
+    <div class="px-4 py-3 flex-1 overflow-y-auto">
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Tags</p>
+      <div :if={map_size(@tag_counts) == 0} class="text-xs text-gray-400">No tags yet</div>
+      <div class="flex flex-wrap gap-1.5">
+        <.tag_pill
+          :for={{tag, count} <- Enum.sort(@tag_counts)}
+          tag={tag}
+          count={count}
+          active={@active_tag == tag}
+          phx-click="filter_tag"
+          phx-value-tag={tag}
+        />
+      </div>
+    </div>
+  </aside>
+
+  <%!-- Main content area --%>
+  <div class="flex-1 bg-gray-50 flex flex-col">
+    <%!-- Header --%>
+    <header class="bg-white border-b border-gray-200 px-6 py-4">
+      <div class="flex items-center gap-4">
+        <h1 class="text-xl font-semibold text-gray-900 flex-1">
+          {hero_text(assigns)}
+        </h1>
+        <%!-- Disabled search --%>
+        <div class="relative">
+          <.icon
+            name="hero-magnifying-glass"
+            class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
+          />
+          <input
+            type="text"
+            disabled
+            placeholder="Search..."
+            class="pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-400 cursor-not-allowed w-48"
+          />
+        </div>
+      </div>
+    </header>
+
+    <%!-- Item list --%>
+    <main class="flex-1 px-6 py-6">
+      <%!-- Empty state --%>
+      <div :if={Enum.empty?(@items) && @total_count == 0} class="text-center py-16">
+        <.icon name="hero-inbox" class="mx-auto h-12 w-12 text-gray-300" />
+        <h3 class="mt-4 text-lg font-semibold text-gray-900">Nothing archived yet</h3>
+        <p class="mt-1 text-sm text-gray-500">Submit your first URL to get started.</p>
+        <button
+          phx-click={show_modal("submit-modal")}
+          class="mt-4 inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+        >
+          <.icon name="hero-plus" class="h-4 w-4" /> Submit your first URL
+        </button>
+      </div>
+
+      <%!-- Filtered empty state --%>
+      <div :if={Enum.empty?(@items) && @total_count > 0} class="text-center py-16">
+        <.icon name="hero-funnel" class="mx-auto h-10 w-10 text-gray-300" />
+        <h3 class="mt-4 text-base font-semibold text-gray-900">No items match this filter</h3>
+        <p class="mt-1 text-sm text-gray-500">Try removing the filter to see all items.</p>
+      </div>
+
+      <%!-- Card grid for video/document --%>
+      <div
+        :if={
+          not Enum.empty?(@items) &&
+            @active_type in ["video", "document"]
+        }
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+      >
+        <.link
+          :for={item <- @items}
+          navigate={~p"/items/#{item.id}?#{return_params(assigns)}"}
+          class="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow"
+        >
+          <div class="flex items-start justify-between mb-2">
+            <.content_type_badge type={item.content_type} />
+            <.relative_time at={item.inserted_at} />
+          </div>
+          <h3 class="text-sm font-medium text-gray-900 line-clamp-2 mb-1">
+            {item.title || truncate_url(item.url)}
+          </h3>
+          <p class="text-xs text-gray-400 truncate">{truncate_url(item.url)}</p>
+          <div class="mt-3 flex flex-wrap gap-1">
+            <.tag_pill :for={tag <- item.tags} tag={tag} />
+          </div>
+        </.link>
+      </div>
+
+      <%!-- List rows for articles/other --%>
+      <div
+        :if={not Enum.empty?(@items) && @active_type not in ["video", "document"]}
+        class="space-y-2"
+      >
+        <.link
+          :for={item <- @items}
+          navigate={~p"/items/#{item.id}?#{return_params(assigns)}"}
+          class="flex items-center gap-4 bg-white rounded-lg border border-gray-200 px-4 py-3 hover:shadow-sm transition-shadow"
+        >
+          <div class="flex-shrink-0">
+            <.content_type_badge type={item.content_type} />
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 truncate">
+              {item.title || truncate_url(item.url)}
+            </p>
+            <p class="text-xs text-gray-400 truncate">{truncate_url(item.url)}</p>
+          </div>
+          <div class="flex items-center gap-3 flex-shrink-0">
+            <div class="flex flex-wrap gap-1">
+              <.tag_pill :for={tag <- item.tags} tag={tag} />
+            </div>
+            <.status_badge status={item.status} />
+            <.relative_time at={item.inserted_at} />
+          </div>
+        </.link>
+      </div>
+    </main>
+  </div>
 </div>
+
+<%!-- Submit modal placeholder (wired up in Task 5) --%>
+<.modal id="submit-modal">
+  <div class="text-lg font-semibold mb-4">Add URL</div>
+  <p class="text-sm text-gray-500">Submit a URL to archive</p>
+</.modal>

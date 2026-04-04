@@ -27,9 +27,11 @@ defmodule Cham.Items.Item do
 
   def create_changeset(item, attrs) do
     item
-    |> cast(attrs, [:url, :tags])
+    |> cast(attrs, [:url, :tags, :title, :content_type, :status, :slug, :metadata])
     |> validate_required([:url])
+    |> validate_inclusion(:status, @statuses)
     |> unique_constraint(:url)
+    |> unique_constraint(:slug)
   end
 
   def update_changeset(item, attrs) do

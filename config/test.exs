@@ -36,3 +36,4 @@ config :cham, Oban,
   testing: :manual
 
 config :cham, :start_tracker, false
+config :cham, :start_orchestrator, false

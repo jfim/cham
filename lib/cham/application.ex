@@ -19,9 +19,9 @@ defmodule Cham.Application do
         {Cham.Config.Manager,
          toml_path: Application.get_env(:cham, :config_toml_path, "config/cham.toml"),
          event_bus: Cham.PubSub},
-        {Cham.Plugin.Registry, name: Cham.Plugin.Registry, plugin_order: []},
-        Cham.Pipeline.Orchestrator
+        {Cham.Plugin.Registry, name: Cham.Plugin.Registry, plugin_order: []}
       ] ++
+        orchestrator_children() ++
         tracker_children() ++
         [
           # Start to serve requests, typically the last entry
@@ -61,6 +61,14 @@ defmodule Cham.Application do
         {:error, reason} ->
           Logger.warning("Failed to register plugin #{mod.plugin_id()}: #{inspect(reason)}")
       end
+    end
+  end
+
+  defp orchestrator_children do
+    if Application.get_env(:cham, :start_orchestrator, true) do
+      [Cham.Pipeline.Orchestrator]
+    else
+      []
     end
   end
 

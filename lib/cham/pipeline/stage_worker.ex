@@ -174,13 +174,34 @@ defmodule Cham.Pipeline.StageWorker do
     end)
   end
 
-  defp update_item_metadata(item, result) do
+  @doc """
+  Update item columns and metadata from stage results.
+  Promotes title, content_type, tags to dedicated columns.
+  Merges remaining keys into item.metadata JSON map.
+  """
+  def update_item_metadata(item, result) do
     meta = result[:item_metadata] || %{}
+    string_meta = stringify_keys(meta)
 
-    updates =
+    # Promote known fields to dedicated columns
+    column_updates =
       %{}
-      |> maybe_put(:title, meta[:title] || meta["title"])
-      |> maybe_put(:content_type, meta[:content_type] || meta["content_type"])
+      |> maybe_put(:title, string_meta["title"])
+      |> maybe_put(:content_type, string_meta["content_type"])
+      |> maybe_put(:tags, string_meta["tags"])
+
+    # Merge everything else into item.metadata
+    known_keys = ~w(title content_type tags)
+    extra = Map.drop(string_meta, known_keys)
+
+    metadata_update =
+      if extra != %{} do
+        %{metadata: Map.merge(item.metadata || %{}, extra)}
+      else
+        %{}
+      end
+
+    updates = Map.merge(column_updates, metadata_update)
 
     if updates != %{} do
       Items.update_item(item, updates)

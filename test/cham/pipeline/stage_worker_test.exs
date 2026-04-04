@@ -65,6 +65,77 @@ defmodule Cham.Pipeline.StageWorkerTest do
     end
   end
 
+  describe "update_item_metadata/2" do
+    test "promotes title, content_type, and tags to item columns" do
+      {:ok, item} =
+        Items.create_item(%{
+          url: "https://example.com/meta",
+          slug: "meta-#{System.unique_integer([:positive])}"
+        })
+
+      result = %{
+        item_metadata: %{
+          "title" => "Test Title",
+          "content_type" => "article",
+          "tags" => ["elixir", "phoenix"]
+        },
+        artifacts: [],
+        provenance: %{}
+      }
+
+      StageWorker.update_item_metadata(item, result)
+
+      updated = Items.get_item!(item.id)
+      assert updated.title == "Test Title"
+      assert updated.content_type == "article"
+      assert updated.tags == ["elixir", "phoenix"]
+    end
+
+    test "merges extra metadata into item.metadata map" do
+      {:ok, item} =
+        Items.create_item(%{
+          url: "https://example.com/extra",
+          slug: "extra-#{System.unique_integer([:positive])}",
+          metadata: %{"existing" => "value"}
+        })
+
+      result = %{
+        item_metadata: %{
+          "title" => "Title",
+          "author" => "Jane Doe",
+          "duration" => 1832,
+          "language" => "en"
+        },
+        artifacts: [],
+        provenance: %{}
+      }
+
+      StageWorker.update_item_metadata(item, result)
+
+      updated = Items.get_item!(item.id)
+      assert updated.title == "Title"
+      assert updated.metadata["author"] == "Jane Doe"
+      assert updated.metadata["duration"] == 1832
+      assert updated.metadata["language"] == "en"
+      assert updated.metadata["existing"] == "value"
+    end
+
+    test "no-ops when metadata is empty" do
+      {:ok, item} =
+        Items.create_item(%{
+          url: "https://example.com/empty",
+          slug: "empty-#{System.unique_integer([:positive])}"
+        })
+
+      result = %{item_metadata: %{}, artifacts: [], provenance: %{}}
+
+      StageWorker.update_item_metadata(item, result)
+
+      updated = Items.get_item!(item.id)
+      assert updated.title == nil
+    end
+  end
+
   describe "resolve_inputs/3" do
     test "prepends item_dir to artifact path" do
       {:ok, item} =

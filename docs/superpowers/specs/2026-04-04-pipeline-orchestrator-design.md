@@ -57,22 +57,66 @@ Orchestrator.stage_failed(item_id, plugin_id, error)
 
 All three are `cast` messages — fire-and-forget from the caller's perspective. The Orchestrator processes them sequentially.
 
+### Crash Recovery and Periodic Sweep
+
+The Orchestrator holds **no in-memory state** — all state is in the DB (items, artifacts, stage_executions, oban_jobs). If it crashes, the supervisor restarts it and no state is lost.
+
+However, `cast` messages in the mailbox are lost on crash. If a `stage_completed` message is lost, the pipeline would stall for that item — the stage's artifacts are recorded in the DB but nobody evaluates what to run next.
+
+**Recovery on startup:** When the Orchestrator starts, it scans for all items in `"bootstrapping"` or `"processing"` status and runs `evaluate_and_enqueue` for each. This catches any items stuck due to a lost message.
+
+**Periodic sweep:** The Orchestrator schedules a recurring `:recover` message every 30 seconds via `Process.send_after`. On each tick, it runs the same recovery scan. This acts as a safety net that guarantees eventual progress even if a message is lost for any reason — not just crashes.
+
+Both are safe because `evaluate_and_enqueue` is fully idempotent (the three-way exclusion set prevents duplicate enqueuing).
+
+```elixir
+def init(_) do
+  schedule_recovery()
+  {:ok, %{}, {:continue, :recover}}
+end
+
+def handle_continue(:recover, state) do
+  recover_stalled_items()
+  {:noreply, state}
+end
+
+def handle_info(:recover, state) do
+  recover_stalled_items()
+  schedule_recovery()
+  {:noreply, state}
+end
+
+defp schedule_recovery do
+  Process.send_after(self(), :recover, :timer.seconds(30))
+end
+
+defp recover_stalled_items do
+  Items.list_items(status: "bootstrapping") ++ Items.list_items(status: "processing")
+  |> Enum.each(fn item -> evaluate_and_enqueue(item.id) end)
+end
+```
+
 ### Internal Logic: `evaluate_and_enqueue(item_id)`
 
 Shared logic called by all three handlers:
 
 1. Fetch item from DB
 2. Fetch all artifacts for the item (`Items.list_artifacts(item_id)`)
-3. Build `completed_stage_ids` from artifacts with status `"produced"` (keyed by `stage` field)
-4. Add permanently failed stage IDs (from stage_executions with status `"failed"`)
-5. Get all registered stages from `Plugin.Registry.get_stages()`
-6. Call `DAG.find_next_stages(stages, artifact_labels, completed_or_failed_ids)`
-7. For each ready stage, insert an Oban job:
+3. Build exclusion set (stages that should NOT be enqueued):
+   - `completed_stage_ids` — stages that produced artifacts (from artifacts table, status `"produced"`)
+   - `failed_stage_ids` — stages that permanently failed (from stage_executions with status `"failed"`)
+   - `active_stage_ids` — stages with pending/executing/retryable Oban jobs for this item (queried from `oban_jobs` table where `worker = "Cham.Pipeline.StageWorker"` and `state in ["available", "executing", "scheduled", "retryable"]` and `args->>'item_id' = item_id`)
+   - Union of all three → `excluded_stage_ids`
+4. Get all registered stages from `Plugin.Registry.get_stages()`
+5. Call `DAG.find_next_stages(stages, artifact_labels, excluded_stage_ids)`
+6. For each ready stage, insert an Oban job:
    ```elixir
    %{"item_id" => item_id, "stage_module" => to_string(stage.module), "plugin_id" => stage.plugin_id}
    |> Cham.Pipeline.StageWorker.new(queue: stage.queue)
    |> Oban.insert()
    ```
+
+This function is fully idempotent — safe to call multiple times for the same item. The three-way exclusion set guarantees no duplicate enqueuing.
 
 ### Internal Logic: `check_transitions(item)`
 

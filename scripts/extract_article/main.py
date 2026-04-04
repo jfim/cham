@@ -38,14 +38,14 @@ def main():
 
     result = {}
     if meta:
-        if meta.get("title"):
-            result["title"] = meta.get("title")
-        if meta.get("author"):
-            result["author"] = meta.get("author")
-        if meta.get("date"):
-            result["date"] = meta.get("date")
-        if meta.get("sitename"):
-            result["sitename"] = meta.get("sitename")
+        if getattr(meta, "title", None):
+            result["title"] = meta.title
+        if getattr(meta, "author", None):
+            result["author"] = meta.author
+        if getattr(meta, "date", None):
+            result["date"] = meta.date
+        if getattr(meta, "sitename", None):
+            result["sitename"] = meta.sitename
 
     print(json.dumps(result))
 

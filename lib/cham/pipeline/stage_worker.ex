@@ -21,6 +21,7 @@ defmodule Cham.Pipeline.StageWorker do
 
     case execute_stage(stage_module, plugin_id, item, item_dir) do
       {:ok, _stage_dir} ->
+        Cham.Pipeline.Orchestrator.stage_completed(item_id, plugin_id)
         :ok
 
       {:error, reason} ->

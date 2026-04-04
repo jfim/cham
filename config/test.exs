@@ -30,6 +30,9 @@ config :phoenix, :plug_init_mode, :runtime
 config :phoenix_live_view,
   enable_expensive_runtime_checks: true
 
-config :cham, Oban, testing: :inline
+config :cham, Oban,
+  repo: Cham.Repo,
+  queues: [general: 5, network: 3, gpu: 1],
+  testing: :manual
 
 config :cham, :start_tracker, false

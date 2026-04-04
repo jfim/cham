@@ -93,4 +93,28 @@ defmodule ChamWeb.DashboardLiveTest do
       assert html =~ "Submit your first URL"
     end
   end
+
+  describe "submit modal" do
+    test "submitting a URL creates an item", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> form("#submit-form", %{url: "https://example.com/new-item"})
+      |> render_submit()
+
+      flash = assert_redirected(view, "/")
+      assert flash["info"] =~ "submitted"
+    end
+
+    test "submitting a duplicate URL shows error", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      html =
+        view
+        |> form("#submit-form", %{url: "https://example.com/article"})
+        |> render_submit()
+
+      assert html =~ "already"
+    end
+  end
 end

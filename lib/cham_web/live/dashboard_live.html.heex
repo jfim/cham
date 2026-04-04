@@ -205,8 +205,27 @@
   </div>
 </div>
 
-<%!-- Submit modal placeholder (wired up in Task 5) --%>
 <.modal id="submit-modal">
   <div class="text-lg font-semibold mb-4">Add URL</div>
-  <p class="text-sm text-gray-500">Submit a URL to archive</p>
+  <form id="submit-form" phx-submit="submit_url" class="space-y-4">
+    <div>
+      <input
+        type="url"
+        name="url"
+        placeholder="https://..."
+        required
+        class="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-indigo-500 focus:ring-indigo-500"
+        phx-mounted={JS.focus()}
+      />
+      <p :if={@submit_error} class="mt-1 text-sm text-red-600">{@submit_error}</p>
+    </div>
+    <div class="flex justify-end">
+      <button
+        type="submit"
+        class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+      >
+        Submit
+      </button>
+    </div>
+  </form>
 </.modal>

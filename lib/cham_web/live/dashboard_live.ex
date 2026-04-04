@@ -2,6 +2,7 @@ defmodule ChamWeb.DashboardLive do
   use ChamWeb, :live_view
 
   alias Cham.Items
+  alias Cham.Pipeline
 
   @impl true
   def mount(_params, _session, socket) do
@@ -82,6 +83,24 @@ defmodule ChamWeb.DashboardLive do
       end)
 
     {:noreply, push_patch(socket, to: ~p"/?#{params}")}
+  end
+
+  def handle_event("submit_url", %{"url" => url}, socket) do
+    case Pipeline.submit_url(url) do
+      {:ok, _item} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "URL submitted for processing")
+         |> push_navigate(to: ~p"/")}
+
+      {:error, changeset} ->
+        error_msg =
+          changeset
+          |> Ecto.Changeset.traverse_errors(fn {msg, _opts} -> msg end)
+          |> Enum.map_join(", ", fn {_field, msgs} -> Enum.join(msgs, ", ") end)
+
+        {:noreply, assign(socket, :submit_error, error_msg)}
+    end
   end
 
   defp hero_text(assigns) do

@@ -66,7 +66,7 @@ defmodule Cham.Config.Manager do
         {:reply, {:error, :unknown_namespace}, state}
 
       schema ->
-        raw_values = Map.get(state.raw, namespace, %{})
+        raw_values = get_nested(state.raw, namespace)
         {:reply, Schema.validate(raw_values, schema), state}
     end
   end
@@ -101,6 +101,17 @@ defmodule Cham.Config.Manager do
   end
 
   # --- Private ---
+
+  defp get_nested(raw, namespace) do
+    keys = String.split(namespace, ".")
+
+    Enum.reduce_while(keys, raw, fn key, acc ->
+      case acc do
+        %{} -> {:cont, Map.get(acc, key, %{})}
+        _ -> {:halt, %{}}
+      end
+    end)
+  end
 
   defp write_toml_file(path, raw) do
     content = TomlEncoder.encode(raw)

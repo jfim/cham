@@ -41,7 +41,10 @@ defmodule Cham.Plugins.SummarizeOllama do
   end
 
   @impl true
-  def init(_context), do: {:ok, %{}}
+  def init(_context) do
+    Cham.Config.Manager.register("plugins.summarize_ollama", config_schema())
+    {:ok, %{}}
+  end
 
   @impl true
   def stages(_state), do: [__MODULE__.SummarizeStage]
@@ -159,14 +162,6 @@ defmodule Cham.Plugins.SummarizeOllama.SummarizeStage do
   end
 
   defp get_config do
-    case Cham.Plugin.Registry.get_plugin("summarize_ollama") do
-      {:ok, entry} ->
-        entry.config_schema
-        |> Enum.map(fn field -> {field.key, field.default} end)
-        |> Map.new()
-
-      _ ->
-        %{model: "llama3.1:8b", max_input_tokens: 8000, provider: "default"}
-    end
+    Cham.Plugin.Config.read("summarize_ollama")
   end
 end

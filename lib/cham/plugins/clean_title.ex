@@ -33,7 +33,10 @@ defmodule Cham.Plugins.CleanTitle do
   end
 
   @impl true
-  def init(_context), do: {:ok, %{}}
+  def init(_context) do
+    Cham.Config.Manager.register("plugins.clean_title", config_schema())
+    {:ok, %{}}
+  end
 
   @impl true
   def stages(_state), do: [__MODULE__.CleanStage]
@@ -113,19 +116,6 @@ defmodule Cham.Plugins.CleanTitle.CleanStage do
   end
 
   defp get_config do
-    try do
-      case Cham.Plugin.Registry.get_plugin("clean_title") do
-        {:ok, entry} ->
-          entry.config_schema
-          |> Enum.map(fn field -> {field.key, field.default} end)
-          |> Map.new()
-
-        _ ->
-          %{model: "llama3.1:8b", provider: "default"}
-      end
-    catch
-      :exit, _ ->
-        %{model: "llama3.1:8b", provider: "default"}
-    end
+    Cham.Plugin.Config.read("clean_title")
   end
 end

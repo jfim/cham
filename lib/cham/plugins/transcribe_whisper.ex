@@ -41,7 +41,10 @@ defmodule Cham.Plugins.TranscribeWhisper do
   end
 
   @impl true
-  def init(_context), do: {:ok, %{}}
+  def init(_context) do
+    Cham.Config.Manager.register("plugins.transcribe_whisper", config_schema())
+    {:ok, %{}}
+  end
 
   @impl true
   def stages(_state), do: [__MODULE__.TranscribeStage]
@@ -150,18 +153,7 @@ defmodule Cham.Plugins.TranscribeWhisper.TranscribeStage do
   end
 
   defp get_config do
-    case Cham.Plugin.Registry.get_plugin("transcribe_whisper") do
-      {:ok, entry} ->
-        defaults =
-          entry.config_schema
-          |> Enum.map(fn field -> {field.key, field.default} end)
-          |> Map.new()
-
-        defaults
-
-      _ ->
-        %{model: "turbo", language: nil, device: "auto"}
-    end
+    Cham.Plugin.Config.read("transcribe_whisper")
   end
 
   defp parse_metadata(output) do

@@ -41,7 +41,10 @@ defmodule Cham.Plugins.AutoTag do
   end
 
   @impl true
-  def init(_context), do: {:ok, %{}}
+  def init(_context) do
+    Cham.Config.Manager.register("plugins.auto_tag", config_schema())
+    {:ok, %{}}
+  end
 
   @impl true
   def stages(_state), do: [__MODULE__.TagStage]
@@ -200,14 +203,6 @@ defmodule Cham.Plugins.AutoTag.TagStage do
   end
 
   defp get_config do
-    case Cham.Plugin.Registry.get_plugin("auto_tag") do
-      {:ok, entry} ->
-        entry.config_schema
-        |> Enum.map(fn field -> {field.key, field.default} end)
-        |> Map.new()
-
-      _ ->
-        %{model: "llama3.1:8b", max_tags: 10, provider: "default"}
-    end
+    Cham.Plugin.Config.read("auto_tag")
   end
 end

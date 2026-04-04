@@ -33,7 +33,10 @@ defmodule Cham.Plugins.GenericDownloadUrl do
   end
 
   @impl true
-  def init(_context), do: {:ok, %{}}
+  def init(_context) do
+    Cham.Config.Manager.register("plugins.generic_download_url", config_schema())
+    {:ok, %{}}
+  end
 
   @impl true
   def stages(_state), do: [__MODULE__.DownloadStage]
@@ -202,17 +205,6 @@ defmodule Cham.Plugins.GenericDownloadUrl.DownloadStage do
   end
 
   defp load_config do
-    case Cham.Plugin.Registry.get_plugin("generic_download_url") do
-      {:ok, entry} ->
-        defaults = %{timeout: @default_timeout, max_body_size: @default_max_body_size}
-
-        entry.config_schema
-        |> Enum.reduce(defaults, fn field, acc ->
-          Map.put(acc, field.key, field.default)
-        end)
-
-      _ ->
-        %{timeout: @default_timeout, max_body_size: @default_max_body_size}
-    end
+    Cham.Plugin.Config.read("generic_download_url")
   end
 end

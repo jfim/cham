@@ -6,6 +6,10 @@ defmodule ChamWeb.DashboardLive do
 
   @impl true
   def mount(_params, _session, socket) do
+    if connected?(socket) do
+      Cham.EventBus.subscribe("item")
+    end
+
     socket =
       socket
       |> assign(:page_title, "Dashboard")
@@ -101,6 +105,36 @@ defmodule ChamWeb.DashboardLive do
 
         {:noreply, assign(socket, :submit_error, error_msg)}
     end
+  end
+
+  @impl true
+  def handle_info(_event, socket) do
+    in_progress = Items.list_in_progress_items()
+    active_count = Enum.count(in_progress, &(&1.status in ["bootstrapping", "processing"]))
+    type_counts = Items.count_by_content_type()
+    tag_counts = Items.count_by_tag()
+
+    filters =
+      []
+      |> then(fn f ->
+        if socket.assigns.active_type,
+          do: [{:content_type, socket.assigns.active_type} | f],
+          else: f
+      end)
+      |> then(fn f ->
+        if socket.assigns.active_tag, do: [{:tag, socket.assigns.active_tag} | f], else: f
+      end)
+
+    items = Items.list_items(filters)
+
+    {:noreply,
+     socket
+     |> assign(:in_progress, in_progress)
+     |> assign(:active_count, active_count)
+     |> assign(:type_counts, type_counts)
+     |> assign(:tag_counts, tag_counts)
+     |> assign(:items, items)
+     |> assign(:total_count, length(items))}
   end
 
   defp hero_text(assigns) do

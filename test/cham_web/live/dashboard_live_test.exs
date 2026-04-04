@@ -117,4 +117,21 @@ defmodule ChamWeb.DashboardLiveTest do
       assert html =~ "already"
     end
   end
+
+  describe "real-time updates" do
+    test "new item appears in in-progress when created", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      # Toggle in-progress open
+      view |> element("button", "In Progress") |> render_click()
+
+      # Simulate an item creation event
+      {:ok, new_item} = Items.create_item(%{url: "https://example.com/realtime-test"})
+      Cham.EventBus.publish("item:created", %{item: new_item})
+
+      # Give handle_info time to process
+      html = render(view)
+      assert html =~ "example.com/realtime-test"
+    end
+  end
 end

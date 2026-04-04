@@ -48,6 +48,7 @@ defmodule ChamWeb.ItemDetailLive do
 
       {:noreply,
        socket
+       |> assign(:page_title, item.title || "Item Detail")
        |> assign(:item, item)
        |> assign(:artifacts, artifacts)
        |> assign(:stage_history, stage_history)

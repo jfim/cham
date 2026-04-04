@@ -19,7 +19,8 @@ defmodule Cham.Application do
         {Cham.Config.Manager,
          toml_path: Application.get_env(:cham, :config_toml_path, "config/cham.toml"),
          event_bus: Cham.PubSub},
-        {Cham.Plugin.Registry, name: Cham.Plugin.Registry, plugin_order: []}
+        {Cham.Plugin.Registry, name: Cham.Plugin.Registry, plugin_order: []},
+        Cham.Pipeline.Orchestrator
       ] ++
         tracker_children() ++
         [

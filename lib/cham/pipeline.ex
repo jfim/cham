@@ -17,6 +17,7 @@ defmodule Cham.Pipeline do
     with {:ok, item} <- Items.create_item(%{url: url, tags: tags}),
          {:ok, item} <- setup_bootstrap(item, root),
          {:ok, _artifact} <- create_input_artifact(item, url) do
+      Cham.Pipeline.Orchestrator.kick_off(item.id)
       {:ok, item}
     end
   end

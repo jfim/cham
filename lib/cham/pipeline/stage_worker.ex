@@ -100,11 +100,14 @@ defmodule Cham.Pipeline.StageWorker do
   end
 
   defp resolve_item_dir(item) do
-    cond do
-      item.archive_path -> item.archive_path
-      item.bootstrap_path -> item.bootstrap_path
-      true -> raise "Item #{item.id} has no archive_path or bootstrap_path"
-    end
+    path =
+      cond do
+        item.archive_path -> item.archive_path
+        item.bootstrap_path -> item.bootstrap_path
+        true -> raise "Item #{item.id} has no archive_path or bootstrap_path"
+      end
+
+    Path.expand(path)
   end
 
   @doc """

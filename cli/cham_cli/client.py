@@ -21,15 +21,15 @@ class ChamClient:
         )
 
     def health(self) -> dict:
-        """Check server health via GET /api/health."""
-        return self._request("GET", "/api/health")
+        """Check server health via GET /health."""
+        return self._request("GET", "/health")
 
     def submit_item(self, url: str, tags: Optional[list[str]] = None) -> dict:
-        """Submit a URL for archiving via POST /api/items."""
+        """Submit a URL for archiving via POST /api/v1/items."""
         payload: dict[str, Any] = {"url": url}
         if tags:
             payload["tags"] = tags
-        return self._request("POST", "/api/items", json=payload)
+        return self._request("POST", "/api/v1/items", json=payload)
 
     def list_items(
         self,
@@ -37,25 +37,24 @@ class ChamClient:
         content_type: Optional[str] = None,
         tag: Optional[str] = None,
     ) -> list[dict]:
-        """List items via GET /api/items."""
+        """List items via GET /api/v1/items."""
         params: dict[str, str] = {}
         if status:
             params["status"] = status
         if content_type:
-            params["type"] = content_type
+            params["content_type"] = content_type
         if tag:
             params["tag"] = tag
-        result = self._request("GET", "/api/items", params=params)
-        # The API may wrap items in a "data" key
-        if isinstance(result, dict) and "data" in result:
-            return result["data"]
+        result = self._request("GET", "/api/v1/items", params=params)
+        if isinstance(result, dict) and "items" in result:
+            return result["items"]
         if isinstance(result, list):
             return result
         return []
 
     def get_item(self, id_or_slug: str) -> dict:
-        """Get a single item via GET /api/items/:id_or_slug."""
-        return self._request("GET", f"/api/items/{id_or_slug}")
+        """Get a single item via GET /api/v1/items/:id_or_slug."""
+        return self._request("GET", f"/api/v1/items/{id_or_slug}")
 
     def _request(self, method: str, path: str, **kwargs) -> Any:
         """Make an HTTP request, handling errors."""

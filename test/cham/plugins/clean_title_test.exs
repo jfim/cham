@@ -13,17 +13,15 @@ defmodule Cham.Plugins.CleanTitleTest do
       assert CleanTitle.name() == "Title Cleaner"
     end
 
-    test "config_schema has model and provider" do
+    test "config_schema has model, url, and api_key" do
       schema = CleanTitle.config_schema()
       keys = Enum.map(schema, & &1.key)
       assert :model in keys
-      assert :provider in keys
+      assert :url in keys
+      assert :api_key in keys
 
       model_field = Enum.find(schema, &(&1.key == :model))
       assert model_field.default == "llama3.1:8b"
-
-      provider_field = Enum.find(schema, &(&1.key == :provider))
-      assert provider_field.default == "default"
     end
 
     test "init returns ok" do

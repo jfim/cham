@@ -30,10 +30,18 @@ defmodule Cham.Plugins.SummarizeOllama do
         options: nil
       },
       %{
-        key: :provider,
+        key: :url,
         type: :string,
-        default: "default",
-        description: "LLM provider name",
+        default: "http://localhost:11434",
+        description: "LLM API base URL",
+        required: false,
+        options: nil
+      },
+      %{
+        key: :api_key,
+        type: :string,
+        default: nil,
+        description: "LLM API key (optional)",
         required: false,
         options: nil
       }
@@ -124,7 +132,9 @@ defmodule Cham.Plugins.SummarizeOllama.SummarizeStage do
         #{truncated}
         """
 
-        case Cham.LLM.Provider.generate(Cham.LLM.Providers.OpenAI, prompt, model: model) do
+        llm_opts = [model: model, url: config[:url], api_key: config[:api_key]]
+
+        case Cham.LLM.Provider.generate(Cham.LLM.Providers.OpenAI, prompt, llm_opts) do
           {:ok, summary} ->
             output_path = Path.join(working_dir, "summary.md")
             File.write!(output_path, summary)

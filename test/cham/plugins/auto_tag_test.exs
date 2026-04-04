@@ -13,12 +13,13 @@ defmodule Cham.Plugins.AutoTagTest do
       assert AutoTag.name() == "Auto Tagger"
     end
 
-    test "config_schema has model, max_tags, and provider" do
+    test "config_schema has model, max_tags, url, and api_key" do
       schema = AutoTag.config_schema()
       keys = Enum.map(schema, & &1.key)
       assert :model in keys
       assert :max_tags in keys
-      assert :provider in keys
+      assert :url in keys
+      assert :api_key in keys
 
       model_field = Enum.find(schema, &(&1.key == :model))
       assert model_field.default == "llama3.1:8b"

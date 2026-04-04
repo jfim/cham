@@ -91,6 +91,23 @@ defmodule Cham.TestPlugins.StageB do
     do: {:ok, %{artifacts: [], item_metadata: %{}, provenance: %{}}}
 end
 
+defmodule Cham.TestPlugins.PluginEcho do
+  @behaviour Cham.Plugin
+
+  @impl true
+  def plugin_id, do: "plugin_echo"
+  @impl true
+  def name, do: "Echo Plugin"
+  @impl true
+  def description, do: "Test plugin with original-producing stage"
+  @impl true
+  def config_schema, do: []
+  @impl true
+  def init(_context), do: {:ok, %{}}
+  @impl true
+  def stages(_state), do: [Cham.TestPlugins.EchoStage]
+end
+
 defmodule Cham.TestPlugins.EchoStage do
   @behaviour Cham.Stage
 

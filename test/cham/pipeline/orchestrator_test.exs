@@ -41,6 +41,24 @@ defmodule Cham.Pipeline.OrchestratorTest do
     )
   end
 
+  defp now_truncated do
+    DateTime.utc_now() |> DateTime.truncate(:second)
+  end
+
+  defp create_bootstrapping_item_with_path(url, opts) do
+    title = Keyword.get(opts, :title)
+    tmp_dir = Keyword.get(opts, :tmp_dir)
+    bootstrap_dir = Path.join(tmp_dir, "bootstrap_#{System.unique_integer([:positive])}")
+    File.mkdir_p!(Path.join(bootstrap_dir, "processing"))
+
+    attrs = %{url: url, status: "bootstrapping"}
+    attrs = if title, do: Map.put(attrs, :title, title), else: attrs
+
+    {:ok, item} = Items.create_item(attrs)
+    {:ok, item} = Items.update_item(item, %{bootstrap_path: bootstrap_dir})
+    item
+  end
+
   describe "kick_off/2" do
     test "enqueues ready stages for a new item", %{orchestrator: orchestrator} do
       {:ok, item} =
@@ -116,6 +134,55 @@ defmodule Cham.Pipeline.OrchestratorTest do
     end
   end
 
+  describe "stage_failed/4" do
+    test "marks bootstrapping item as failed when original-producing stage fails" do
+      # Need a registry with an original-producing stage (EchoStage via PluginEcho)
+      registry_name = :"fail_registry_#{System.unique_integer([:positive])}"
+
+      {:ok, _pid} =
+        Registry.start_link(name: registry_name, plugin_order: ["plugin_echo"])
+
+      :ok = Registry.register_plugin(registry_name, Cham.TestPlugins.PluginEcho, %{})
+
+      # Start orchestrator BEFORE creating the item so recovery doesn't pick it up
+      orchestrator_name = :"fail_orchestrator_#{System.unique_integer([:positive])}"
+
+      {:ok, orchestrator_pid} =
+        Orchestrator.start_link(
+          name: orchestrator_name,
+          registry: registry_name,
+          recovery_interval: :infinity
+        )
+
+      Ecto.Adapters.SQL.Sandbox.allow(Cham.Repo, self(), orchestrator_pid)
+      # Ensure the recovery continue has completed before we create the item
+      :sys.get_state(orchestrator_name)
+
+      {:ok, item} =
+        Items.create_item(%{
+          url: "https://example.com/fail-orig-#{System.unique_integer([:positive])}",
+          status: "bootstrapping"
+        })
+
+      # Insert a failed StageExecution for the original-producing stage
+      Repo.insert!(%Cham.JobTracking.StageExecution{
+        item_id: item.id,
+        stage: "plugin_echo",
+        status: "failed",
+        started_at: now_truncated(),
+        ended_at: now_truncated(),
+        error: "download failed"
+      })
+
+      Orchestrator.stage_failed(orchestrator_name, item.id, "plugin_echo", "download failed")
+      :sys.get_state(orchestrator_name)
+
+      updated = Items.get_item!(item.id)
+      assert updated.status == "failed"
+      assert updated.error_message == "original stage failed"
+    end
+  end
+
   describe "stage_completed/3" do
     test "does not enqueue stages when no new inputs available", %{orchestrator: orchestrator} do
       {:ok, item} =
@@ -153,6 +220,212 @@ defmodule Cham.Pipeline.OrchestratorTest do
       # StageA is already done, StageB needs audio input which doesn't exist
       # So no new stages should be enqueued
       assert [] = oban_jobs_for_item(item.id)
+    end
+  end
+
+  describe "bootstrap to archive transition" do
+    test "transitions bootstrapping item to processing when all originals complete", %{
+      orchestrator: orchestrator
+    } do
+      # Neither PluginA nor PluginB produces originals, so all_originals_complete?
+      # returns true (vacuous truth). A bootstrapping item with a bootstrap_path
+      # should transition to processing via archive.
+      tmp_dir = Path.join(System.tmp_dir!(), "orch_test_#{System.unique_integer([:positive])}")
+      File.mkdir_p!(tmp_dir)
+      on_exit(fn -> File.rm_rf!(tmp_dir) end)
+
+      Application.put_env(:cham, :archive_root, tmp_dir)
+      on_exit(fn -> Application.delete_env(:cham, :archive_root) end)
+
+      item =
+        create_bootstrapping_item_with_path(
+          "https://example.com/bootstrap-#{System.unique_integer([:positive])}",
+          title: "My Test Article",
+          tmp_dir: tmp_dir
+        )
+
+      # Trigger stage_completed which checks transitions
+      Orchestrator.stage_completed(orchestrator, item.id, "some_stage")
+      :sys.get_state(orchestrator)
+
+      updated = Items.get_item!(item.id)
+      assert updated.status == "processing"
+      assert updated.archive_path != nil
+      assert updated.slug != nil
+      assert updated.bootstrap_path == nil
+      # Slug should contain the title slugified + 6-char ID suffix
+      assert String.contains?(updated.slug, "my-test-article")
+    end
+  end
+
+  describe "slug generation" do
+    test "generates slug from title with special characters removed", %{
+      orchestrator: orchestrator
+    } do
+      tmp_dir = Path.join(System.tmp_dir!(), "slug_test_#{System.unique_integer([:positive])}")
+      File.mkdir_p!(tmp_dir)
+      on_exit(fn -> File.rm_rf!(tmp_dir) end)
+
+      Application.put_env(:cham, :archive_root, tmp_dir)
+      on_exit(fn -> Application.delete_env(:cham, :archive_root) end)
+
+      item =
+        create_bootstrapping_item_with_path(
+          "https://example.com/slug1-#{System.unique_integer([:positive])}",
+          title: "Hello, World! This is a (Test) Article #42",
+          tmp_dir: tmp_dir
+        )
+
+      Orchestrator.stage_completed(orchestrator, item.id, "trigger")
+      :sys.get_state(orchestrator)
+
+      updated = Items.get_item!(item.id)
+      id_suffix = String.slice(item.id, 0, 6)
+
+      # Special chars removed, lowercased, spaces become hyphens, 6-char ID suffix
+      assert updated.slug == "hello-world-this-is-a-test-article-42-#{id_suffix}"
+    end
+
+    test "falls back to URL when no title is set", %{orchestrator: orchestrator} do
+      tmp_dir = Path.join(System.tmp_dir!(), "slug_url_#{System.unique_integer([:positive])}")
+      File.mkdir_p!(tmp_dir)
+      on_exit(fn -> File.rm_rf!(tmp_dir) end)
+
+      Application.put_env(:cham, :archive_root, tmp_dir)
+      on_exit(fn -> Application.delete_env(:cham, :archive_root) end)
+
+      item =
+        create_bootstrapping_item_with_path(
+          "https://example.com/some/path",
+          tmp_dir: tmp_dir
+        )
+
+      Orchestrator.stage_completed(orchestrator, item.id, "trigger")
+      :sys.get_state(orchestrator)
+
+      updated = Items.get_item!(item.id)
+      id_suffix = String.slice(item.id, 0, 6)
+
+      # URL slugified: "https://example.com/some/path" -> non-alnum chars removed
+      # The slugify function removes everything except a-z, 0-9, spaces, hyphens
+      # So colons, slashes, dots are removed: "httpsexamplecomsomepath"
+      assert updated.slug == "httpsexamplecomsomepath-#{id_suffix}"
+    end
+  end
+
+  describe "terminal state transitions" do
+    test "processing item becomes complete when all stages done and no failures", %{
+      orchestrator: orchestrator
+    } do
+      {:ok, item} =
+        Items.create_item(%{
+          url: "https://example.com/complete-#{System.unique_integer([:positive])}",
+          status: "processing"
+        })
+
+      # A completed artifact exists
+      {:ok, _} =
+        Items.create_artifact(%{
+          item_id: item.id,
+          stage: "plugin_a",
+          labels: %{"origin" => "derived", "type" => "summary"},
+          filenames: [],
+          path: "archive/plugin_a-20260404T000000Z",
+          status: "produced"
+        })
+
+      # No active Oban jobs, no failed StageExecutions
+      Orchestrator.stage_completed(orchestrator, item.id, "plugin_a")
+      :sys.get_state(orchestrator)
+
+      updated = Items.get_item!(item.id)
+      assert updated.status == "complete"
+    end
+
+    test "processing item becomes incomplete when some stages failed", %{
+      orchestrator: orchestrator
+    } do
+      {:ok, item} =
+        Items.create_item(%{
+          url: "https://example.com/incomplete-#{System.unique_integer([:positive])}",
+          status: "processing"
+        })
+
+      # A completed artifact exists
+      {:ok, _} =
+        Items.create_artifact(%{
+          item_id: item.id,
+          stage: "plugin_a",
+          labels: %{"origin" => "derived", "type" => "summary"},
+          filenames: [],
+          path: "archive/plugin_a-20260404T000000Z",
+          status: "produced"
+        })
+
+      # A failed stage execution exists
+      Repo.insert!(%Cham.JobTracking.StageExecution{
+        item_id: item.id,
+        stage: "plugin_b",
+        status: "failed",
+        started_at: now_truncated(),
+        ended_at: now_truncated(),
+        error: "gpu timeout"
+      })
+
+      Orchestrator.stage_failed(orchestrator, item.id, "plugin_b", "gpu timeout")
+      :sys.get_state(orchestrator)
+
+      updated = Items.get_item!(item.id)
+      assert updated.status == "incomplete"
+    end
+  end
+
+  describe "recovery" do
+    test "recovers stalled items on startup" do
+      # Create an item in processing state with ready stages but no active jobs
+      {:ok, item} =
+        Items.create_item(%{
+          url: "https://example.com/stalled-#{System.unique_integer([:positive])}",
+          status: "processing"
+        })
+
+      {:ok, _} =
+        Items.create_artifact(%{
+          item_id: item.id,
+          stage: "input",
+          labels: %{"origin" => "original", "format" => "text"},
+          filenames: [],
+          path: "processing/input-20260404T000000Z",
+          status: "produced"
+        })
+
+      # Start a new orchestrator which should recover the stalled item on init
+      registry_name = :"recovery_registry_#{System.unique_integer([:positive])}"
+
+      {:ok, _pid} =
+        Registry.start_link(name: registry_name, plugin_order: ["plugin_a", "plugin_b"])
+
+      :ok = Registry.register_plugin(registry_name, Cham.TestPlugins.PluginA, %{})
+      :ok = Registry.register_plugin(registry_name, Cham.TestPlugins.PluginB, %{})
+
+      orchestrator_name = :"recovery_orchestrator_#{System.unique_integer([:positive])}"
+
+      {:ok, orchestrator_pid} =
+        Orchestrator.start_link(
+          name: orchestrator_name,
+          registry: registry_name,
+          recovery_interval: :infinity
+        )
+
+      Ecto.Adapters.SQL.Sandbox.allow(Cham.Repo, self(), orchestrator_pid)
+
+      # Wait for the :recover continue to process
+      :sys.get_state(orchestrator_name)
+
+      # The stalled item should now have an enqueued job
+      jobs = oban_jobs_for_item(item.id)
+      assert length(jobs) >= 1
+      assert Enum.any?(jobs, fn j -> j.args["plugin_id"] == "plugin_a" end)
     end
   end
 end

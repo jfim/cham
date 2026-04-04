@@ -96,6 +96,8 @@ defmodule Cham.Plugin.Registry do
         stage_modules = entry.module.stages(entry.state)
 
         Enum.map(stage_modules, fn mod ->
+          Code.ensure_loaded!(mod)
+
           %StageEntry{
             module: mod,
             plugin_id: entry.plugin_id,

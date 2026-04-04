@@ -8,7 +8,7 @@ defmodule Cham.Pipeline.DAG do
   def find_ready_stages(stages, available_artifacts) do
     Enum.filter(stages, fn stage ->
       stage.input_matchers != [] and
-        Enum.all?(stage.input_matchers, fn matcher ->
+        Enum.any?(stage.input_matchers, fn matcher ->
           Enum.any?(available_artifacts, fn artifact ->
             LabelMatcher.matches?(artifact.labels, matcher)
           end)

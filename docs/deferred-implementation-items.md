@@ -34,6 +34,10 @@ Items scoped out of their original phase but intended for future work.
 - **Non-TTY JSON output** — Auto-detect piped output and emit JSON instead of Rich tables.
 - **`--json` flag** — Force JSON output in TTY mode.
 
+## Pipeline
+
+- **Configurable desired artifacts** — Currently hardcoded: article→[summary,tags], video→[transcript,summary,tags], document→[summary,tags]. Should be configurable via TOML config so users can control which derived artifacts are produced per content type. Design doc says: "desired artifacts come from config, determined by content type mappings."
+
 ## Architecture
 
 - **GenServer review for filesystem operations** — Migrate Archive.ArchiveManager and Archive.FilesystemManager to GenServers. The filesystem is stateful (concurrent writes, moves, directory creation) and serializing access would prevent race conditions. Also review overall GenServer usage across the codebase to ensure stateful operations are properly serialized.

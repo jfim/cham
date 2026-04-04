@@ -31,3 +31,5 @@ config :phoenix_live_view,
   enable_expensive_runtime_checks: true
 
 config :cham, Oban, testing: :inline
+
+config :cham, :start_tracker, false

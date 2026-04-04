@@ -17,7 +17,8 @@ defmodule ChamWeb.Router do
   scope "/", ChamWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    live "/", DashboardLive
+    live "/items/:id", ItemDetailLive
   end
 
   # Other scopes may use custom stacks.

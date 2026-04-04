@@ -57,7 +57,7 @@ defmodule Cham.Pipeline.StageWorker do
     {:ok, stage_dir} = ArchiveManager.create_stage_dir(item_dir, plugin_id)
 
     # Resolve input artifacts
-    input_artifacts = resolve_inputs(stage_module, item.id)
+    input_artifacts = resolve_inputs(stage_module, item.id, item_dir)
 
     # Execute the stage
     case stage_module.perform(input_artifacts, stage_dir, [], item.id) do
@@ -106,7 +106,13 @@ defmodule Cham.Pipeline.StageWorker do
     end
   end
 
-  defp resolve_inputs(stage_module, item_id) do
+  @doc """
+  Resolves input artifacts for a stage by matching labels against the stage's input_matchers.
+  Returns a list of maps with :labels, :filenames, and :input_path (absolute path).
+  """
+  def resolve_inputs(stage_module, item_id, item_dir) do
+    Code.ensure_loaded(stage_module)
+
     if function_exported?(stage_module, :input_matchers, 0) do
       artifacts = Items.list_artifacts(item_id)
 
@@ -119,7 +125,7 @@ defmodule Cham.Pipeline.StageWorker do
           %{
             labels: a.labels,
             filenames: a.filenames,
-            input_path: a.path
+            input_path: Path.join(item_dir, a.path)
           }
         end)
       end)

@@ -64,4 +64,63 @@ defmodule Cham.Pipeline.StageWorkerTest do
       assert_receive %StageCompleted{stage_id: "echo_stage", item_id: _}
     end
   end
+
+  describe "resolve_inputs/3" do
+    test "prepends item_dir to artifact path" do
+      {:ok, item} =
+        Items.create_item(%{
+          url: "https://example.com/resolve-#{System.unique_integer([:positive])}",
+          slug: "resolve-#{System.unique_integer([:positive])}"
+        })
+
+      {:ok, _artifact} =
+        Items.create_artifact(%{
+          item_id: item.id,
+          stage: "test_stage",
+          labels: %{"origin" => "original", "format" => "text"},
+          filenames: ["file.txt"],
+          path: "processing/test_stage-20260404T000000Z",
+          status: "produced"
+        })
+
+      result = StageWorker.resolve_inputs(Cham.TestPlugins.StageA, item.id, "/tmp/item_dir")
+
+      assert [input] = result
+      assert input.input_path == "/tmp/item_dir/processing/test_stage-20260404T000000Z"
+      assert input.labels == %{"origin" => "original", "format" => "text"}
+      assert input.filenames == ["file.txt"]
+    end
+
+    test "returns empty list when no artifacts match" do
+      {:ok, item} =
+        Items.create_item(%{
+          url: "https://example.com/no-match",
+          slug: "nomatch-#{System.unique_integer([:positive])}"
+        })
+
+      result = StageWorker.resolve_inputs(Cham.TestPlugins.StageA, item.id, "/tmp/item_dir")
+      assert result == []
+    end
+
+    test "excludes non-produced artifacts" do
+      {:ok, item} =
+        Items.create_item(%{
+          url: "https://example.com/failed",
+          slug: "failed-#{System.unique_integer([:positive])}"
+        })
+
+      {:ok, _artifact} =
+        Items.create_artifact(%{
+          item_id: item.id,
+          stage: "test_stage",
+          labels: %{"origin" => "original", "format" => "text"},
+          filenames: ["file.txt"],
+          path: "processing/test_stage-20260404T000000Z",
+          status: "failed"
+        })
+
+      result = StageWorker.resolve_inputs(Cham.TestPlugins.StageA, item.id, "/tmp/item_dir")
+      assert result == []
+    end
+  end
 end

@@ -1,3 +1,167 @@
 <div class="min-h-screen bg-gray-50">
-  <p>Item detail placeholder for {@item_id}</p>
+  <%!-- Top Bar --%>
+  <div class="bg-white border-b border-gray-200 px-8 py-4">
+    <div class="flex items-center justify-between">
+      <.link
+        navigate={@return_path}
+        class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+      >
+        <.icon name="hero-arrow-left-mini" class="h-4 w-4" /> Back to archive
+      </.link>
+      <div class="flex items-center gap-2">
+        <.status_badge :if={is_processing?(@item)} status={@item.status} />
+        <span
+          :for={tag <- @item.tags || []}
+          class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600"
+        >
+          {tag}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <%!-- Primary Content --%>
+  <div class="max-w-4xl mx-auto px-8 py-8">
+    <%!-- Header --%>
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">{@item.title || "Untitled"}</h1>
+      <div class="flex items-center gap-3 text-sm text-gray-500">
+        <.content_type_badge :if={@item.content_type} type={@item.content_type} />
+        <a href={@item.url} target="_blank" rel="noopener" class="hover:text-indigo-600">
+          {domain_from_url(@item.url)} ↗
+        </a>
+        <.relative_time at={@item.inserted_at} />
+      </div>
+    </div>
+
+    <%!-- Processing View --%>
+    <div :if={is_processing?(@item)} class="mb-8 rounded-lg border border-gray-200 bg-white p-6">
+      <h2 class="text-sm font-semibold text-gray-700 mb-4">Processing Pipeline</h2>
+      <div :if={@stage_history == []} class="text-sm text-gray-400">
+        Waiting for pipeline to start...
+      </div>
+      <div :if={@stage_history != []} class="space-y-3">
+        <div :for={stage <- @stage_history} class="flex items-center gap-3 text-sm">
+          <.status_badge status={stage.status} />
+          <span class="font-medium text-gray-700">{stage.stage}</span>
+          <span :if={stage.duration_ms} class="text-gray-400">{stage.duration_ms}ms</span>
+          <span :if={stage.error} class="text-red-500 text-xs">{stage.error}</span>
+        </div>
+      </div>
+      <%!-- Progress bars for active stages --%>
+      <div :for={{stage_id, prog} <- @progress} class="mt-2">
+        <div class="text-xs font-medium text-gray-600 mb-1">{stage_id}</div>
+        <.progress_bar progress={prog.progress} message={prog.message} />
+      </div>
+    </div>
+
+    <%!-- Primary Content Area --%>
+    <div :if={@item.content_type == "article"} class="mb-8">
+      <.content_state state={@primary_content.state} error={@primary_content.error}>
+        <div class="prose prose-gray max-w-none bg-white rounded-lg border border-gray-200 p-8">
+          <pre class="whitespace-pre-wrap font-sans text-base">{@primary_content.content}</pre>
+        </div>
+      </.content_state>
+    </div>
+
+    <div :if={@item.content_type == "video"} class="mb-8">
+      <div class="aspect-video bg-gray-100 rounded-lg flex items-center justify-center mb-4">
+        <div class="text-center text-gray-400">
+          <.icon name="hero-play-circle" class="h-12 w-12 mx-auto mb-2" />
+          <p>Video playback coming soon</p>
+          <a
+            href={@item.url}
+            target="_blank"
+            rel="noopener"
+            class="text-sm text-indigo-600 hover:text-indigo-500"
+          >
+            Watch on original site ↗
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div :if={@item.content_type == "document"} class="mb-8">
+      <div class="aspect-[3/4] max-h-96 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
+        <div class="text-center text-gray-400">
+          <.icon name="hero-document-text" class="h-12 w-12 mx-auto mb-2" />
+          <p>PDF viewer coming soon</p>
+          <a
+            href={@item.url}
+            target="_blank"
+            rel="noopener"
+            class="text-sm text-indigo-600 hover:text-indigo-500"
+          >
+            View original ↗
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div :if={@item.content_type not in ["article", "video", "document"]} class="mb-8">
+      <div class="bg-white rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500 mb-4">Available artifacts:</p>
+        <div :if={@artifacts == []} class="text-sm text-gray-400">No artifacts yet</div>
+        <div :for={artifact <- @artifacts} class="text-sm text-gray-600 mb-1">
+          <span class="font-mono text-xs bg-gray-100 px-1 rounded">{artifact.stage}</span>
+          <span :for={{k, v} <- artifact.labels} class="ml-2 text-gray-400">{k}:{v}</span>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Bottom Pane --%>
+    <div class="rounded-lg border border-gray-200 bg-white">
+      <%!-- Tab Bar --%>
+      <div class="flex border-b border-gray-200">
+        <button
+          :for={tab <- tabs_for(@item)}
+          phx-click="select_tab"
+          phx-value-tab={tab}
+          data-tab={tab}
+          class={[
+            "px-4 py-3 text-sm font-medium border-b-2 -mb-px",
+            if(@active_tab == tab,
+              do: "border-indigo-500 text-indigo-600",
+              else: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            )
+          ]}
+        >
+          {tab_label(tab)}
+        </button>
+      </div>
+
+      <%!-- Tab Content --%>
+      <div :if={@active_tab} class="p-6">
+        <div :if={@active_tab == "summary"}>
+          <.content_state state={@summary.state} error={@summary.error}>
+            <div class="prose prose-gray max-w-none">
+              <pre class="whitespace-pre-wrap font-sans text-base">{@summary.content}</pre>
+            </div>
+          </.content_state>
+        </div>
+
+        <div :if={@active_tab == "transcript"}>
+          <.content_state state={@transcript.state} error={@transcript.error}>
+            <div class="prose prose-gray max-w-none max-h-96 overflow-y-auto">
+              <pre class="whitespace-pre-wrap font-sans text-sm">{@transcript.content}</pre>
+            </div>
+          </.content_state>
+        </div>
+
+        <div :if={@active_tab == "metadata"}>
+          <pre class="text-sm font-mono bg-gray-50 rounded p-4 overflow-x-auto">{@metadata_json}</pre>
+        </div>
+
+        <div :if={@active_tab == "chat"} class="text-center py-8 text-gray-400">
+          <.icon name="hero-chat-bubble-left-right" class="h-8 w-8 mx-auto mb-2" />
+          <p>Chat coming soon</p>
+        </div>
+
+        <div :if={@active_tab == "actions"} class="text-center py-8 text-gray-400">
+          <.icon name="hero-cog-6-tooth" class="h-8 w-8 mx-auto mb-2" />
+          <p>Actions coming soon</p>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>

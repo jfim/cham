@@ -21,8 +21,14 @@ defmodule ChamWeb.Router do
     live "/items/:id", ItemDetailLive
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", ChamWeb do
-  #   pipe_through :api
-  # end
+  scope "/api/v1", ChamWeb do
+    pipe_through :api
+
+    resources "/items", ItemController, only: [:create, :index, :show]
+  end
+
+  scope "/", ChamWeb do
+    pipe_through :api
+    get "/health", HealthController, :index
+  end
 end

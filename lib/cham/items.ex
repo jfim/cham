@@ -14,6 +14,25 @@ defmodule Cham.Items do
 
   def get_item!(id), do: Repo.get!(Item, id)
 
+  def get_item_by_slug_or_id(id_or_slug) do
+    case Repo.get_by(Item, slug: id_or_slug) do
+      %Item{} = item ->
+        {:ok, item}
+
+      nil ->
+        case Ecto.UUID.cast(id_or_slug) do
+          {:ok, uuid} ->
+            case Repo.get(Item, uuid) do
+              %Item{} = item -> {:ok, item}
+              nil -> {:error, :not_found}
+            end
+
+          :error ->
+            {:error, :not_found}
+        end
+    end
+  end
+
   def update_item(%Item{} = item, attrs) do
     item
     |> Item.update_changeset(attrs)

@@ -89,6 +89,7 @@ defmodule ChamWeb do
       import Phoenix.HTML
       # Core UI components
       import ChamWeb.CoreComponents
+      import ChamWeb.UIComponents
 
       # Shortcut for generating JS commands
       alias Phoenix.LiveView.JS

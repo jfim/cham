@@ -56,7 +56,9 @@ defmodule Cham.MixProject do
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.5"},
       {:oban, "~> 2.18"},
-      {:toml, "~> 0.7"}
+      {:toml, "~> 0.7"},
+      {:req, "~> 0.5"},
+      {:bypass, "~> 2.1", only: :test}
     ]
   end
 

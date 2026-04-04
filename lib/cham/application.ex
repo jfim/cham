@@ -13,8 +13,9 @@ defmodule Cham.Application do
       {Oban, Application.fetch_env!(:cham, Oban)},
       {DNSCluster, query: Application.get_env(:cham, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Cham.PubSub},
-      # Start a worker by calling: Cham.Worker.start_link(arg)
-      # {Cham.Worker, arg},
+      {Cham.Config.Manager,
+       toml_path: Application.get_env(:cham, :config_toml_path, "config/cham.toml"),
+       event_bus: Cham.PubSub},
       # Start to serve requests, typically the last entry
       ChamWeb.Endpoint
     ]

@@ -13,7 +13,12 @@ defmodule Cham.LLM.Providers.OpenAI do
 
     body = Jason.encode!(%{"model" => model, "messages" => messages})
 
-    case Req.post("#{url}/v1/chat/completions",
+    endpoint =
+      if String.ends_with?(url, "/v1"),
+        do: "#{url}/chat/completions",
+        else: "#{url}/v1/chat/completions"
+
+    case Req.post(endpoint,
            body: body,
            headers: headers,
            receive_timeout: timeout,

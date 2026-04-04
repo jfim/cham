@@ -90,3 +90,34 @@ defmodule Cham.TestPlugins.StageB do
   def perform(_inputs, _dir, _desired, _item_id),
     do: {:ok, %{artifacts: [], item_metadata: %{}, provenance: %{}}}
 end
+
+defmodule Cham.TestPlugins.EchoStage do
+  @behaviour Cham.Stage
+
+  @impl true
+  def name, do: "Echo Stage"
+  @impl true
+  def description, do: "Test stage that echoes input to output"
+  @impl true
+  def input_matchers, do: [%{"domain" => "example.com"}]
+  @impl true
+  def output_labels, do: [%{"origin" => "original", "format" => "text"}]
+  @impl true
+  def queue, do: :general
+  @impl true
+  def max_attempts, do: 3
+
+  @impl true
+  def perform(_inputs, working_dir, _desired, _item_id) do
+    File.write!(Path.join(working_dir, "output.txt"), "echo output")
+
+    {:ok,
+     %{
+       artifacts: [
+         %{labels: %{"origin" => "original", "format" => "text"}, filenames: ["output.txt"]}
+       ],
+       item_metadata: %{"title" => "Test Item", "content_type" => "article"},
+       provenance: %{"plugin_version" => "0.1.0"}
+     }}
+  end
+end

@@ -2,10 +2,11 @@ import Config
 
 # Configure your database
 config :cham, Cham.Repo,
-  username: "postgres",
-  password: "postgres",
-  hostname: "localhost",
-  database: "cham_dev",
+  username: System.get_env("DB_USERNAME", "postgres"),
+  password: System.get_env("DB_PASSWORD", "postgres"),
+  hostname: System.get_env("DB_HOSTNAME", "localhost"),
+  port: String.to_integer(System.get_env("DB_PORT", "5432")),
+  database: System.get_env("DB_DATABASE", "cham_dev"),
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10

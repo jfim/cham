@@ -1,0 +1,40 @@
+# Cham Configuration
+# Copy this file to config/cham.toml and adjust to your setup.
+# All settings can also be changed at runtime via the web UI at /config.
+
+# LLM plugins share the same provider settings.
+# Supported providers: any OpenAI-compatible API (Ollama, Fireworks, OpenAI, etc.)
+
+[plugins.summarize_ollama]
+model = "llama3.1:8b"
+url = "http://localhost:11434"
+# api_key = "your-api-key-here"
+
+[plugins.auto_tag]
+model = "llama3.1:8b"
+url = "http://localhost:11434"
+# api_key = "your-api-key-here"
+
+[plugins.clean_title]
+model = "llama3.1:8b"
+url = "http://localhost:11434"
+# api_key = "your-api-key-here"
+
+# Desired artifacts per content type (comma-separated artifact types).
+# The system automatically determines which stages need to run.
+# [desired_artifacts]
+# article = "content, summary, tags, clean_title"
+# video = "transcript, summary, tags, clean_title"
+# document = "content, summary, tags, clean_title"
+# audio = "transcript, summary, tags, clean_title"
+
+# Enable/disable individual plugins.
+# [enabled_plugins]
+# generic_download_url = true
+# content_type_router = true
+# extract_article = true
+# extract_pdf = true
+# transcribe_whisper = true
+# summarize_ollama = true
+# auto_tag = true
+# clean_title = true

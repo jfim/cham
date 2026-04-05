@@ -37,3 +37,4 @@ config :cham, Oban,
 
 config :cham, :start_tracker, false
 config :cham, :start_orchestrator, false
+config :cham, :skip_migrations, true

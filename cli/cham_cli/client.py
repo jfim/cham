@@ -56,6 +56,20 @@ class ChamClient:
         """Get a single item via GET /api/v1/items/:id_or_slug."""
         return self._request("GET", f"/api/v1/items/{id_or_slug}")
 
+    def reprocess_item(
+        self,
+        id_or_slug: str,
+        retry_failed: bool = False,
+        invalidate: Optional[list[str]] = None,
+    ) -> dict:
+        """Reprocess an item via POST /api/v1/items/:id/reprocess."""
+        payload: dict[str, Any] = {}
+        if retry_failed:
+            payload["retry_failed"] = True
+        if invalidate:
+            payload["invalidate"] = invalidate
+        return self._request("POST", f"/api/v1/items/{id_or_slug}/reprocess", json=payload)
+
     def _request(self, method: str, path: str, **kwargs) -> Any:
         """Make an HTTP request, handling errors."""
         try:

@@ -69,6 +69,34 @@ defmodule ChamWeb.ItemController do
     end
   end
 
+  def reprocess(conn, %{"id" => id} = params) do
+    retry_failed = params["retry_failed"] == true || params["retry_failed"] == "true"
+    invalidate = Map.get(params, "invalidate", [])
+
+    case Items.get_item_by_slug_or_id(id) do
+      {:ok, item} ->
+        case Pipeline.reprocess(item.id, retry_failed: retry_failed, invalidate: invalidate) do
+          {:ok, updated} ->
+            conn
+            |> put_status(:accepted)
+            |> put_view(ChamWeb.ItemJSON)
+            |> render("show.json", item: updated)
+
+          {:error, _} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> put_view(ChamWeb.ItemJSON)
+            |> render("error.json", error: "failed to reprocess item")
+        end
+
+      {:error, :not_found} ->
+        conn
+        |> put_status(:not_found)
+        |> put_view(ChamWeb.ItemJSON)
+        |> render("error.json", error: "not found")
+    end
+  end
+
   defp unique_constraint_violation?(%Ecto.Changeset{} = changeset) do
     Enum.any?(changeset.errors, fn
       {:url, {_, opts}} -> Keyword.get(opts, :constraint) == :unique

@@ -17,9 +17,73 @@ defmodule Cham.Pipeline do
     with {:ok, item} <- Items.create_item(%{url: url, tags: tags}),
          {:ok, item} <- setup_bootstrap(item, root),
          {:ok, _artifact} <- create_input_artifact(item, url) do
+      Cham.EventBus.publish("item:created", %{item: item})
       Cham.Pipeline.Orchestrator.kick_off(item.id)
       {:ok, item}
     end
+  end
+
+  @doc """
+  Reprocess an existing item. Resets status to "processing" and kicks off
+  the orchestrator, which will skip already-completed stages and run any new ones.
+
+  Options:
+  - retry_failed: if true, clears failed stage executions so they can be retried
+  - invalidate: list of stage plugin_ids to clear (removes their executions and artifacts)
+  """
+  def reprocess(item_id, opts \\ []) do
+    retry_failed = Keyword.get(opts, :retry_failed, false)
+    invalidate = Keyword.get(opts, :invalidate, [])
+
+    case Items.get_item(item_id) do
+      nil ->
+        {:error, :not_found}
+
+      item ->
+        if retry_failed, do: clear_failed_executions(item_id)
+        Enum.each(invalidate, &invalidate_stage(item_id, &1))
+
+        case Items.update_item(item, %{status: "processing"}) do
+          {:ok, updated} ->
+            Cham.EventBus.publish("item:reprocessed", %{item: updated})
+            Cham.Pipeline.Orchestrator.kick_off(updated.id)
+            {:ok, updated}
+
+          {:error, changeset} ->
+            {:error, changeset}
+        end
+    end
+  end
+
+  defp clear_failed_executions(item_id) do
+    import Ecto.Query
+
+    Cham.Repo.delete_all(
+      from se in Cham.JobTracking.StageExecution,
+        where: se.item_id == ^item_id and se.status == "failed"
+    )
+  end
+
+  defp invalidate_stage(item_id, stage_id) do
+    stages = Cham.Plugin.Registry.get_stages()
+    downstream = Cham.Pipeline.DAG.find_downstream_stages(stages, stage_id)
+    all_ids = [stage_id | Enum.map(downstream, & &1.plugin_id)]
+
+    Enum.each(all_ids, &clear_stage(item_id, &1))
+  end
+
+  defp clear_stage(item_id, stage_id) do
+    import Ecto.Query
+
+    Cham.Repo.delete_all(
+      from se in Cham.JobTracking.StageExecution,
+        where: se.item_id == ^item_id and se.stage == ^stage_id
+    )
+
+    Cham.Repo.delete_all(
+      from a in Cham.Items.Artifact,
+        where: a.item_id == ^item_id and a.stage == ^stage_id
+    )
   end
 
   defp setup_bootstrap(item, root) do

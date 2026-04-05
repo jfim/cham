@@ -82,29 +82,50 @@ defmodule Cham.Plugins.GenericDownloadUrl.DownloadStage do
     item = Cham.Items.get_item!(item_id)
     url = item.url
 
-    with {:ok, content_type, content_length} <- head_check(url, timeout, max_body_size),
-         ext <- extension_from(content_type, url),
-         filename <- "original#{ext}",
-         dest <- Path.join(working_dir, filename),
-         :ok <- stream_download(url, dest, timeout) do
-      {:ok,
-       %{
-         artifacts: [
-           %{
-             labels: %{
-               "origin" => "original",
-               "type" => "initial_download",
-               "content_type" => content_type
-             },
-             filenames: [filename]
-           }
-         ],
-         item_metadata: %{
-           "content_type" => content_type,
-           "content_length" => content_length
-         },
-         provenance: %{}
-       }}
+    # HEAD check: enforce size limits if HEAD succeeds, skip if server doesn't support HEAD
+    case head_check(url, timeout, max_body_size) do
+      {:ok, content_type, content_length} ->
+        do_download(url, working_dir, content_type, content_length, timeout)
+
+      {:error, :too_large, message} ->
+        {:error, message}
+
+      {:error, _reason} ->
+        # HEAD failed (server doesn't support it, etc.) — proceed with GET
+        do_download(url, working_dir, nil, nil, timeout)
+    end
+  end
+
+  defp do_download(url, working_dir, content_type_hint, content_length, timeout) do
+    ext = extension_from(content_type_hint || "application/octet-stream", url)
+    filename = "original#{ext}"
+    dest = Path.join(working_dir, filename)
+
+    case stream_download(url, dest, timeout) do
+      {:ok, response_content_type} ->
+        content_type = content_type_hint || response_content_type || "application/octet-stream"
+
+        {:ok,
+         %{
+           artifacts: [
+             %{
+               labels: %{
+                 "origin" => "original",
+                 "type" => "initial_download",
+                 "content_type" => content_type
+               },
+               filenames: [filename]
+             }
+           ],
+           item_metadata: %{
+             "content_type" => content_type,
+             "content_length" => content_length
+           },
+           provenance: %{}
+         }}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -119,7 +140,7 @@ defmodule Cham.Plugins.GenericDownloadUrl.DownloadStage do
         content_type = parse_content_type(resp.headers["content-type"])
 
         if content_length && content_length > max_body_size do
-          {:error,
+          {:error, :too_large,
            "Content too large: #{content_length} bytes exceeds limit of #{max_body_size} bytes"}
         else
           {:ok, content_type, content_length}
@@ -140,8 +161,9 @@ defmodule Cham.Plugins.GenericDownloadUrl.DownloadStage do
            connect_options: [timeout: timeout],
            retry: false
          ) do
-      {:ok, %{status: status}} when status in 200..299 ->
-        :ok
+      {:ok, %{status: status} = resp} when status in 200..299 ->
+        content_type = parse_content_type(resp.headers["content-type"])
+        {:ok, content_type}
 
       {:ok, %{status: status}} ->
         File.rm(dest)

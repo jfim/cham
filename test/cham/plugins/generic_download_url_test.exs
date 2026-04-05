@@ -142,6 +142,11 @@ defmodule Cham.Plugins.GenericDownloadUrlTest do
         Plug.Conn.resp(conn, 404, "Not Found")
       end)
 
+      # HEAD fails with 404, so downloader falls through to GET which also returns 404
+      Bypass.expect(bypass, "GET", "/not-found", fn conn ->
+        Plug.Conn.resp(conn, 404, "Not Found")
+      end)
+
       url = "#{base_url}/not-found"
       {:ok, item} = Cham.Items.create_item(%{url: url, slug: "test-404"})
 

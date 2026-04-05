@@ -91,6 +91,7 @@ defmodule Cham.Pipeline.Orchestrator do
 
     Enum.each(items, fn item ->
       evaluate_and_enqueue(item.id, state)
+      check_transitions(item.id, state)
     end)
   end
 

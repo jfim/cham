@@ -64,13 +64,14 @@ defmodule Cham.Plugins.ContentTypeRouter.RouteStage do
 
     {labels, friendly_type} = route_labels(effective_type)
 
-    # Symlink (or copy) each input file into working_dir
-    dest_filenames =
+    # Reference the original download's files via relative path — no copying needed.
+    # working_dir is e.g. .../processing/content_type_router-20260405T.../
+    # input.input_path is e.g. .../processing/generic_download_url-20260405T.../
+    # We produce filenames like ../generic_download_url-20260405T.../original.mp4
+    ref_filenames =
       Enum.map(input.filenames, fn filename ->
         source_path = Path.join(input.input_path, filename)
-        dest_path = Path.join(working_dir, filename)
-        link_or_copy(source_path, dest_path)
-        filename
+        relative_path(source_path, working_dir)
       end)
 
     {:ok,
@@ -78,7 +79,7 @@ defmodule Cham.Plugins.ContentTypeRouter.RouteStage do
        artifacts: [
          %{
            labels: labels,
-           filenames: dest_filenames
+           filenames: ref_filenames
          }
        ],
        item_metadata: %{
@@ -151,18 +152,28 @@ defmodule Cham.Plugins.ContentTypeRouter.RouteStage do
     {%{"origin" => "original", "format" => "video"}, "video"}
   end
 
+  defp relative_path(target, from_dir) do
+    target_parts = Path.expand(target) |> Path.split()
+    from_parts = Path.expand(from_dir) |> Path.split()
+
+    # Find common prefix length
+    common =
+      Enum.zip(target_parts, from_parts)
+      |> Enum.take_while(fn {a, b} -> a == b end)
+      |> length()
+
+    ups = length(from_parts) - common
+    remaining = Enum.drop(target_parts, common)
+
+    (List.duplicate("..", ups) ++ remaining)
+    |> Path.join()
+  end
+
   defp route_labels("audio/" <> _) do
     {%{"origin" => "original", "format" => "audio"}, "audio"}
   end
 
   defp route_labels(_) do
     {%{"origin" => "original", "format" => "unknown"}, "unknown"}
-  end
-
-  defp link_or_copy(source, dest) do
-    case File.ln_s(source, dest) do
-      :ok -> :ok
-      {:error, _} -> File.cp!(source, dest)
-    end
   end
 end

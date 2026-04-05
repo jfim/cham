@@ -111,10 +111,11 @@ defmodule Cham.Plugins.ContentTypeRouterTest do
 
       assert [artifact] = result.artifacts
       assert artifact.labels == %{"origin" => "original", "format" => "text", "type" => "article"}
-      assert artifact.filenames == ["original.html"]
+      [filename] = artifact.filenames
+      assert String.ends_with?(filename, "original.html")
       assert result.item_metadata["content_type"] == "article"
 
-      assert File.exists?(Path.join(working_dir, "original.html"))
+      assert File.exists?(Path.expand(filename, working_dir))
     end
 
     test "routes application/pdf to document", %{source_dir: source_dir, working_dir: working_dir} do
@@ -126,7 +127,8 @@ defmodule Cham.Plugins.ContentTypeRouterTest do
       assert artifact.labels == %{"origin" => "original", "format" => "document", "type" => "pdf"}
       assert result.item_metadata["content_type"] == "document"
 
-      assert File.exists?(Path.join(working_dir, "original.pdf"))
+      [pdf_filename] = result.artifacts |> List.first() |> Map.get(:filenames)
+      assert File.exists?(Path.expand(pdf_filename, working_dir))
     end
 
     test "routes video/mp4 to video", %{source_dir: source_dir, working_dir: working_dir} do
@@ -204,16 +206,20 @@ defmodule Cham.Plugins.ContentTypeRouterTest do
       assert result.item_metadata["content_type"] == "unknown"
     end
 
-    test "file is accessible in working_dir after perform",
+    test "artifact filename is a relative path to the source file",
          %{source_dir: source_dir, working_dir: working_dir} do
       content = "Hello, World!"
       inputs = make_input(source_dir, "original.html", content, "text/html")
 
-      assert {:ok, _result} = RouteStage.perform(inputs, working_dir, [], "item-1")
+      assert {:ok, result} = RouteStage.perform(inputs, working_dir, [], "item-1")
 
-      dest = Path.join(working_dir, "original.html")
-      assert File.exists?(dest)
-      assert File.read!(dest) == content
+      [artifact] = result.artifacts
+      [filename] = artifact.filenames
+
+      # Filename should be a relative path from working_dir to source
+      resolved = Path.expand(filename, working_dir)
+      assert File.exists?(resolved)
+      assert File.read!(resolved) == content
     end
   end
 end

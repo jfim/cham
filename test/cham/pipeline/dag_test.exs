@@ -184,4 +184,59 @@ defmodule Cham.Pipeline.DAGTest do
       assert DAG.all_originals_complete?(stages, artifacts, completed)
     end
   end
+
+  describe "find_downstream_stages/2" do
+    test "finds direct downstream stages" do
+      stages = [
+        stage("transcribe", [%{"format" => "video"}], [
+          %{"origin" => "derived", "type" => "transcript"}
+        ]),
+        stage("summarize", [%{"type" => "transcript"}], [
+          %{"origin" => "derived", "type" => "summary"}
+        ]),
+        stage("unrelated", [%{"format" => "image"}], [%{"type" => "thumbnail"}])
+      ]
+
+      downstream = DAG.find_downstream_stages(stages, "transcribe")
+      ids = Enum.map(downstream, & &1.plugin_id)
+      assert "summarize" in ids
+      refute "unrelated" in ids
+    end
+
+    test "cascades transitively" do
+      stages = [
+        stage("transcribe", [%{"format" => "video"}], [
+          %{"origin" => "derived", "type" => "transcript"}
+        ]),
+        stage("summarize", [%{"type" => "transcript"}], [
+          %{"origin" => "derived", "type" => "summary"}
+        ]),
+        stage("auto_tag", [%{"type" => "summary"}], [
+          %{"origin" => "derived", "type" => "tags"}
+        ])
+      ]
+
+      downstream = DAG.find_downstream_stages(stages, "transcribe")
+      ids = Enum.map(downstream, & &1.plugin_id)
+      assert "summarize" in ids
+      assert "auto_tag" in ids
+    end
+
+    test "returns empty for unknown stage" do
+      stages = [
+        stage("summarize", [%{"type" => "transcript"}], [%{"type" => "summary"}])
+      ]
+
+      assert DAG.find_downstream_stages(stages, "nonexistent") == []
+    end
+
+    test "returns empty when no downstream stages exist" do
+      stages = [
+        stage("summarize", [%{"type" => "transcript"}], [%{"type" => "summary"}]),
+        stage("transcribe", [%{"format" => "video"}], [%{"type" => "transcript"}])
+      ]
+
+      assert DAG.find_downstream_stages(stages, "summarize") == []
+    end
+  end
 end

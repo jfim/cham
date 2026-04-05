@@ -11,7 +11,7 @@ defmodule Cham.Pipeline.Orchestrator do
 
   alias Cham.Archive.ArchiveManager
   alias Cham.Items
-  alias Cham.Pipeline.{DAG, StageWorker}
+  alias Cham.Pipeline.{DAG, DesiredStages, StageWorker}
   alias Cham.Plugin.Registry
 
   @terminal_statuses ~w(complete incomplete failed)
@@ -113,6 +113,7 @@ defmodule Cham.Pipeline.Orchestrator do
 
       ready =
         DAG.find_next_stages(stages, artifacts, excluded_ids)
+        |> DesiredStages.filter_stages(item.content_type, stages)
 
       Enum.each(ready, fn stage ->
         changeset =
@@ -227,7 +228,7 @@ defmodule Cham.Pipeline.Orchestrator do
     cond do
       not MapSet.disjoint?(failed, original_stage_ids(stages)) ->
         Logger.warning("Item #{item.id} has failed original-producing stages, marking failed")
-        Items.update_item(item, %{status: "failed", error_message: "original stage failed"})
+        transition_to_terminal(item, "failed", "original stage failed")
 
       DAG.all_originals_complete?(stages, artifacts, completed_ids) ->
         transition_to_archive(item, state)
@@ -237,28 +238,52 @@ defmodule Cham.Pipeline.Orchestrator do
     end
   end
 
-  defp check_processing_transitions(item, _state) do
+  defp check_processing_transitions(item, state) do
     artifacts = Items.list_artifacts(item.id)
     active = active_oban_stage_ids(item.id)
 
-    # Remove the just-completed job from active set consideration
-    # (it may still show as completed in DB). Check if there are no
-    # remaining active jobs and no more ready stages to run.
     if MapSet.size(active) == 0 do
-      failed = failed_stage_ids(item.id)
+      # Before transitioning, check if the DAG still has ready stages to run.
+      # This prevents marking an item complete when new stages (e.g. from a
+      # newly registered plugin) are available but haven't been enqueued yet.
+      excluded_ids = build_exclusion_set(item.id, artifacts)
+      stages = Registry.get_stages(state.registry)
 
-      has_failed_executions = MapSet.size(failed) > 0
+      ready =
+        DAG.find_next_stages(stages, artifacts, excluded_ids)
+        |> DesiredStages.filter_stages(item.content_type, stages)
 
-      if has_failed_executions do
-        Items.update_item(item, %{status: "incomplete"})
+      if ready != [] do
+        # There are more stages to run — don't transition yet.
+        # Enqueue them instead.
+        evaluate_and_enqueue(item.id, state)
       else
-        completed_count =
-          Enum.count(artifacts, &(&1.status == "produced"))
+        failed = failed_stage_ids(item.id)
 
-        if completed_count > 0 do
-          Items.update_item(item, %{status: "complete"})
+        if MapSet.size(failed) > 0 do
+          transition_to_terminal(item, "incomplete")
+        else
+          completed_count = Enum.count(artifacts, &(&1.status == "produced"))
+
+          if completed_count > 0 do
+            transition_to_terminal(item, "complete")
+          end
         end
       end
+    end
+  end
+
+  defp transition_to_terminal(item, status, error_message \\ nil) do
+    attrs = %{status: status}
+    attrs = if error_message, do: Map.put(attrs, :error_message, error_message), else: attrs
+
+    case Items.update_item(item, attrs) do
+      {:ok, updated} ->
+        Cham.EventBus.publish("item:status_changed", %{item_id: updated.id, status: status})
+        {:ok, updated}
+
+      error ->
+        error
     end
   end
 
@@ -292,7 +317,7 @@ defmodule Cham.Pipeline.Orchestrator do
 
       {:error, reason} ->
         Logger.error("Failed to move item #{item.id} to archive: #{inspect(reason)}")
-        Items.update_item(item, %{status: "failed", error_message: "archive move failed"})
+        transition_to_terminal(item, "failed", "archive move failed")
     end
   end
 

@@ -59,6 +59,46 @@ defmodule Cham.Pipeline.DAG do
       end)
   end
 
+  @doc """
+  Find all stages that are transitively downstream of the given stage.
+  Stage B is downstream of A if any of B's input_matchers could be satisfied
+  by any of A's output_labels.
+  """
+  def find_downstream_stages(stages, stage_id) do
+    stage = Enum.find(stages, &(&1.plugin_id == stage_id))
+
+    if stage do
+      do_find_downstream(stages, [stage], MapSet.new([stage_id]))
+    else
+      []
+    end
+  end
+
+  defp do_find_downstream(_stages, [], _visited), do: []
+
+  defp do_find_downstream(stages, frontier, visited) do
+    # Collect all output labels from the frontier
+    output_labels = Enum.flat_map(frontier, & &1.output_labels)
+
+    # Find stages whose inputs could be satisfied by those outputs
+    direct_dependents =
+      Enum.filter(stages, fn candidate ->
+        not MapSet.member?(visited, candidate.plugin_id) and
+          Enum.any?(candidate.input_matchers, fn matcher ->
+            Enum.any?(output_labels, fn labels ->
+              LabelMatcher.matches?(labels, matcher)
+            end)
+          end)
+      end)
+
+    new_visited =
+      Enum.reduce(direct_dependents, visited, fn s, acc ->
+        MapSet.put(acc, s.plugin_id)
+      end)
+
+    direct_dependents ++ do_find_downstream(stages, direct_dependents, new_visited)
+  end
+
   defp produces_originals?(stage) do
     Enum.any?(stage.output_labels, fn labels ->
       Map.get(labels, "origin") == "original"

@@ -35,13 +35,28 @@ defmodule Cham.Pipeline.DAG do
   end
 
   @doc """
-  Check if all stages that produce `origin:original` artifacts have completed.
-  This determines the archive threshold — when the item moves from bootstrap to archive.
+  Check if all reachable stages that produce `origin:original` artifacts have completed.
+  A stage is reachable if its inputs are satisfied by available artifacts.
+  Unreachable original-producing stages (e.g. extract_article for a video) don't block.
   """
-  def all_originals_complete?(stages, completed_stage_ids) do
+  def all_originals_complete?(stages, available_artifacts, completed_stage_ids) do
     stages
     |> Enum.filter(&produces_originals?/1)
+    |> Enum.filter(fn stage ->
+      # Stage is relevant if it already completed OR its inputs are currently satisfied
+      MapSet.member?(completed_stage_ids, stage.plugin_id) or
+        inputs_satisfied?(stage, available_artifacts)
+    end)
     |> Enum.all?(fn stage -> MapSet.member?(completed_stage_ids, stage.plugin_id) end)
+  end
+
+  defp inputs_satisfied?(stage, available_artifacts) do
+    stage.input_matchers != [] and
+      Enum.any?(stage.input_matchers, fn matcher ->
+        Enum.any?(available_artifacts, fn artifact ->
+          LabelMatcher.matches?(artifact.labels, matcher)
+        end)
+      end)
   end
 
   defp produces_originals?(stage) do

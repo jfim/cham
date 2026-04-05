@@ -228,7 +228,7 @@ defmodule Cham.Pipeline.Orchestrator do
         Logger.warning("Item #{item.id} has failed original-producing stages, marking failed")
         Items.update_item(item, %{status: "failed", error_message: "original stage failed"})
 
-      DAG.all_originals_complete?(stages, completed_ids) ->
+      DAG.all_originals_complete?(stages, artifacts, completed_ids) ->
         transition_to_archive(item, state)
 
       true ->

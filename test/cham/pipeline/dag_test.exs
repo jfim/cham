@@ -133,7 +133,7 @@ defmodule Cham.Pipeline.DAGTest do
     end
   end
 
-  describe "all_originals_complete?/2" do
+  describe "all_originals_complete?/3" do
     test "returns true when no stages produce original artifacts" do
       stages = [
         stage("summarize", [%{"format" => "text"}], [
@@ -141,8 +141,9 @@ defmodule Cham.Pipeline.DAGTest do
         ])
       ]
 
+      artifacts = [%{labels: %{"format" => "text"}}]
       completed = MapSet.new(["summarize"])
-      assert DAG.all_originals_complete?(stages, completed)
+      assert DAG.all_originals_complete?(stages, artifacts, completed)
     end
 
     test "returns true when all original-producing stages are completed" do
@@ -153,17 +154,34 @@ defmodule Cham.Pipeline.DAGTest do
         ])
       ]
 
+      artifacts = [%{labels: %{"format" => "text"}}]
       completed = MapSet.new(["download"])
-      assert DAG.all_originals_complete?(stages, completed)
+      assert DAG.all_originals_complete?(stages, artifacts, completed)
     end
 
-    test "returns false when original-producing stages are pending" do
+    test "returns false when reachable original-producing stages are pending" do
       stages = [
         stage("download", [%{}], [%{"origin" => "original", "format" => "text"}])
       ]
 
+      artifacts = [%{labels: %{"domain" => "example.com"}}]
       completed = MapSet.new()
-      refute DAG.all_originals_complete?(stages, completed)
+      # download matches any input (wildcard), so it's reachable
+      refute DAG.all_originals_complete?(stages, artifacts, completed)
+    end
+
+    test "returns true when unreachable original-producing stages are pending" do
+      stages = [
+        stage("download", [%{}], [%{"origin" => "original", "format" => "video"}]),
+        stage("extract_article", [%{"format" => "text", "type" => "article"}], [
+          %{"origin" => "original", "format" => "text", "type" => "content"}
+        ])
+      ]
+
+      # Only video content available — extract_article's inputs aren't satisfied
+      artifacts = [%{labels: %{"format" => "video", "origin" => "original"}}]
+      completed = MapSet.new(["download"])
+      assert DAG.all_originals_complete?(stages, artifacts, completed)
     end
   end
 end

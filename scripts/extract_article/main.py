@@ -24,9 +24,11 @@ def main():
 
     text = trafilatura.extract(
         html,
-        output_format="txt",
+        output_format="markdown",
         include_comments=False,
         include_tables=True,
+        include_links=True,
+        include_images=True,
     )
 
     if text is None:

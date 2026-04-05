@@ -1,0 +1,178 @@
+<div class="min-h-screen bg-gray-50">
+  <div class="bg-white border-b border-gray-200 px-8 py-4">
+    <div class="flex items-center justify-between">
+      <.link
+        navigate={~p"/"}
+        class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+      >
+        <.icon name="hero-arrow-left-mini" class="h-4 w-4" /> Back to archive
+      </.link>
+    </div>
+  </div>
+
+  <div class="max-w-4xl mx-auto px-8 py-8">
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">Configuration</h1>
+
+    <div class="flex gap-8">
+      <%!-- Section list --%>
+      <div class="w-64 flex-shrink-0">
+        <div :if={@system_sections != []}>
+          <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+            System
+          </h2>
+          <div class="space-y-1 mb-6">
+            <button
+              :for={section <- @system_sections}
+              phx-click="select_section"
+              phx-value-namespace={section.namespace}
+              phx-value-name={section.name}
+              class={[
+                "w-full text-left px-3 py-2 rounded-md text-sm",
+                if(@active_section && @active_section.namespace == section.namespace,
+                  do: "bg-indigo-50 text-indigo-700 font-medium",
+                  else: "text-gray-700 hover:bg-gray-100"
+                )
+              ]}
+            >
+              <div class="font-medium">{section.name}</div>
+              <div class="text-xs text-gray-400 mt-0.5">
+                {length(section.schema)} settings
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Plugins</h2>
+        <div class="space-y-1">
+          <button
+            :for={plugin <- @plugins}
+            phx-click="select_section"
+            phx-value-namespace={plugin.namespace}
+            phx-value-name={plugin.name}
+            disabled={!has_config?(plugin)}
+            class={[
+              "w-full text-left px-3 py-2 rounded-md text-sm",
+              cond do
+                @active_section && @active_section.namespace == plugin.namespace ->
+                  "bg-indigo-50 text-indigo-700 font-medium"
+
+                has_config?(plugin) ->
+                  "text-gray-700 hover:bg-gray-100"
+
+                true ->
+                  "text-gray-400 cursor-not-allowed"
+              end
+            ]}
+          >
+            <div class="font-medium">{plugin.name}</div>
+            <div class="text-xs text-gray-400 mt-0.5">
+              {if has_config?(plugin),
+                do: "#{length(plugin.schema)} settings",
+                else: "No settings"}
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <%!-- Config form --%>
+      <div class="flex-1">
+        <div :if={!@active_section} class="text-center py-16 text-gray-400">
+          <.icon name="hero-cog-6-tooth" class="h-12 w-12 mx-auto mb-4" />
+          <p>Select a section to configure</p>
+        </div>
+
+        <div :if={@active_section}>
+          <div class="mb-6">
+            <h2 class="text-lg font-semibold text-gray-900">{@active_section.name}</h2>
+            <p :if={@active_section.description != ""} class="text-sm text-gray-500 mt-1">
+              {@active_section.description}
+            </p>
+          </div>
+
+          <div
+            :if={@save_result == :ok}
+            class="mb-4 rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700"
+          >
+            Configuration saved successfully.
+          </div>
+
+          <div
+            :if={match?({:error, _}, @save_result)}
+            class="mb-4 rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
+          >
+            Failed to save: {inspect(elem(@save_result, 1))}
+          </div>
+
+          <form phx-submit="save_config" class="space-y-5">
+            <div :for={field <- @active_section.schema} class="space-y-1">
+              <label for={"config-#{field.key}"} class="block text-sm font-medium text-gray-700">
+                {field.key}
+              </label>
+              <p :if={field[:description]} class="text-xs text-gray-400">{field[:description]}</p>
+
+              <%= if field.type == :boolean do %>
+                <div class="flex items-center gap-3">
+                  <input type="hidden" name={Atom.to_string(field.key)} value="false" />
+                  <input
+                    type="checkbox"
+                    name={Atom.to_string(field.key)}
+                    id={"config-#{field.key}"}
+                    value="true"
+                    checked={Map.get(@form_values, Atom.to_string(field.key)) == "true"}
+                    class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                </div>
+              <% else %>
+                <%= if field[:options] do %>
+                  <select
+                    name={Atom.to_string(field.key)}
+                    id={"config-#{field.key}"}
+                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  >
+                    <option
+                      :for={opt <- field.options}
+                      value={opt}
+                      selected={
+                        Map.get(@form_values, Atom.to_string(field.key)) == to_string(opt)
+                      }
+                    >
+                      {opt}
+                    </option>
+                  </select>
+                <% else %>
+                  <%= if is_long_text?(field) do %>
+                    <textarea
+                      name={Atom.to_string(field.key)}
+                      id={"config-#{field.key}"}
+                      rows="6"
+                      placeholder={if field.default, do: "Default: #{field.default}", else: ""}
+                      class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-mono text-xs"
+                    >{Map.get(@form_values, Atom.to_string(field.key), "")}</textarea>
+                  <% else %>
+                    <input
+                      type={input_type(field.type)}
+                      name={Atom.to_string(field.key)}
+                      id={"config-#{field.key}"}
+                      value={Map.get(@form_values, Atom.to_string(field.key), "")}
+                      placeholder={if field.default, do: "Default: #{field.default}", else: ""}
+                      class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    />
+                  <% end %>
+                <% end %>
+              <% end %>
+            </div>
+
+            <div class="pt-4 border-t border-gray-200">
+              <button
+                type="submit"
+                class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+              >
+                Save Configuration
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

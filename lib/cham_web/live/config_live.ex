@@ -1,0 +1,156 @@
+defmodule ChamWeb.ConfigLive do
+  use ChamWeb, :live_view
+
+  alias Cham.Config.Manager, as: ConfigManager
+  alias Cham.Plugin.Registry
+
+  @impl true
+  def mount(_params, _session, socket) do
+    plugins = load_plugins()
+    system_sections = load_system_sections()
+
+    {:ok,
+     socket
+     |> assign(:page_title, "Configuration")
+     |> assign(:plugins, plugins)
+     |> assign(:system_sections, system_sections)
+     |> assign(:active_section, nil)
+     |> assign(:form_values, %{})
+     |> assign(:save_result, nil)}
+  end
+
+  @impl true
+  def handle_event("select_section", %{"namespace" => namespace}, socket) do
+    section = find_section(socket, namespace)
+
+    if section do
+      values = read_section_config(namespace)
+
+      form_values =
+        Enum.into(section.schema, %{}, fn field ->
+          {Atom.to_string(field.key), format_value(Map.get(values, field.key, field.default))}
+        end)
+
+      {:noreply,
+       socket
+       |> assign(:active_section, section)
+       |> assign(:form_values, form_values)
+       |> assign(:save_result, nil)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("save_config", params, socket) do
+    section = socket.assigns.active_section
+
+    if section do
+      coerced =
+        Enum.into(section.schema, %{}, fn field ->
+          key_str = Atom.to_string(field.key)
+          raw = Map.get(params, key_str, "")
+          {key_str, coerce_value(raw, field.type)}
+        end)
+
+      case ConfigManager.write_all(section.namespace, coerced) do
+        :ok ->
+          {:noreply,
+           socket
+           |> assign(:save_result, :ok)
+           |> assign(:form_values, Map.new(params, fn {k, v} -> {k, v} end))}
+
+        {:error, errors} ->
+          {:noreply, assign(socket, :save_result, {:error, errors})}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp load_plugins do
+    Registry.list_plugins()
+    |> Enum.map(fn entry ->
+      %{
+        namespace: "plugins.#{entry.plugin_id}",
+        name: entry.name,
+        description: entry.description,
+        schema: entry.config_schema,
+        kind: :plugin
+      }
+    end)
+  end
+
+  defp load_system_sections do
+    ConfigManager.list_schemas()
+    |> Enum.reject(fn {ns, _schema} -> String.starts_with?(ns, "plugins.") end)
+    |> Enum.map(fn {namespace, schema} ->
+      %{
+        namespace: namespace,
+        name: section_name(namespace),
+        description: section_description(namespace),
+        schema: schema,
+        kind: :system
+      }
+    end)
+  end
+
+  defp section_name("desired_artifacts"), do: "Desired Artifacts"
+  defp section_name("enabled_plugins"), do: "Enabled Plugins"
+  defp section_name(ns), do: ns
+
+  defp section_description("desired_artifacts"),
+    do: "Configure which artifacts are produced per content type"
+
+  defp section_description("enabled_plugins"),
+    do: "Enable or disable individual plugins"
+
+  defp section_description(_), do: ""
+
+  defp find_section(socket, namespace) do
+    Enum.find(socket.assigns.system_sections ++ socket.assigns.plugins, fn s ->
+      s.namespace == namespace
+    end)
+  end
+
+  defp read_section_config(namespace) do
+    case ConfigManager.read_all(namespace) do
+      {:ok, values} -> values
+      {:error, _} -> %{}
+    end
+  end
+
+  defp format_value(nil), do: ""
+  defp format_value(true), do: "true"
+  defp format_value(false), do: "false"
+  defp format_value(value) when is_binary(value), do: value
+  defp format_value(value), do: to_string(value)
+
+  defp coerce_value(value, :integer) do
+    case Integer.parse(value) do
+      {int, _} -> int
+      :error -> value
+    end
+  end
+
+  defp coerce_value(value, :float) do
+    case Float.parse(value) do
+      {float, _} -> float
+      :error -> value
+    end
+  end
+
+  defp coerce_value("true", :boolean), do: true
+  defp coerce_value("false", :boolean), do: false
+  defp coerce_value(value, _type), do: value
+
+  defp input_type(:integer), do: "number"
+  defp input_type(:float), do: "number"
+  defp input_type(:url), do: "url"
+  defp input_type(_), do: "text"
+
+  defp is_long_text?(field) do
+    field.type == :string and is_binary(field.default) and String.length(field.default) > 80
+  end
+
+  defp has_config?(plugin), do: plugin.schema != []
+end

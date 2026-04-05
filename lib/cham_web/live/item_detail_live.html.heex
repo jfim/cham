@@ -59,16 +59,24 @@
     <div :if={@item.content_type == "article"} class="mb-8">
       <.content_state state={@primary_content.state} error={@primary_content.error}>
         <div class="prose prose-gray max-w-none bg-white rounded-lg border border-gray-200 p-8">
-          <pre class="whitespace-pre-wrap font-sans text-base">{@primary_content.content}</pre>
+          {raw(@primary_content.html || @primary_content.content)}
         </div>
       </.content_state>
     </div>
 
     <div :if={@item.content_type == "video"} class="mb-8">
-      <div class="aspect-video bg-gray-100 rounded-lg flex items-center justify-center mb-4">
+      <div :if={@original_file_url} class="rounded-lg overflow-hidden border border-gray-200">
+        <video controls class="w-full" preload="metadata">
+          <source src={@original_file_url} /> Your browser does not support the video tag.
+        </video>
+      </div>
+      <div
+        :if={!@original_file_url}
+        class="aspect-video bg-gray-100 rounded-lg flex items-center justify-center"
+      >
         <div class="text-center text-gray-400">
           <.icon name="hero-play-circle" class="h-12 w-12 mx-auto mb-2" />
-          <p>Video playback coming soon</p>
+          <p>Video file not available</p>
           <a
             href={@item.url}
             target="_blank"
@@ -82,10 +90,16 @@
     </div>
 
     <div :if={@item.content_type == "document"} class="mb-8">
-      <div class="aspect-[3/4] max-h-96 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
+      <div :if={@original_file_url} class="rounded-lg overflow-hidden border border-gray-200">
+        <iframe src={@original_file_url} class="w-full" style="height: 70vh;"></iframe>
+      </div>
+      <div
+        :if={!@original_file_url}
+        class="aspect-[3/4] max-h-96 bg-gray-100 rounded-lg flex items-center justify-center"
+      >
         <div class="text-center text-gray-400">
           <.icon name="hero-document-text" class="h-12 w-12 mx-auto mb-2" />
-          <p>PDF viewer coming soon</p>
+          <p>PDF file not available</p>
           <a
             href={@item.url}
             target="_blank"
@@ -135,7 +149,7 @@
         <div :if={@active_tab == "summary"}>
           <.content_state state={@summary.state} error={@summary.error}>
             <div class="prose prose-gray max-w-none">
-              <pre class="whitespace-pre-wrap font-sans text-base">{@summary.content}</pre>
+              {raw(@summary.html || @summary.content)}
             </div>
           </.content_state>
         </div>
@@ -146,6 +160,53 @@
               <pre class="whitespace-pre-wrap font-sans text-sm">{@transcript.content}</pre>
             </div>
           </.content_state>
+        </div>
+
+        <div :if={@active_tab == "pipeline"}>
+          <div :if={@stage_history == []} class="text-sm text-gray-400 py-4">
+            No pipeline stages have run yet.
+          </div>
+          <table :if={@stage_history != []} class="w-full text-sm">
+            <thead>
+              <tr class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                <th class="pb-2 pr-4">Stage</th>
+                <th class="pb-2 pr-4">Status</th>
+                <th class="pb-2 pr-4">Duration</th>
+                <th class="pb-2 pr-4">Started</th>
+                <th class="pb-2">Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={stage <- @stage_history} class="border-b border-gray-100">
+                <td class="py-2 pr-4 font-medium text-gray-700">{stage.stage}</td>
+                <td class="py-2 pr-4">
+                  <.status_badge status={stage.status} />
+                </td>
+                <td class="py-2 pr-4 text-gray-500">
+                  {format_duration(stage.duration_ms)}
+                </td>
+                <td class="py-2 pr-4 text-gray-500">
+                  <.relative_time :if={stage.started_at} at={stage.started_at} />
+                </td>
+                <td class="py-2 text-gray-500">
+                  <span :if={stage.error} class="text-red-500 text-xs break-all">
+                    {String.slice(stage.error || "", 0, 200)}
+                  </span>
+                  <span :if={stage.snooze_reason} class="text-amber-500 text-xs">
+                    Snoozed: {stage.snooze_reason}
+                  </span>
+                  <span :if={stage.attempt && stage.attempt > 1} class="text-gray-400 text-xs">
+                    Attempt {stage.attempt}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <%!-- Progress bars for active stages --%>
+          <div :for={{stage_id, prog} <- @progress} class="mt-4">
+            <div class="text-xs font-medium text-gray-600 mb-1">{stage_id}</div>
+            <.progress_bar progress={prog.progress} message={prog.message} />
+          </div>
         </div>
 
         <div :if={@active_tab == "metadata"}>

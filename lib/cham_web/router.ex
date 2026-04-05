@@ -19,12 +19,18 @@ defmodule ChamWeb.Router do
 
     live "/", DashboardLive
     live "/items/:id", ItemDetailLive
+    live "/config", ConfigLive
   end
 
   scope "/api/v1", ChamWeb do
     pipe_through :api
 
     resources "/items", ItemController, only: [:create, :index, :show]
+    post "/items/:id/reprocess", ItemController, :reprocess
+  end
+
+  scope "/api/v1", ChamWeb do
+    get "/items/:id/files/*filename", FileController, :show
   end
 
   scope "/", ChamWeb do

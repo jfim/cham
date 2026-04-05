@@ -58,6 +58,7 @@ defmodule Cham.MixProject do
       {:oban, "~> 2.18"},
       {:toml, "~> 0.7"},
       {:req, "~> 0.5"},
+      {:earmark, "~> 1.4"},
       {:bypass, "~> 2.1", only: :test},
       {:lazy_html, ">= 0.1.0", only: :test}
     ]

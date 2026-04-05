@@ -8,6 +8,7 @@ defmodule ChamWeb.DashboardLive do
   def mount(_params, _session, socket) do
     if connected?(socket) do
       Cham.EventBus.subscribe("item")
+      Cham.EventBus.subscribe("pipeline")
     end
 
     socket =
@@ -149,7 +150,7 @@ defmodule ChamWeb.DashboardLive do
         "Showing items tagged \"#{assigns.active_tag}\""
 
       assigns.total_count == 0 ->
-        "Cham knows about nothing yet"
+        "Cham is empty"
 
       true ->
         "Cham knows about #{assigns.total_count} pieces of information"

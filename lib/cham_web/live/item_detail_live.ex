@@ -77,14 +77,37 @@ defmodule ChamWeb.ItemDetailLive do
     |> assign(:primary_content, resolve_primary_content(item, artifacts, stage_history))
     |> assign(:summary, resolve_artifact_content(item, artifacts, stage_history, "summary"))
     |> assign(:transcript, resolve_artifact_content(item, artifacts, stage_history, "transcript"))
-    |> assign(:metadata_json, Jason.encode!(item.metadata || %{}, pretty: true))
+    |> assign(:original_file_url, resolve_original_file_url(item, artifacts))
+    |> assign(:metadata_json, build_metadata_json(item))
   end
 
   defp resolve_primary_content(item, artifacts, stage_history) do
     case item.content_type do
-      "article" -> resolve_artifact_content(item, artifacts, stage_history, "text", "original")
+      "article" -> resolve_artifact_content(item, artifacts, stage_history, "content", "original")
       "video" -> resolve_artifact_content(item, artifacts, stage_history, "transcript")
       _ -> %{state: :not_requested, content: nil, error: nil}
+    end
+  end
+
+  defp resolve_original_file_url(item, artifacts) do
+    # Find the original download artifact to get the source file
+    artifact =
+      Enum.find(artifacts, fn a ->
+        a.labels["origin"] == "original" and
+          a.labels["type"] in ["pdf", "initial_download"] and
+          a.status == "produced" and
+          a.filenames != []
+      end) ||
+        Enum.find(artifacts, fn a ->
+          a.labels["origin"] == "original" and
+            a.labels["format"] in ["video", "audio", "document"] and
+            a.status == "produced" and
+            a.filenames != []
+        end)
+
+    if artifact do
+      filename = artifact.filenames |> List.first() |> Path.basename()
+      ~p"/api/v1/items/#{item.id}/files/#{filename}"
     end
   end
 
@@ -97,18 +120,21 @@ defmodule ChamWeb.ItemDetailLive do
     cond do
       artifact ->
         case Items.read_artifact_content(item, artifact) do
-          {:ok, content} -> %{state: :available, content: content, error: nil}
-          {:error, _} -> %{state: :available, content: "[Could not read file]", error: nil}
+          {:ok, content} ->
+            %{state: :available, content: content, html: md_to_html(content), error: nil}
+
+          {:error, _} ->
+            %{state: :available, content: "[Could not read file]", html: nil, error: nil}
         end
 
       has_running_stage?(stage_history, type) ->
-        %{state: :processing, content: nil, error: nil}
+        %{state: :processing, content: nil, html: nil, error: nil}
 
       failed_stage = find_failed_stage(stage_history, type) ->
-        %{state: :failed, content: nil, error: failed_stage.error}
+        %{state: :failed, content: nil, html: nil, error: failed_stage.error}
 
       true ->
-        %{state: :not_requested, content: nil, error: nil}
+        %{state: :not_requested, content: nil, html: nil, error: nil}
     end
   end
 
@@ -128,20 +154,67 @@ defmodule ChamWeb.ItemDetailLive do
   defp event_for_item?(%{item: %{id: event_item_id}}, item_id), do: event_item_id == item_id
   defp event_for_item?(_, _), do: false
 
+  defp build_metadata_json(item) do
+    base =
+      %{
+        "url" => item.url,
+        "title" => item.title,
+        "content_type" => item.content_type,
+        "status" => item.status,
+        "tags" => item.tags,
+        "created_at" => item.inserted_at && DateTime.to_iso8601(item.inserted_at)
+      }
+      |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+      |> Map.new()
+
+    Map.merge(base, item.metadata || %{})
+    |> Jason.encode!(pretty: true)
+  end
+
+  defp md_to_html(nil), do: nil
+
+  defp md_to_html(markdown) do
+    case Earmark.as_html(markdown) do
+      {:ok, html, _} -> html
+      _ -> nil
+    end
+  end
+
+  defp format_duration(nil), do: "-"
+
+  defp format_duration(ms) when ms < 1000, do: "#{ms}ms"
+
+  defp format_duration(ms) do
+    seconds = div(ms, 1000)
+    remaining_ms = rem(ms, 1000)
+
+    if seconds < 60 do
+      "#{seconds}.#{div(remaining_ms, 100)}s"
+    else
+      minutes = div(seconds, 60)
+      remaining_seconds = rem(seconds, 60)
+      "#{minutes}m #{remaining_seconds}s"
+    end
+  end
+
   defp is_processing?(item), do: item.status in ["bootstrapping", "processing"]
 
   defp tabs_for(item) do
-    case item.content_type do
-      type when type in ["video", "podcast"] ->
-        ["summary", "transcript", "metadata", "chat", "actions"]
+    base =
+      case item.content_type do
+        type when type in ["video", "podcast"] ->
+          ["summary", "transcript"]
 
-      _ ->
-        ["summary", "metadata", "chat", "actions"]
-    end
+        _ ->
+          ["summary"]
+      end
+
+    base ++ ["pipeline", "metadata", "chat", "actions"]
   end
 
   defp tab_label("summary"), do: "Summary"
   defp tab_label("transcript"), do: "Transcript"
+  defp tab_label("pipeline"), do: "Pipeline"
   defp tab_label("metadata"), do: "Metadata"
   defp tab_label("chat"), do: "Chat"
   defp tab_label("actions"), do: "Actions"

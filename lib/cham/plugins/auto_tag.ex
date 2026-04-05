@@ -44,6 +44,16 @@ defmodule Cham.Plugins.AutoTag do
         description: "LLM API key (optional)",
         required: false,
         options: nil
+      },
+      %{
+        key: :prompt,
+        type: :string,
+        default:
+          "Analyze the following text and generate relevant tags for categorization. Return ONLY a JSON array of lowercase, hyphenated tags. No explanation, no markdown. Example: [\"machine-learning\", \"elixir\", \"web-development\"]\n\n---\n\n{{text}}",
+        description:
+          "Prompt template. Use {{text}} as placeholder. Must return a JSON array of strings.",
+        required: false,
+        options: nil
       }
     ]
   end
@@ -123,15 +133,14 @@ defmodule Cham.Plugins.AutoTag.TagStage do
         # Truncate to ~32k chars
         truncated = String.slice(text, 0, 32_000)
 
-        prompt = """
-        Analyze the following text and generate relevant tags for categorization. \
-        Return ONLY a JSON array of lowercase, hyphenated tags. No explanation, no markdown. \
-        Example: ["machine-learning", "elixir", "web-development"]
+        prompt_template =
+          Map.get(
+            config,
+            :prompt,
+            "Analyze the following text and generate relevant tags for categorization. Return ONLY a JSON array of lowercase, hyphenated tags. No explanation, no markdown. Example: [\"machine-learning\", \"elixir\", \"web-development\"]\n\n---\n\n{{text}}"
+          )
 
-        ---
-
-        #{truncated}
-        """
+        prompt = String.replace(prompt_template, "{{text}}", truncated)
 
         llm_opts = [model: model, url: config[:url], api_key: config[:api_key]]
 

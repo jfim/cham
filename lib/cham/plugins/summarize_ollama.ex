@@ -44,6 +44,15 @@ defmodule Cham.Plugins.SummarizeOllama do
         description: "LLM API key (optional)",
         required: false,
         options: nil
+      },
+      %{
+        key: :prompt,
+        type: :string,
+        default:
+          "Summarize the following text concisely. Focus on the key points and main ideas. Write the summary in Markdown format.\n\n---\n\n{{text}}",
+        description: "Prompt template. Use {{text}} as placeholder for the input text.",
+        required: false,
+        options: nil
       }
     ]
   end
@@ -123,14 +132,14 @@ defmodule Cham.Plugins.SummarizeOllama.SummarizeStage do
         max_chars = max_input_tokens * 4
         truncated = String.slice(text, 0, max_chars)
 
-        prompt = """
-        Summarize the following text concisely. Focus on the key points and main ideas. \
-        Write the summary in Markdown format.
+        prompt_template =
+          Map.get(
+            config,
+            :prompt,
+            "Summarize the following text concisely. Focus on the key points and main ideas. Write the summary in Markdown format.\n\n---\n\n{{text}}"
+          )
 
-        ---
-
-        #{truncated}
-        """
+        prompt = String.replace(prompt_template, "{{text}}", truncated)
 
         llm_opts = [model: model, url: config[:url], api_key: config[:api_key]]
 

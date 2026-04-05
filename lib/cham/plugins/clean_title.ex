@@ -36,6 +36,15 @@ defmodule Cham.Plugins.CleanTitle do
         description: "LLM API key (optional)",
         required: false,
         options: nil
+      },
+      %{
+        key: :prompt,
+        type: :string,
+        default:
+          "Clean up the following page title by removing site names, separators, and other cruft. Return ONLY the cleaned title, nothing else. No quotes, no explanation.\n\nExamples:\n- \"My Recipe - Soandso's Blog\" -> \"My Recipe\"\n- \"How to Cook Pasta | AllRecipes.com\" -> \"How to Cook Pasta\"\n\nTitle: {{title}}",
+        description: "Prompt template. Use {{title}} as placeholder for the title to clean.",
+        required: false,
+        options: nil
       }
     ]
   end
@@ -85,19 +94,14 @@ defmodule Cham.Plugins.CleanTitle.CleanStage do
     if is_nil(title) or title == "" do
       {:ok, %{artifacts: [], item_metadata: %{}, provenance: %{}}}
     else
-      prompt = """
-      Clean up the following page title by removing site names, separators, \
-      and other cruft. Return ONLY the cleaned title, nothing else. No quotes, \
-      no explanation.
+      prompt_template =
+        Map.get(
+          config,
+          :prompt,
+          "Clean up the following page title by removing site names, separators, and other cruft. Return ONLY the cleaned title, nothing else. No quotes, no explanation.\n\nExamples:\n- \"My Recipe - Soandso's Blog\" -> \"My Recipe\"\n- \"How to Cook Pasta | AllRecipes.com\" -> \"How to Cook Pasta\"\n\nTitle: {{title}}"
+        )
 
-      Examples:
-      - "My Recipe - Soandso's Blog" -> "My Recipe"
-      - "How to Cook Pasta | AllRecipes.com" -> "How to Cook Pasta"
-      - "Introduction to Elixir -- The Elixir Blog" -> "Introduction to Elixir"
-      - "Great Article" -> "Great Article"
-
-      Title: #{title}
-      """
+      prompt = String.replace(prompt_template, "{{title}}", title)
 
       llm_opts = [model: model, url: config[:url], api_key: config[:api_key]]
 

@@ -34,11 +34,21 @@ defmodule Cham.Application do
 
     case Supervisor.start_link(children, opts) do
       {:ok, pid} ->
+        migrate()
         register_core_plugins()
+        register_desired_artifacts_config()
+        register_enabled_plugins_config()
         {:ok, pid}
 
       error ->
         error
+    end
+  end
+
+  defp migrate do
+    unless Application.get_env(:cham, :skip_migrations, false) do
+      path = Application.app_dir(:cham, "priv/repo/migrations")
+      Ecto.Migrator.run(Cham.Repo, path, :up, all: true)
     end
   end
 
@@ -47,6 +57,7 @@ defmodule Cham.Application do
       Cham.Plugins.GenericDownloadUrl,
       Cham.Plugins.ContentTypeRouter,
       Cham.Plugins.ExtractArticle,
+      Cham.Plugins.ExtractPdf,
       Cham.Plugins.TranscribeWhisper,
       Cham.Plugins.SummarizeOllama,
       Cham.Plugins.AutoTag,
@@ -56,10 +67,68 @@ defmodule Cham.Application do
     for mod <- core_plugins do
       case Cham.Plugin.Registry.register_plugin(mod, %{}) do
         :ok ->
-          :ok
+          register_plugin_config(mod)
 
         {:error, reason} ->
           Logger.warning("Failed to register plugin #{mod.plugin_id()}: #{inspect(reason)}")
+      end
+    end
+  end
+
+  defp register_desired_artifacts_config do
+    defaults = Cham.Pipeline.DesiredStages.defaults()
+
+    schema =
+      Enum.map(defaults, fn {content_type, labels} ->
+        types = Enum.map_join(labels, ", ", fn m -> m["type"] end)
+
+        %{
+          key: String.to_atom(content_type),
+          type: :string,
+          default: types,
+          description:
+            "Comma-separated desired artifact types for #{content_type} items (e.g. content, summary, tags, transcript, clean_title)",
+          required: false,
+          options: nil
+        }
+      end)
+
+    Cham.Config.Manager.register("desired_artifacts", schema)
+  end
+
+  defp register_enabled_plugins_config do
+    plugins = Cham.Plugin.Registry.list_plugins()
+
+    schema =
+      Enum.map(plugins, fn entry ->
+        %{
+          key: String.to_atom(entry.plugin_id),
+          type: :boolean,
+          default: true,
+          description: entry.description,
+          required: false,
+          options: nil
+        }
+      end)
+
+    Cham.Config.Manager.register("enabled_plugins", schema)
+  end
+
+  defp register_plugin_config(mod) do
+    schema = mod.config_schema()
+
+    if schema != [] do
+      namespace = "plugins.#{mod.plugin_id()}"
+
+      case Cham.Config.Manager.register(namespace, schema) do
+        :ok ->
+          :ok
+
+        {:error, :already_registered} ->
+          :ok
+
+        {:error, reason} ->
+          Logger.warning("Failed to register config for #{mod.plugin_id()}: #{inspect(reason)}")
       end
     end
   end

@@ -1,0 +1,43 @@
+_build/
+deps/
+cover/
+doc/
+tmp/
+.git/
+.gitignore
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Worktrees
+.claude/
+.worktrees/
+
+# Test artifacts
+erl_crash.dump
+*.ez
+
+# Generated static assets (rebuilt in Docker)
+priv/static/assets/
+priv/static/cache_manifest.json
+
+# Python venvs
+cli/.venv/
+__pycache__/
+*.egg-info/
+
+# Runtime data
+archive/
+
+# Docker
+Dockerfile
+docker-compose.yml
+
+# Design docs (not needed at runtime)
+design-docs/
+docs/

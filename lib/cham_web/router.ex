@@ -25,8 +25,11 @@ defmodule ChamWeb.Router do
   scope "/api/v1", ChamWeb do
     pipe_through :api
 
-    resources "/items", ItemController, only: [:create, :index, :show]
+    resources "/items", ItemController, only: [:create, :index, :show, :delete]
     post "/items/:id/reprocess", ItemController, :reprocess
+    post "/items/:id/cancel", ItemController, :cancel
+    post "/items/:id/retry", ItemController, :retry
+    get "/items/:id/events", EventController, :stream
   end
 
   scope "/api/v1", ChamWeb do

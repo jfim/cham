@@ -110,4 +110,102 @@ defmodule ChamWeb.ItemControllerTest do
       refute Map.has_key?(response, "archive_path")
     end
   end
+
+  describe "DELETE /api/v1/items/:id" do
+    test "deletes an item and returns 204", %{conn: conn} do
+      {:ok, item} = Items.create_item(%{url: "https://example.com/delete-1"})
+
+      conn = delete(conn, "/api/v1/items/#{item.id}")
+      assert response(conn, 204)
+      assert Items.get_item(item.id) == nil
+    end
+
+    test "deletes with keep_files=true", %{conn: conn} do
+      {:ok, item} = Items.create_item(%{url: "https://example.com/delete-2"})
+
+      conn = delete(conn, "/api/v1/items/#{item.id}?keep_files=true")
+      assert response(conn, 204)
+      assert Items.get_item(item.id) == nil
+    end
+
+    test "returns 404 for non-existent item", %{conn: conn} do
+      conn = delete(conn, "/api/v1/items/#{Ecto.UUID.generate()}")
+      assert %{"error" => "not found"} = json_response(conn, 404)
+    end
+  end
+
+  describe "POST /api/v1/items/:id/cancel" do
+    test "cancels a processing item", %{conn: conn} do
+      {:ok, item} =
+        Items.create_item(%{url: "https://example.com/cancel-1", status: "processing"})
+
+      conn = post(conn, "/api/v1/items/#{item.id}/cancel")
+      assert %{"status" => "cancelled"} = json_response(conn, 200)
+    end
+
+    test "returns 409 for already terminal item", %{conn: conn} do
+      {:ok, item} = Items.create_item(%{url: "https://example.com/cancel-2", status: "complete"})
+
+      conn = post(conn, "/api/v1/items/#{item.id}/cancel")
+      assert %{"error" => _} = json_response(conn, 409)
+    end
+
+    test "returns 404 for non-existent item", %{conn: conn} do
+      conn = post(conn, "/api/v1/items/#{Ecto.UUID.generate()}/cancel")
+      assert %{"error" => "not found"} = json_response(conn, 404)
+    end
+  end
+
+  describe "POST /api/v1/items/:id/retry" do
+    test "retries a failed item", %{conn: conn} do
+      {:ok, item} = Items.create_item(%{url: "https://example.com/retry-1", status: "failed"})
+
+      conn = post(conn, "/api/v1/items/#{item.id}/retry")
+      body = json_response(conn, 202)
+      assert body["status"] in ["processing", "bootstrapping"]
+    end
+
+    test "returns 404 for non-existent item", %{conn: conn} do
+      conn = post(conn, "/api/v1/items/#{Ecto.UUID.generate()}/retry")
+      assert %{"error" => "not found"} = json_response(conn, 404)
+    end
+  end
+
+  describe "GET /api/v1/items/:id (enriched)" do
+    test "includes stage_executions and artifacts in response", %{conn: conn} do
+      {:ok, item} = Items.create_item(%{url: "https://example.com/enriched-1"})
+
+      Items.create_artifact(%{
+        item_id: item.id,
+        stage: "input",
+        labels: %{"domain" => "example.com"},
+        filenames: [],
+        path: "processing/input-123",
+        status: "produced"
+      })
+
+      now = DateTime.truncate(DateTime.utc_now(), :second)
+
+      Cham.Repo.insert!(%Cham.JobTracking.StageExecution{
+        item_id: item.id,
+        stage: "input",
+        status: "completed",
+        attempt: 1,
+        started_at: now,
+        ended_at: now,
+        duration_ms: 100
+      })
+
+      conn = get(conn, "/api/v1/items/#{item.id}")
+      body = json_response(conn, 200)
+
+      assert is_list(body["stage_executions"])
+      assert length(body["stage_executions"]) == 1
+      assert hd(body["stage_executions"])["stage"] == "input"
+
+      assert is_list(body["artifacts"])
+      assert length(body["artifacts"]) == 1
+      assert hd(body["artifacts"])["stage"] == "input"
+    end
+  end
 end

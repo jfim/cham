@@ -57,9 +57,100 @@ defmodule ChamWeb.ItemController do
   def show(conn, %{"id" => id}) do
     case Items.get_item_by_slug_or_id(id) do
       {:ok, item} ->
+        artifacts = Items.list_artifacts(item.id)
+        stage_executions = Items.list_stage_executions(item.id)
+
         conn
         |> put_view(ChamWeb.ItemJSON)
-        |> render("show.json", item: item)
+        |> render("show_detail.json",
+          item: item,
+          artifacts: artifacts,
+          stage_executions: stage_executions
+        )
+
+      {:error, :not_found} ->
+        conn
+        |> put_status(:not_found)
+        |> put_view(ChamWeb.ItemJSON)
+        |> render("error.json", error: "not found")
+    end
+  end
+
+  def delete(conn, %{"id" => id} = params) do
+    keep_files = params["keep_files"] == "true"
+
+    case Items.get_item_by_slug_or_id(id) do
+      {:ok, item} ->
+        if item.status in ~w(bootstrapping processing) do
+          Pipeline.cancel(item.id)
+        end
+
+        item = Items.get_item!(item.id)
+
+        case Items.delete_item_with_files(item, keep_files: keep_files) do
+          :ok ->
+            send_resp(conn, :no_content, "")
+
+          {:error, _} ->
+            conn
+            |> put_status(:internal_server_error)
+            |> put_view(ChamWeb.ItemJSON)
+            |> render("error.json", error: "failed to delete item")
+        end
+
+      {:error, :not_found} ->
+        conn
+        |> put_status(:not_found)
+        |> put_view(ChamWeb.ItemJSON)
+        |> render("error.json", error: "not found")
+    end
+  end
+
+  def cancel(conn, %{"id" => id}) do
+    case Items.get_item_by_slug_or_id(id) do
+      {:ok, item} ->
+        case Pipeline.cancel(item.id) do
+          {:ok, updated} ->
+            conn
+            |> put_view(ChamWeb.ItemJSON)
+            |> render("show.json", item: updated)
+
+          {:error, :already_terminal} ->
+            conn
+            |> put_status(:conflict)
+            |> put_view(ChamWeb.ItemJSON)
+            |> render("error.json", error: "item is already in a terminal status")
+        end
+
+      {:error, :not_found} ->
+        conn
+        |> put_status(:not_found)
+        |> put_view(ChamWeb.ItemJSON)
+        |> render("error.json", error: "not found")
+    end
+  end
+
+  def retry(conn, %{"id" => id} = params) do
+    from_stage = params["from_stage"]
+
+    case Items.get_item_by_slug_or_id(id) do
+      {:ok, item} ->
+        opts = [retry_failed: true]
+        opts = if from_stage, do: Keyword.put(opts, :invalidate, [from_stage]), else: opts
+
+        case Pipeline.reprocess(item.id, opts) do
+          {:ok, updated} ->
+            conn
+            |> put_status(:accepted)
+            |> put_view(ChamWeb.ItemJSON)
+            |> render("show.json", item: updated)
+
+          {:error, _} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> put_view(ChamWeb.ItemJSON)
+            |> render("error.json", error: "failed to retry item")
+        end
 
       {:error, :not_found} ->
         conn

@@ -51,3 +51,6 @@ __pycache__/
 
 # Runtime data
 /archive/
+
+# Environment secrets
+.env

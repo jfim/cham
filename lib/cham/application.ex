@@ -9,6 +9,8 @@ defmodule Cham.Application do
 
   @impl true
   def start(_type, _args) do
+    migrate()
+
     children =
       [
         ChamWeb.Telemetry,
@@ -34,8 +36,8 @@ defmodule Cham.Application do
 
     case Supervisor.start_link(children, opts) do
       {:ok, pid} ->
-        migrate()
         register_core_plugins()
+        register_pipeline_config()
         register_desired_artifacts_config()
         register_enabled_plugins_config()
         {:ok, pid}
@@ -47,8 +49,20 @@ defmodule Cham.Application do
 
   defp migrate do
     unless Application.get_env(:cham, :skip_migrations, false) do
-      path = Application.app_dir(:cham, "priv/repo/migrations")
-      Ecto.Migrator.run(Cham.Repo, path, :up, all: true)
+      ensure_database_created()
+
+      {:ok, _, _} =
+        Ecto.Migrator.with_repo(Cham.Repo, fn repo ->
+          Ecto.Migrator.run(repo, :up, all: true)
+        end)
+    end
+  end
+
+  defp ensure_database_created do
+    case Cham.Repo.__adapter__().storage_up(Cham.Repo.config()) do
+      :ok -> Logger.info("Database created")
+      {:error, :already_up} -> :ok
+      {:error, reason} -> Logger.warning("Could not create database: #{inspect(reason)}")
     end
   end
 
@@ -73,6 +87,22 @@ defmodule Cham.Application do
           Logger.warning("Failed to register plugin #{mod.plugin_id()}: #{inspect(reason)}")
       end
     end
+  end
+
+  defp register_pipeline_config do
+    schema = [
+      %{
+        key: :fallback_bootstrap_stage,
+        type: :string,
+        default: "generic_download_url",
+        description:
+          "Plugin ID of the bootstrap stage to use when no specialized downloader matches the URL",
+        required: false,
+        options: nil
+      }
+    ]
+
+    Cham.Config.Manager.register("pipeline", schema)
   end
 
   defp register_desired_artifacts_config do

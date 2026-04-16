@@ -67,6 +67,9 @@ defmodule Cham.Plugins.GenericDownloadUrl.DownloadStage do
   def max_attempts, do: 3
 
   @impl true
+  def can_process?(_current_artifacts), do: :not_applicable
+
+  @impl true
   def perform(inputs, working_dir, desired, item_id) do
     config = load_config()
     perform(inputs, working_dir, desired, item_id, config)

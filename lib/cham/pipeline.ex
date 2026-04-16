@@ -43,7 +43,9 @@ defmodule Cham.Pipeline do
         if retry_failed, do: clear_failed_executions(item_id)
         Enum.each(invalidate, &invalidate_stage(item_id, &1))
 
-        case Items.update_item(item, %{status: "processing"}) do
+        reprocess_status = if item.archive_path, do: "processing", else: "bootstrapping"
+
+        case Items.update_item(item, %{status: reprocess_status}) do
           {:ok, updated} ->
             Cham.EventBus.publish("item:reprocessed", %{item: updated})
             Cham.Pipeline.Orchestrator.kick_off(updated.id)

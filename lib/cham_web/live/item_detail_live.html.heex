@@ -218,9 +218,68 @@
           <p>Chat coming soon</p>
         </div>
 
-        <div :if={@active_tab == "actions"} class="text-center py-8 text-gray-400">
-          <.icon name="hero-cog-6-tooth" class="h-8 w-8 mx-auto mb-2" />
-          <p>Actions coming soon</p>
+        <div :if={@active_tab == "actions"} class="space-y-6">
+          <%!-- Retry Failed --%>
+          <div :if={has_failed_stages?(@stage_history)} class="flex items-start gap-4 p-4 bg-red-50 rounded-lg border border-red-200">
+            <div class="flex-1">
+              <h3 class="text-sm font-semibold text-red-800">Retry Failed Stages</h3>
+              <p class="text-xs text-red-600 mt-1">
+                Clear failed stage executions and retry them.
+              </p>
+            </div>
+            <button
+              phx-click="retry_failed"
+              class="shrink-0 inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500"
+            >
+              <.icon name="hero-arrow-path-mini" class="h-4 w-4" /> Retry Failed
+            </button>
+          </div>
+
+          <%!-- Per-stage Rerun --%>
+          <div :if={@stage_history != []}>
+            <h3 class="text-sm font-semibold text-gray-700 mb-3">Rerun Individual Stages</h3>
+            <p class="text-xs text-gray-500 mb-3">
+              Invalidate a stage and its downstream dependencies, then reprocess.
+            </p>
+            <div class="space-y-2">
+              <div
+                :for={stage_id <- unique_stages(@stage_history)}
+                class="flex items-center justify-between py-2 px-3 rounded-md bg-gray-50 border border-gray-200"
+              >
+                <span class="text-sm font-medium text-gray-700">{stage_id}</span>
+                <button
+                  phx-click="invalidate_stage"
+                  phx-value-stage={stage_id}
+                  class="inline-flex items-center gap-1 rounded-md bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-50"
+                >
+                  <.icon name="hero-arrow-path-mini" class="h-3.5 w-3.5" /> Rerun
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Reprocess All --%>
+          <div :if={@stage_history != []} class="flex items-start gap-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+            <div class="flex-1">
+              <h3 class="text-sm font-semibold text-amber-800">Reprocess Everything</h3>
+              <p class="text-xs text-amber-600 mt-1">
+                Invalidate all stages and reprocess from scratch.
+              </p>
+            </div>
+            <button
+              phx-click="reprocess_all"
+              data-confirm="This will invalidate all stages and reprocess the item from scratch. Continue?"
+              class="shrink-0 inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-500"
+            >
+              <.icon name="hero-arrow-path-mini" class="h-4 w-4" /> Reprocess All
+            </button>
+          </div>
+
+          <%!-- Empty state --%>
+          <div :if={@stage_history == []} class="text-center py-8 text-gray-400">
+            <.icon name="hero-cog-6-tooth" class="h-8 w-8 mx-auto mb-2" />
+            <p>No pipeline stages to manage yet.</p>
+          </div>
         </div>
       </div>
     </div>

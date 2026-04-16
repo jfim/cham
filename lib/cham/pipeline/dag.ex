@@ -2,17 +2,16 @@ defmodule Cham.Pipeline.DAG do
   alias Cham.Pipeline.LabelMatcher
 
   @doc """
-  Find stages whose input matchers are satisfied by the available artifacts.
+  Find stages whose input matchers are satisfied by the available artifacts
+  and whose `can_process?/1` callback does not return `:not_applicable`.
   A stage is ready when at least one artifact matches each of its input matchers.
   """
   def find_ready_stages(stages, available_artifacts) do
+    artifact_labels = Enum.map(available_artifacts, & &1.labels)
+
     Enum.filter(stages, fn stage ->
-      stage.input_matchers != [] and
-        Enum.any?(stage.input_matchers, fn matcher ->
-          Enum.any?(available_artifacts, fn artifact ->
-            LabelMatcher.matches?(artifact.labels, matcher)
-          end)
-        end)
+      inputs_satisfied?(stage, available_artifacts) and
+        can_process?(stage, artifact_labels)
     end)
   end
 
@@ -40,14 +39,26 @@ defmodule Cham.Pipeline.DAG do
   Unreachable original-producing stages (e.g. extract_article for a video) don't block.
   """
   def all_originals_complete?(stages, available_artifacts, completed_stage_ids) do
+    artifact_labels = Enum.map(available_artifacts, & &1.labels)
+
     stages
     |> Enum.filter(&produces_originals?/1)
     |> Enum.filter(fn stage ->
       # Stage is relevant if it already completed OR its inputs are currently satisfied
+      # and can_process? doesn't reject it
       MapSet.member?(completed_stage_ids, stage.plugin_id) or
-        inputs_satisfied?(stage, available_artifacts)
+        (inputs_satisfied?(stage, available_artifacts) and
+           can_process?(stage, artifact_labels))
     end)
     |> Enum.all?(fn stage -> MapSet.member?(completed_stage_ids, stage.plugin_id) end)
+  end
+
+  defp can_process?(stage, artifact_labels) do
+    if function_exported?(stage.module, :can_process?, 1) do
+      stage.module.can_process?(artifact_labels) != :not_applicable
+    else
+      true
+    end
   end
 
   defp inputs_satisfied?(stage, available_artifacts) do

@@ -36,6 +36,43 @@ defmodule ChamWeb.ItemDetailLive do
     {:noreply, assign(socket, :active_tab, new_tab)}
   end
 
+  def handle_event("retry_failed", _params, socket) do
+    item = socket.assigns.item
+
+    case Cham.Pipeline.reprocess(item.id, retry_failed: true) do
+      {:ok, _} ->
+        {:noreply, put_flash(socket, :info, "Retrying failed stages...")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to retry")}
+    end
+  end
+
+  def handle_event("invalidate_stage", %{"stage" => stage_id}, socket) do
+    item = socket.assigns.item
+
+    case Cham.Pipeline.reprocess(item.id, invalidate: [stage_id]) do
+      {:ok, _} ->
+        {:noreply, put_flash(socket, :info, "Rerunning #{stage_id}...")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to reprocess stage")}
+    end
+  end
+
+  def handle_event("reprocess_all", _params, socket) do
+    item = socket.assigns.item
+    stage_ids = socket.assigns.stage_history |> Enum.map(& &1.stage) |> Enum.uniq()
+
+    case Cham.Pipeline.reprocess(item.id, invalidate: stage_ids) do
+      {:ok, _} ->
+        {:noreply, put_flash(socket, :info, "Reprocessing all stages...")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to reprocess")}
+    end
+  end
+
   @impl true
   def handle_info(event, socket) do
     item_id = socket.assigns.item.id
@@ -198,6 +235,16 @@ defmodule ChamWeb.ItemDetailLive do
   end
 
   defp is_processing?(item), do: item.status in ["bootstrapping", "processing"]
+
+  defp has_failed_stages?(stage_history) do
+    Enum.any?(stage_history, &(&1.status == "failed"))
+  end
+
+  defp unique_stages(stage_history) do
+    stage_history
+    |> Enum.map(& &1.stage)
+    |> Enum.uniq()
+  end
 
   defp tabs_for(item) do
     base =

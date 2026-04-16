@@ -111,9 +111,13 @@ defmodule Cham.Pipeline.Orchestrator do
       excluded_ids = build_exclusion_set(item_id, artifacts)
       stages = Registry.get_stages(state.registry)
 
+      dag_ready = DAG.find_next_stages(stages, artifacts, excluded_ids)
+
       ready =
-        DAG.find_next_stages(stages, artifacts, excluded_ids)
+        dag_ready
+        |> filter_by_phase(item.status)
         |> DesiredStages.filter_stages(item.content_type, stages)
+        |> maybe_add_fallback(item, stages, excluded_ids)
 
       Enum.each(ready, fn stage ->
         changeset =
@@ -138,6 +142,54 @@ defmodule Cham.Pipeline.Orchestrator do
         end
       end)
     end
+  end
+
+  defp filter_by_phase(stages, "bootstrapping") do
+    Enum.filter(stages, fn stage ->
+      Enum.any?(stage.output_labels, &(Map.get(&1, "origin") == "original"))
+    end)
+  end
+
+  defp filter_by_phase(stages, _status), do: stages
+
+  defp maybe_add_fallback(ready_stages, item, all_stages, excluded_ids) do
+    if item.status != "bootstrapping" do
+      ready_stages
+    else
+      # Check if any bootstrap stage (producing initial_download) is either
+      # ready to run or already active/completed/failed (in the exclusion set)
+      fallback_id = get_fallback_stage_id()
+
+      bootstrap_stages =
+        Enum.filter(all_stages, fn stage ->
+          stage.plugin_id != fallback_id and
+            Enum.any?(stage.output_labels, &(Map.get(&1, "type") == "initial_download"))
+        end)
+
+      has_bootstrap_stage =
+        Enum.any?(bootstrap_stages, fn stage ->
+          Enum.any?(ready_stages, &(&1.plugin_id == stage.plugin_id)) or
+            MapSet.member?(excluded_ids, stage.plugin_id)
+        end)
+
+      if has_bootstrap_stage do
+        ready_stages
+      else
+        if fallback_id && not MapSet.member?(excluded_ids, fallback_id) do
+          case Enum.find(all_stages, &(&1.plugin_id == fallback_id)) do
+            nil -> ready_stages
+            fallback -> ready_stages ++ [fallback]
+          end
+        else
+          ready_stages
+        end
+      end
+    end
+  end
+
+  defp get_fallback_stage_id do
+    config = Cham.Plugin.Config.read("pipeline")
+    Map.get(config, :fallback_bootstrap_stage, "generic_download_url")
   end
 
   defp build_exclusion_set(item_id, artifacts) do

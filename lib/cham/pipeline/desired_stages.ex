@@ -11,7 +11,6 @@ defmodule Cham.Pipeline.DesiredStages do
   alias Cham.Pipeline.LabelMatcher
 
   @core_stages MapSet.new([
-                 "generic_download_url",
                  "content_type_router"
                ])
 

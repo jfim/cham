@@ -8,6 +8,7 @@ Adds delete, retry, cancel, follow, and open commands to the CLI, an interactive
 
 Deletes an item and its associated archive files from disk by default. All associated DB records are cascade-deleted: artifacts, stage_executions, item_messages, then the item itself.
 
+- **Works on any item status**, including items that are currently processing. If the item is in-progress (bootstrapping/processing), it is auto-cancelled first (Oban jobs cancelled, status set to cancelled) before deletion proceeds.
 - **Default behavior**: deletes files from disk (archive_path or bootstrap_path) before removing DB records
 - **Query param** `?keep_files=true`: preserves the archive directory on disk, only removes DB records
 - **Returns**: 204 No Content on success
@@ -15,6 +16,7 @@ Deletes an item and its associated archive files from disk by default. All assoc
 
 Server-side implementation:
 - `Cham.Items.delete_item_with_files/2` handles file removal + cascading DB deletes
+- If item is in-progress, calls `Cham.Pipeline.cancel/1` first to stop Oban jobs
 - Deletes the directory at `item.archive_path` or `item.bootstrap_path` using `File.rm_rf/1`
 - DB deletes in a transaction: artifacts, stage_executions, item_messages, then the item
 
@@ -28,6 +30,8 @@ Cancels an in-progress item. Sets status to `"cancelled"` and actively cancels a
 Server-side implementation:
 - `Cham.Pipeline.cancel/1` sets item status to `"cancelled"`, then queries `oban_jobs` for all jobs with matching `item_id` in active states (available, executing, scheduled, retryable) and calls `Oban.cancel_job/1` on each
 - Add `"cancelled"` to `@terminal_statuses` in `Cham.Pipeline.Orchestrator`
+- **Currently executing jobs**: `Oban.cancel_job/1` marks executing jobs as cancelled in the DB, but the running Erlang process continues until it finishes. `StageWorker` checks item status before writing artifacts, so results from cancelled items are discarded. Jobs are bounded by ScriptRunner's existing timeout.
+- **Future improvement**: for long-running external processes (e.g. GPU transcription), add OS process killing via ScriptRunner PID tracking. Not in scope for this iteration but worth adding if GPU queue contention becomes an issue.
 
 ### `POST /api/v1/items/:id/retry`
 

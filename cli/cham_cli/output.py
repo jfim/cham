@@ -14,6 +14,8 @@ STATUS_COLORS = {
     "complete": "green",
     "incomplete": "dark_orange",
     "failed": "red",
+    "cancelled": "magenta",
+    "snoozed": "cyan",
 }
 
 
@@ -95,3 +97,76 @@ def format_item_detail(item: dict, use_json: bool = False) -> None:
 def _colored_status(status: str) -> str:
     color = STATUS_COLORS.get(status, "white")
     return f"[{color}]{status}[/{color}]"
+
+
+def format_follow_event_json(event_type: str, data: dict) -> None:
+    """Print a single event as NDJSON line."""
+    import json
+    print(json.dumps({"event": event_type, **data}, default=str))
+
+
+def run_follow_display(client, id_or_slug: str, use_json: bool = False) -> None:
+    """
+    Connect to SSE stream and display live progress.
+    In TTY mode, uses Rich Live display. In non-TTY/json mode, prints NDJSON.
+    """
+    if use_json or not is_tty():
+        for event_type, data in client.stream_events(id_or_slug):
+            format_follow_event_json(event_type, data)
+            if event_type == "item_status_changed":
+                break
+        return
+
+    from rich.live import Live
+    from rich.table import Table
+
+    console = Console()
+    stages: dict[str, dict] = {}
+    final_status = None
+
+    def build_table() -> Table:
+        table = Table(title="Pipeline Progress", show_header=True, header_style="bold")
+        table.add_column("Stage", style="cyan")
+        table.add_column("Status")
+        table.add_column("Duration")
+
+        for stage_id, info in stages.items():
+            status = info.get("status", "unknown")
+            color = STATUS_COLORS.get(status, "white")
+            duration = info.get("duration", "—")
+            table.add_row(stage_id, f"[{color}]{status}[/{color}]", str(duration))
+
+        return table
+
+    try:
+        with Live(build_table(), console=console, refresh_per_second=4) as live:
+            for event_type, data in client.stream_events(id_or_slug):
+                stage_id = data.get("stage_id")
+
+                if event_type == "stage_started":
+                    stages[stage_id] = {"status": "processing", "duration": "..."}
+                elif event_type == "stage_completed":
+                    duration_ms = data.get("duration_ms", 0)
+                    stages[stage_id] = {
+                        "status": "complete",
+                        "duration": f"{duration_ms / 1000:.1f}s",
+                    }
+                elif event_type == "stage_failed":
+                    error = data.get("error", "unknown")
+                    stages[stage_id] = {"status": "failed", "duration": error}
+                elif event_type == "stage_snoozed":
+                    reason = data.get("reason", "")
+                    stages[stage_id] = {"status": "snoozed", "duration": reason}
+                elif event_type == "item_status_changed":
+                    final_status = data.get("status", "unknown")
+                    live.update(build_table())
+                    break
+
+                live.update(build_table())
+    except KeyboardInterrupt:
+        console.print("\n[dim]Detached. Processing continues on the server.[/dim]")
+        return
+
+    if final_status:
+        color = STATUS_COLORS.get(final_status, "white")
+        console.print(f"\nPipeline [{color}]{final_status}[/{color}]")

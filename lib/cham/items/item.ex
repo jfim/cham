@@ -23,7 +23,7 @@ defmodule Cham.Items.Item do
     timestamps(type: :utc_datetime)
   end
 
-  @statuses ~w(bootstrapping processing complete incomplete failed)
+  @statuses ~w(bootstrapping processing complete incomplete failed cancelled)
 
   def create_changeset(item, attrs) do
     item

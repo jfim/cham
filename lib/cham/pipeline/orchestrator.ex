@@ -14,7 +14,7 @@ defmodule Cham.Pipeline.Orchestrator do
   alias Cham.Pipeline.{DAG, DesiredStages, StageWorker}
   alias Cham.Plugin.Registry
 
-  @terminal_statuses ~w(complete incomplete failed)
+  @terminal_statuses ~w(complete incomplete failed cancelled)
 
   # ── Public API (fire-and-forget casts) ──
 

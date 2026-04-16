@@ -43,6 +43,36 @@ defmodule Cham.Items do
     Repo.delete(item)
   end
 
+  @doc """
+  Delete an item and optionally its archive files.
+  Files are deleted by default. Pass `keep_files: true` to preserve them.
+  Associated DB records (artifacts, stage_executions, messages) are
+  cascade-deleted by the database foreign key constraints.
+  """
+  def delete_item_with_files(%Item{} = item, opts \\ []) do
+    keep_files = Keyword.get(opts, :keep_files, false)
+
+    unless keep_files do
+      path = item.archive_path || item.bootstrap_path
+
+      if path && File.dir?(path) do
+        File.rm_rf!(path)
+      end
+    end
+
+    case Repo.delete(item) do
+      {:ok, _} -> :ok
+      {:error, changeset} -> {:error, changeset}
+    end
+  end
+
+  def list_stage_executions(item_id) do
+    Cham.JobTracking.StageExecution
+    |> where([s], s.item_id == ^item_id)
+    |> order_by([s], asc: s.started_at)
+    |> Repo.all()
+  end
+
   def list_items(filters \\ []) do
     Item
     |> apply_filters(filters)

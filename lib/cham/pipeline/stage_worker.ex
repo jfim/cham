@@ -17,25 +17,43 @@ defmodule Cham.Pipeline.StageWorker do
     plugin_id = args["plugin_id"]
 
     item = Items.get_item!(item_id)
-    item_dir = resolve_item_dir(item)
 
-    case execute_stage(stage_module, plugin_id, item, item_dir) do
-      {:ok, _stage_dir} ->
-        Cham.Pipeline.Orchestrator.stage_completed(item_id, plugin_id)
-        :ok
+    # Skip execution if item has been cancelled
+    if item.status == "cancelled" do
+      Logger.info("Skipping stage #{plugin_id} for cancelled item #{item_id}")
+      {:cancel, :item_cancelled}
+    else
+      item_dir = resolve_item_dir(item)
 
-      {:error, reason} ->
-        {:error, reason}
+      case execute_stage(stage_module, plugin_id, item, item_dir) do
+        {:ok, _stage_dir} ->
+          # Re-check status before notifying orchestrator
+          refreshed = Items.get_item!(item_id)
 
-      {:snooze, duration_ms, reason} ->
-        Cham.EventBus.publish("pipeline:stage_snoozed", %StageSnoozed{
-          stage_id: plugin_id,
-          item_id: item_id,
-          duration_ms: duration_ms,
-          reason: reason
-        })
+          if refreshed.status == "cancelled" do
+            Logger.info(
+              "Item #{item_id} was cancelled during stage #{plugin_id}, discarding results"
+            )
 
-        {:snooze, div(duration_ms, 1000)}
+            {:cancel, :item_cancelled}
+          else
+            Cham.Pipeline.Orchestrator.stage_completed(item_id, plugin_id)
+            :ok
+          end
+
+        {:error, reason} ->
+          {:error, reason}
+
+        {:snooze, duration_ms, reason} ->
+          Cham.EventBus.publish("pipeline:stage_snoozed", %StageSnoozed{
+            stage_id: plugin_id,
+            item_id: item_id,
+            duration_ms: duration_ms,
+            reason: reason
+          })
+
+          {:snooze, div(duration_ms, 1000)}
+      end
     end
   end
 

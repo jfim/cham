@@ -13,6 +13,24 @@ defmodule Cham.PipelineTest do
     %{root: tmp}
   end
 
+  describe "cancel/1" do
+    test "sets item status to cancelled", %{root: root} do
+      {:ok, item} = Pipeline.submit_url("https://example.com/cancel-test", root: root)
+      assert {:ok, updated} = Pipeline.cancel(item.id)
+      assert updated.status == "cancelled"
+    end
+
+    test "returns error for already terminal item", %{root: root} do
+      {:ok, item} = Pipeline.submit_url("https://example.com/cancel-terminal", root: root)
+      {:ok, _} = Cham.Items.update_item(item, %{status: "complete"})
+      assert {:error, :already_terminal} = Pipeline.cancel(item.id)
+    end
+
+    test "returns error for non-existent item" do
+      assert {:error, :not_found} = Pipeline.cancel(Ecto.UUID.generate())
+    end
+  end
+
   describe "submit_url/2" do
     test "creates item in bootstrapping status", %{root: root} do
       assert {:ok, item} = Pipeline.submit_url("https://example.com/article", root: root)

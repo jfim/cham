@@ -57,6 +57,57 @@ defmodule Cham.Pipeline do
     end
   end
 
+  @terminal_statuses ~w(complete incomplete failed cancelled)
+
+  @doc """
+  Cancel an in-progress item. Sets status to "cancelled" and cancels
+  all pending Oban jobs for the item. Currently executing jobs will
+  finish but their results are discarded by StageWorker.
+  """
+  def cancel(item_id) do
+    case Items.get_item(item_id) do
+      nil ->
+        {:error, :not_found}
+
+      %{status: status} when status in @terminal_statuses ->
+        {:error, :already_terminal}
+
+      item ->
+        cancel_oban_jobs(item_id)
+
+        case Items.update_item(item, %{status: "cancelled"}) do
+          {:ok, updated} ->
+            Cham.EventBus.publish("item:status_changed", %{
+              item_id: updated.id,
+              status: "cancelled"
+            })
+
+            {:ok, updated}
+
+          {:error, changeset} ->
+            {:error, changeset}
+        end
+    end
+  end
+
+  defp cancel_oban_jobs(item_id) do
+    import Ecto.Query
+
+    active_states = ~w(available executing scheduled retryable)
+
+    job_ids =
+      Cham.Repo.all(
+        from j in "oban_jobs",
+          where:
+            j.worker == "Cham.Pipeline.StageWorker" and
+              j.state in ^active_states and
+              fragment("?->>'item_id' = ?", j.args, ^item_id),
+          select: j.id
+      )
+
+    Enum.each(job_ids, &Oban.cancel_job(&1))
+  end
+
   defp clear_failed_executions(item_id) do
     import Ecto.Query
 

@@ -71,4 +71,56 @@ defmodule Cham.PipelineTest do
       assert artifact.labels["domain"] == "www.nebula.tv"
     end
   end
+
+  describe "reprocess/2 invalidate (per-item walker)" do
+    # Regression: invalidating a stage used to cascade through the abstract
+    # stage DAG, so a downloader with a match-all input_matcher (e.g.
+    # download_ytdlp's [%{}]) was treated as downstream of every stage. The
+    # walker now traverses the per-item artifact graph using temporal
+    # ordering, so an upstream stage that ran *before* the invalidated one
+    # is correctly excluded.
+    test "does not delete the upstream download artifact when invalidating a late stage", %{root: root} do
+      {:ok, item} = Pipeline.submit_url("https://example.com/late-invalidate", root: root)
+
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      # Simulate an item that has been processed end-to-end:
+      # download (10:00) -> extract (10:01) -> transcribe (10:02) -> summarize (10:03)
+      {:ok, download_art} =
+        Items.create_artifact(%{
+          item_id: item.id,
+          stage: "download_ytdlp",
+          labels: %{"origin" => "original", "type" => "initial_download", "format" => "video"},
+          filenames: ["video.mp4"],
+          path: "processing/download_ytdlp-1",
+          status: "produced",
+          started_at: DateTime.add(now, -3600),
+          ended_at: DateTime.add(now, -3540)
+        })
+
+      {:ok, _summarize_art} =
+        Items.create_artifact(%{
+          item_id: item.id,
+          stage: "summarize_ollama",
+          labels: %{"origin" => "derived", "type" => "summary"},
+          filenames: ["summary.md"],
+          path: "processing/summarize_ollama-1",
+          status: "produced",
+          started_at: DateTime.add(now, -60),
+          ended_at: now
+        })
+
+      {:ok, _} = Items.update_item(item, %{status: "complete", archive_path: root})
+
+      assert {:ok, _} = Pipeline.reprocess(item.id, invalidate: ["summarize_ollama"])
+
+      remaining = Items.list_artifacts(item.id)
+      stages_left = Enum.map(remaining, & &1.stage)
+
+      assert "download_ytdlp" in stages_left,
+             "download_ytdlp artifact (id=#{download_art.id}) should not be deleted when invalidating a later stage"
+
+      refute "summarize_ollama" in stages_left
+    end
+  end
 end

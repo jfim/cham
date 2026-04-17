@@ -119,11 +119,66 @@ defmodule Cham.Pipeline do
   end
 
   defp invalidate_stage(item_id, stage_id) do
+    artifacts = Items.list_artifacts(item_id)
     stages = Cham.Plugin.Registry.get_stages()
-    downstream = Cham.Pipeline.DAG.find_downstream_stages(stages, stage_id)
-    all_ids = [stage_id | Enum.map(downstream, & &1.plugin_id)]
 
-    Enum.each(all_ids, &clear_stage(item_id, &1))
+    to_clear = dependent_stages(artifacts, stages, MapSet.new([stage_id]))
+
+    Enum.each(to_clear, &clear_stage(item_id, &1))
+  end
+
+  # Walks the per-item artifact graph forward from `accumulated` stages,
+  # adding any other stage S where (a) S produced an artifact for this item,
+  # (b) S's input_matchers match the labels of an already-cleared artifact,
+  # and (c) S's artifact was produced after the cleared one (so S could
+  # plausibly have consumed it).
+  #
+  # Per-item rather than abstract DAG — so a fallback downloader with a
+  # match-all matcher that ran before the invalidated stage doesn't get
+  # flagged as a downstream consumer.
+  defp dependent_stages(artifacts, stages, accumulated) do
+    cleared = Enum.filter(artifacts, fn a -> MapSet.member?(accumulated, a.stage) end)
+
+    earliest_cleared_at =
+      cleared
+      |> Enum.map(& &1.started_at)
+      |> Enum.reject(&is_nil/1)
+      |> case do
+        [] -> nil
+        ts -> Enum.min(ts, DateTime)
+      end
+
+    cleared_labels = Enum.map(cleared, & &1.labels)
+
+    new_stages =
+      artifacts
+      |> Enum.reject(fn a -> MapSet.member?(accumulated, a.stage) end)
+      |> Enum.filter(fn a -> ran_after?(a, earliest_cleared_at) end)
+      |> Enum.filter(&consumes_any?(&1, stages, cleared_labels))
+      |> Enum.map(& &1.stage)
+      |> MapSet.new()
+
+    if MapSet.size(new_stages) == 0 do
+      accumulated
+    else
+      dependent_stages(artifacts, stages, MapSet.union(accumulated, new_stages))
+    end
+  end
+
+  defp ran_after?(_a, nil), do: false
+  defp ran_after?(%{started_at: nil}, _t), do: false
+  defp ran_after?(%{started_at: at}, t), do: DateTime.compare(at, t) == :gt
+
+  defp consumes_any?(artifact, stages, labels_to_match) do
+    case Enum.find(stages, &(&1.plugin_id == artifact.stage)) do
+      nil ->
+        false
+
+      stage_def ->
+        Enum.any?(stage_def.input_matchers, fn matcher ->
+          Enum.any?(labels_to_match, &Cham.Pipeline.LabelMatcher.matches?(&1, matcher))
+        end)
+    end
   end
 
   defp clear_stage(item_id, stage_id) do

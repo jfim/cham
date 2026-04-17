@@ -91,16 +91,11 @@ defmodule Cham.Pipeline.DAG do
     # Collect all output labels from the frontier
     output_labels = Enum.flat_map(frontier, & &1.output_labels)
 
-    # Find stages whose inputs could be satisfied by those outputs.
-    # Skip stages that declare an empty match-all matcher (e.g. fallback
-    # downloaders) — they're not true dependents, and treating them as such
-    # would mark the entire pipeline as downstream of any stage.
+    # Find stages whose inputs could be satisfied by those outputs
     direct_dependents =
       Enum.filter(stages, fn candidate ->
-        non_empty = Enum.reject(candidate.input_matchers, &(&1 == %{}))
-
         not MapSet.member?(visited, candidate.plugin_id) and
-          Enum.any?(non_empty, fn matcher ->
+          Enum.any?(candidate.input_matchers, fn matcher ->
             Enum.any?(output_labels, fn labels ->
               LabelMatcher.matches?(labels, matcher)
             end)

@@ -32,7 +32,7 @@ config :phoenix_live_view,
 
 config :cham, Oban,
   repo: Cham.Repo,
-  queues: [general: 5, network: 3, gpu: 1],
+  queues: [general: 5, network: 3, gpu: 1, subscriptions: 2],
   testing: :manual
 
 config :cham, :start_tracker, false

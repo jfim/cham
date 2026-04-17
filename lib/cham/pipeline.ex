@@ -10,12 +10,21 @@ defmodule Cham.Pipeline do
   Options:
   - root: archive root directory (default: ".")
   - tags: list of user-supplied tags
+  - subscription_id: UUID of the subscription this item belongs to (optional)
+  - source_item_id: source-feed identifier for deduplication (optional)
+  - title: pre-fetched title from the feed (optional)
   """
   def submit_url(url, opts \\ []) do
     root = Keyword.get(opts, :root, ".")
     tags = Keyword.get(opts, :tags, [])
 
-    with {:ok, item} <- Items.create_item(%{url: url, tags: tags}),
+    item_attrs =
+      %{url: url, tags: tags}
+      |> maybe_put(:subscription_id, Keyword.get(opts, :subscription_id))
+      |> maybe_put(:source_item_id, Keyword.get(opts, :source_item_id))
+      |> maybe_put(:title, Keyword.get(opts, :title))
+
+    with {:ok, item} <- Items.create_item(item_attrs),
          {:ok, item} <- setup_bootstrap(item, root),
          {:ok, _artifact} <- create_input_artifact(item, url) do
       Cham.EventBus.publish("item:created", %ItemCreated{item_id: item.id, url: item.url})
@@ -23,6 +32,9 @@ defmodule Cham.Pipeline do
       {:ok, item}
     end
   end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   @doc """
   Reprocess an existing item. Resets status to "processing" and kicks off

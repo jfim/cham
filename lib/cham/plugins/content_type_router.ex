@@ -165,23 +165,6 @@ defmodule Cham.Plugins.ContentTypeRouter.RouteStage do
     {%{"origin" => "original", "format" => "video"}, "video"}
   end
 
-  defp relative_path(target, from_dir) do
-    target_parts = Path.expand(target) |> Path.split()
-    from_parts = Path.expand(from_dir) |> Path.split()
-
-    # Find common prefix length
-    common =
-      Enum.zip(target_parts, from_parts)
-      |> Enum.take_while(fn {a, b} -> a == b end)
-      |> length()
-
-    ups = length(from_parts) - common
-    remaining = Enum.drop(target_parts, common)
-
-    (List.duplicate("..", ups) ++ remaining)
-    |> Path.join()
-  end
-
   defp route_labels("audio/" <> _) do
     {%{"origin" => "original", "format" => "audio"}, "audio"}
   end
@@ -199,5 +182,22 @@ defmodule Cham.Plugins.ContentTypeRouter.RouteStage do
 
   defp route_labels(_) do
     {%{"origin" => "original", "format" => "unknown"}, "unknown"}
+  end
+
+  defp relative_path(target, from_dir) do
+    target_parts = Path.expand(target) |> Path.split()
+    from_parts = Path.expand(from_dir) |> Path.split()
+
+    # Find common prefix length
+    common =
+      Enum.zip(target_parts, from_parts)
+      |> Enum.take_while(fn {a, b} -> a == b end)
+      |> length()
+
+    ups = length(from_parts) - common
+    remaining = Enum.drop(target_parts, common)
+
+    (List.duplicate("..", ups) ++ remaining)
+    |> Path.join()
   end
 end

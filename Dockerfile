@@ -78,6 +78,11 @@ COPY scripts scripts
 # Set runtime environment
 ENV PHX_SERVER=true
 
+# Force uv to copy files instead of reflink/hardlink — avoids
+# EOPNOTSUPP (os error 95) on filesystems that don't support clone
+# across the cache/venv boundary (ZFS, bind-mounts, overlay quirks).
+ENV UV_LINK_MODE=copy
+
 EXPOSE 4000
 
 CMD ["bin/cham", "start"]

@@ -10,6 +10,7 @@ services:
       - "${PORT:-4000}:4000"
     volumes:
       - ${ARCHIVE_PATH:-./archive}:/app/archive
+      - ${TMP_PATH:-./tmp}:/app/tmp
       - ${CONFIG_TOML_PATH:-./config/cham.toml}:/app/config/cham.toml
       - uv_cache:/root/.cache/uv
     restart: unless-stopped

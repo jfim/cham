@@ -60,6 +60,38 @@ defmodule ChamWeb.ItemDetailLive do
     end
   end
 
+  def handle_event("subscribe", params, socket) do
+    item = socket.assigns.item
+    attrs = %{}
+
+    attrs =
+      if title = params["title"], do: Map.put(attrs, :title, title), else: attrs
+
+    attrs =
+      if interval = params["poll_interval_seconds"] do
+        case Integer.parse(interval) do
+          {n, ""} -> Map.put(attrs, :poll_interval_seconds, n)
+          _ -> attrs
+        end
+      else
+        attrs
+      end
+
+    case Cham.Subscriptions.subscribe_from_item(item.id, attrs) do
+      {:ok, _sub} ->
+        {:noreply, put_flash(socket, :info, "Subscribed successfully")}
+
+      {:error, :no_feed_metadata} ->
+        {:noreply, put_flash(socket, :error, "No feed metadata found for this item")}
+
+      {:error, changeset} when is_struct(changeset, Ecto.Changeset) ->
+        {:noreply, put_flash(socket, :error, "Failed to create subscription")}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to subscribe")}
+    end
+  end
+
   def handle_event("reprocess_all", _params, socket) do
     item = socket.assigns.item
     stage_ids = socket.assigns.stage_history |> Enum.map(& &1.stage) |> Enum.uniq()

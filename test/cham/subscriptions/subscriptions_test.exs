@@ -34,6 +34,61 @@ defmodule Cham.SubscriptionsTest do
     assert nil == Subscriptions.get_by_source_url("https://example.com/other.xml")
   end
 
+  describe "subscribe_from_item/2" do
+    setup do
+      # Create a feed item with a feed_metadata artifact.
+      {:ok, item} =
+        Cham.Items.create_item(%{
+          url: "https://feed.example/rss.xml",
+          content_type: "feed"
+        })
+
+      # Create a bootstrap/archive dir the artifact can resolve against.
+      tmp = Path.join(System.tmp_dir!(), "sub_from_item_#{System.unique_integer([:positive])}")
+      artifact_dir = Path.join(tmp, "extract_feed_items")
+      File.mkdir_p!(artifact_dir)
+
+      File.write!(
+        Path.join(artifact_dir, "feed_metadata.json"),
+        Jason.encode!(%{
+          "title" => "Feed Title",
+          "description" => "desc",
+          "subscription_backend" => "cham_rss",
+          "entries" => []
+        })
+      )
+
+      {:ok, item} = Cham.Items.update_item(item, %{bootstrap_path: tmp})
+
+      {:ok, _artifact} =
+        Cham.Items.create_artifact(%{
+          item_id: item.id,
+          stage: "extract_feed_items",
+          labels: %{"origin" => "derived", "type" => "feed_metadata"},
+          filenames: ["feed_metadata.json"],
+          path: "extract_feed_items"
+        })
+
+      on_exit(fn -> File.rm_rf!(tmp) end)
+
+      {:ok, item: item}
+    end
+
+    test "uses feed metadata title when no override given", %{item: item} do
+      assert {:ok, sub} = Cham.Subscriptions.subscribe_from_item(item.id, %{})
+      assert sub.title == "Feed Title"
+      assert sub.backend == "cham_rss"
+      assert sub.source_url == "https://feed.example/rss.xml"
+    end
+
+    test "uses user override title if provided", %{item: item} do
+      assert {:ok, sub} =
+               Cham.Subscriptions.subscribe_from_item(item.id, %{title: "My Rename"})
+
+      assert sub.title == "My Rename"
+    end
+  end
+
   test "list_due/1 returns active subscriptions whose interval has elapsed" do
     now = DateTime.utc_now()
 

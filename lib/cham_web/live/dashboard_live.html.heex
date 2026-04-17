@@ -101,8 +101,14 @@
       </div>
     </div>
 
-    <%!-- Settings link --%>
-    <div class="px-4 py-3 border-t border-gray-100">
+    <%!-- Subscriptions & Settings links --%>
+    <div class="px-4 py-3 border-t border-gray-100 space-y-1">
+      <.link
+        navigate={~p"/subscriptions"}
+        class="flex items-center gap-2 px-2 py-1.5 rounded text-sm text-gray-600 hover:bg-gray-50"
+      >
+        <.icon name="hero-rss" class="h-4 w-4 text-gray-400" /> Subscriptions
+      </.link>
       <.link
         navigate={~p"/config"}
         class="flex items-center gap-2 px-2 py-1.5 rounded text-sm text-gray-600 hover:bg-gray-50"

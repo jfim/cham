@@ -44,6 +44,15 @@ defmodule Cham.Plugins.TranscribeFireworks do
         description: "Optional prompt to bias the model (custom vocab, style)",
         required: false,
         options: nil
+      },
+      %{
+        key: :temperature,
+        type: :string,
+        default: "0,0.2,0.4,0.6,0.8,1.0",
+        description:
+          "Sampling temperature; comma-separated list enables fallback decoding on hallucination/low-confidence segments",
+        required: false,
+        options: nil
       }
     ]
   end
@@ -60,6 +69,12 @@ end
 
 defmodule Cham.Plugins.TranscribeFireworks.TranscribeStage do
   @behaviour Cham.Stage
+
+  require Logger
+
+  @compression_ratio_threshold 2.4
+  @avg_logprob_threshold -1.0
+  @bad_segment_ratio_threshold 0.2
 
   @impl true
   def name, do: "Transcribe Audio (Fireworks)"
@@ -114,6 +129,7 @@ defmodule Cham.Plugins.TranscribeFireworks.TranscribeStage do
     model = Map.get(config, :model, "whisper-v3-turbo")
     language = Map.get(config, :language)
     prompt = Map.get(config, :prompt)
+    temperature = Map.get(config, :temperature, "0,0.2,0.4,0.6,0.8,1.0")
 
     cond do
       api_key in [nil, ""] ->
@@ -127,13 +143,13 @@ defmodule Cham.Plugins.TranscribeFireworks.TranscribeStage do
         [media_filename | _] = input.filenames
         media_path = Path.join(input.input_path, media_filename)
 
-        do_transcribe(media_path, working_dir, api_key, model, language, prompt)
+        do_transcribe(media_path, working_dir, api_key, model, language, prompt, temperature)
     end
   end
 
-  defp do_transcribe(media_path, working_dir, api_key, model, language, prompt) do
+  defp do_transcribe(media_path, working_dir, api_key, model, language, prompt, temperature) do
     file_part =
-      {File.stream!(media_path, 64 * 1024),
+      {File.read!(media_path),
        filename: Path.basename(media_path), content_type: MIME.from_path(media_path)}
 
     parts =
@@ -144,7 +160,8 @@ defmodule Cham.Plugins.TranscribeFireworks.TranscribeStage do
         "timestamp_granularities[]": "segment"
       ] ++
         if(language, do: [language: language], else: []) ++
-        if(prompt, do: [prompt: prompt], else: [])
+        if(prompt, do: [prompt: prompt], else: []) ++
+        if(temperature not in [nil, ""], do: [temperature: temperature], else: [])
 
     url = Map.fetch!(@endpoints, model)
 
@@ -190,6 +207,9 @@ defmodule Cham.Plugins.TranscribeFireworks.TranscribeStage do
     File.mkdir_p!(working_dir)
     File.write!(Path.join(working_dir, "transcript.md"), transcript)
 
+    quality = segment_quality(segments)
+    maybe_warn_quality(quality)
+
     {:ok,
      %{
        artifacts: [
@@ -204,9 +224,41 @@ defmodule Cham.Plugins.TranscribeFireworks.TranscribeStage do
          }
        ],
        item_metadata: %{"language" => language, "duration" => trunc(duration)},
-       provenance: %{"model" => model, "tool" => "fireworks-audio"}
+       provenance:
+         Map.merge(%{"model" => model, "tool" => "fireworks-audio"}, quality)
      }}
   end
+
+  defp segment_quality([]), do: %{"segment_count" => 0, "bad_segment_count" => 0}
+
+  defp segment_quality(segments) do
+    bad =
+      Enum.count(segments, fn seg ->
+        cr = Map.get(seg, "compression_ratio")
+        lp = Map.get(seg, "avg_logprob")
+
+        (is_number(cr) and cr > @compression_ratio_threshold) or
+          (is_number(lp) and lp < @avg_logprob_threshold)
+      end)
+
+    total = length(segments)
+
+    %{
+      "segment_count" => total,
+      "bad_segment_count" => bad,
+      "bad_segment_ratio" => if(total > 0, do: bad / total, else: 0.0),
+      "quality_warning" =>
+        total > 0 and bad / total >= @bad_segment_ratio_threshold
+    }
+  end
+
+  defp maybe_warn_quality(%{"quality_warning" => true} = q) do
+    Logger.warning(
+      "transcribe_fireworks: likely hallucination — #{q["bad_segment_count"]}/#{q["segment_count"]} segments exceeded compression_ratio/avg_logprob thresholds"
+    )
+  end
+
+  defp maybe_warn_quality(_), do: :ok
 
   defp format_timestamp(seconds) when is_number(seconds) do
     h = trunc(seconds) |> div(3600)

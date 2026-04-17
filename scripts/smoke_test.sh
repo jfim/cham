@@ -122,6 +122,14 @@ curl -fsS "http://localhost:$SMOKE_PORT/health" >/dev/null || fail "server did n
 
 # ── tests ──────────────────────────────────────────────────────────────────
 
+dump_item() {
+  local slug="$1"
+  echo "── item detail ($slug) ──"
+  cham item show "$slug" --json | jq '{status, content_type, error_message,
+    artifacts: [.artifacts[] | {stage, status, labels}],
+    stage_executions: [.stage_executions[] | {stage, status, attempt, error, duration_ms}]}' || true
+}
+
 wait_complete() {
   local slug="$1" timeout="${2:-300}"
   for i in $(seq 1 "$timeout"); do
@@ -129,10 +137,14 @@ wait_complete() {
     status="$(cham item show "$slug" --json | jq -r '.status')"
     case "$status" in
       complete) return 0 ;;
-      failed|incomplete|cancelled) fail "item $slug terminated with status=$status" ;;
+      failed|incomplete|cancelled)
+        dump_item "$slug" >&2
+        fail "item $slug terminated with status=$status"
+        ;;
     esac
     sleep 1
   done
+  dump_item "$slug" >&2
   fail "item $slug did not complete within ${timeout}s"
 }
 

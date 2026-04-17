@@ -64,7 +64,8 @@ defmodule Cham.Pipeline.OrchestratorTest do
       {:ok, item} =
         Items.create_item(%{
           url: "https://example.com/kick-#{System.unique_integer([:positive])}",
-          slug: "kick-#{System.unique_integer([:positive])}"
+          slug: "kick-#{System.unique_integer([:positive])}",
+          status: "processing"
         })
 
       {:ok, _} =
@@ -105,7 +106,8 @@ defmodule Cham.Pipeline.OrchestratorTest do
       {:ok, item} =
         Items.create_item(%{
           url: "https://example.com/dup-#{System.unique_integer([:positive])}",
-          slug: "dup-#{System.unique_integer([:positive])}"
+          slug: "dup-#{System.unique_integer([:positive])}",
+          status: "processing"
         })
 
       {:ok, _} =

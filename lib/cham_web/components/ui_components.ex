@@ -24,6 +24,7 @@ defmodule ChamWeb.UIComponents do
         "video" -> {"Video", "bg-pink-100 text-pink-800"}
         "document" -> {"Document", "bg-green-100 text-green-800"}
         "podcast" -> {"Podcast", "bg-purple-100 text-purple-800"}
+        "feed" -> {"Feed", "bg-orange-100 text-orange-800"}
         nil -> {"Unknown", "bg-gray-100 text-gray-800"}
         _ -> {"Unknown", "bg-gray-100 text-gray-800"}
       end

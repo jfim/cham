@@ -265,6 +265,7 @@ defmodule ChamWeb.DashboardLive do
       "video" -> "Videos"
       "document" -> "Documents"
       "podcast" -> "Podcasts"
+      "feed" -> "Feeds"
       _ -> String.capitalize(type || "Items") <> "s"
     end
   end
@@ -275,6 +276,7 @@ defmodule ChamWeb.DashboardLive do
       "video" -> "hero-play-circle"
       "document" -> "hero-document"
       "podcast" -> "hero-microphone"
+      "feed" -> "hero-rss"
       _ -> "hero-document"
     end
   end

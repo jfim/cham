@@ -20,6 +20,14 @@ if System.get_env("PHX_SERVER") do
   config :cham, ChamWeb.Endpoint, server: true
 end
 
+if archive_root = System.get_env("ARCHIVE_ROOT") do
+  config :cham, :archive_root, archive_root
+end
+
+if config_path = System.get_env("CHAM_CONFIG_PATH") do
+  config :cham, :config_toml_path, config_path
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||

@@ -121,6 +121,12 @@ defmodule Cham.Plugins.ExtractThumbnail.Stage do
 
     case System.cmd("ffmpeg", args, stderr_to_stdout: true) do
       {_, 0} ->
+        duration_meta =
+          case probe_duration(video_path) do
+            nil -> %{}
+            seconds -> %{"duration_seconds" => seconds}
+          end
+
         {:ok,
          %{
            artifacts: [
@@ -134,7 +140,7 @@ defmodule Cham.Plugins.ExtractThumbnail.Stage do
                filenames: ["thumb.jpg"]
              }
            ],
-           item_metadata: %{},
+           item_metadata: duration_meta,
            provenance: %{"tool" => "ffmpeg", "seek_seconds" => seek, "width" => width}
          }}
 
@@ -147,6 +153,31 @@ defmodule Cham.Plugins.ExtractThumbnail.Stage do
         :enoent -> {:error, "extract_thumbnail: ffmpeg not found on PATH"}
         other -> {:error, "extract_thumbnail: #{inspect(other)}"}
       end
+  end
+
+  defp probe_duration(video_path) do
+    args = [
+      "-v",
+      "error",
+      "-show_entries",
+      "format=duration",
+      "-of",
+      "default=noprint_wrappers=1:nokey=1",
+      video_path
+    ]
+
+    case System.cmd("ffprobe", args, stderr_to_stdout: true) do
+      {output, 0} ->
+        case output |> String.trim() |> Float.parse() do
+          {seconds, _} -> round(seconds)
+          :error -> nil
+        end
+
+      _ ->
+        nil
+    end
+  rescue
+    ErlangError -> nil
   end
 
   defp load_config do

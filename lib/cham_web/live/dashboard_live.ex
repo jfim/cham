@@ -189,6 +189,44 @@ defmodule ChamWeb.DashboardLive do
     end)
   end
 
+  defp video_meta_line(%Cham.Items.Item{} = item) do
+    host =
+      case URI.parse(item.url || "") do
+        %URI{host: h} when is_binary(h) and h != "" -> h
+        _ -> nil
+      end
+
+    duration =
+      case item.metadata && item.metadata["duration_seconds"] do
+        s when is_integer(s) and s > 0 -> format_duration(s)
+        s when is_float(s) and s > 0 -> format_duration(round(s))
+        _ -> nil
+      end
+
+    [duration, host]
+    |> Enum.reject(&is_nil/1)
+    |> case do
+      [] -> item.url || ""
+      parts -> Enum.join(parts, " · ")
+    end
+  end
+
+  defp format_duration(seconds) when seconds >= 3600 do
+    h = div(seconds, 3600)
+    m = div(rem(seconds, 3600), 60)
+    s = rem(seconds, 60)
+    "#{h}:#{pad2(m)}:#{pad2(s)}"
+  end
+
+  defp format_duration(seconds) do
+    m = div(seconds, 60)
+    s = rem(seconds, 60)
+    "#{m}:#{pad2(s)}"
+  end
+
+  defp pad2(n) when n < 10, do: "0#{n}"
+  defp pad2(n), do: Integer.to_string(n)
+
   defp meta_line(%Cham.Items.Item{} = item) do
     host =
       case URI.parse(item.url || "") do

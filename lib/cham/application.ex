@@ -73,6 +73,7 @@ defmodule Cham.Application do
       Cham.Plugins.ExtractArticle,
       Cham.Plugins.ExtractPdf,
       Cham.Plugins.TranscribeWhisper,
+      Cham.Plugins.TranscribeFireworks,
       Cham.Plugins.SummarizeOllama,
       Cham.Plugins.AutoTag,
       Cham.Plugins.CleanTitle

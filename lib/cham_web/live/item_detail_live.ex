@@ -43,8 +43,34 @@ defmodule ChamWeb.ItemDetailLive do
   @impl true
   def handle_event("select_tab", %{"tab" => tab}, socket) do
     new_tab = if socket.assigns.active_tab == tab, do: nil, else: tab
-    {:noreply, assign(socket, :active_tab, new_tab)}
+
+    socket =
+      socket
+      |> assign(:active_tab, new_tab)
+      |> maybe_load_transcript(new_tab)
+
+    {:noreply, socket}
   end
+
+  defp maybe_load_transcript(socket, "transcript") do
+    case socket.assigns.transcript do
+      %{state: :not_loaded} ->
+        loaded =
+          resolve_artifact_content(
+            socket.assigns.item,
+            socket.assigns.artifacts,
+            socket.assigns.stage_history,
+            "transcript"
+          )
+
+        assign(socket, :transcript, loaded)
+
+      _ ->
+        socket
+    end
+  end
+
+  defp maybe_load_transcript(socket, _tab), do: socket
 
   def handle_event("retry_failed", _params, socket) do
     item = socket.assigns.item
@@ -185,15 +211,41 @@ defmodule ChamWeb.ItemDetailLive do
     socket
     |> assign(:primary_content, resolve_primary_content(item, artifacts, stage_history))
     |> assign(:summary, resolve_artifact_content(item, artifacts, stage_history, "summary"))
-    |> assign(:transcript, resolve_artifact_content(item, artifacts, stage_history, "transcript"))
+    |> assign(:transcript, lazy_transcript_placeholder(artifacts, stage_history))
     |> assign(:original_file_url, resolve_original_file_url(item, artifacts))
     |> assign(:metadata_json, build_metadata_json(item))
+  end
+
+  # Initial transcript assign without touching the filesystem. The real
+  # content (and earmark render) is loaded on demand when the user opens
+  # the Transcript tab — see handle_event("select_tab", "transcript", _).
+  defp lazy_transcript_placeholder(artifacts, stage_history) do
+    produced =
+      Enum.find(artifacts, fn a ->
+        a.labels["type"] == "transcript" and a.labels["origin"] == "derived" and
+          a.status == "produced"
+      end)
+
+    cond do
+      produced ->
+        %{state: :not_loaded, content: nil, html: nil, error: nil}
+
+      has_running_stage?(stage_history, "transcript") ->
+        %{state: :processing, content: nil, html: nil, error: nil}
+
+      failed_stage = find_failed_stage(stage_history, "transcript") ->
+        %{state: :failed, content: nil, html: nil, error: failed_stage.error}
+
+      true ->
+        %{state: :not_requested, content: nil, html: nil, error: nil}
+    end
   end
 
   defp resolve_primary_content(item, artifacts, stage_history) do
     case item.content_type do
       "article" -> resolve_article_content(item, artifacts, stage_history)
-      "video" -> resolve_artifact_content(item, artifacts, stage_history, "transcript")
+      # Video detail uses the <video> element for primary content; the transcript
+      # is lazy-loaded when the user opens the Transcript tab.
       _ -> %{state: :not_requested, content: nil, error: nil}
     end
   end

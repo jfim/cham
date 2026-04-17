@@ -290,6 +290,10 @@ defmodule ChamWeb.UIComponents do
         </div>
       <% :not_requested -> %>
         <span class="text-sm text-gray-400">Not available for this item</span>
+      <% :not_loaded -> %>
+        <span class="text-sm text-gray-400">Loading…</span>
+      <% _ -> %>
+        <span class="text-sm text-gray-400">Not available for this item</span>
     <% end %>
     """
   end

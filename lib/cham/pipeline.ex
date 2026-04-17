@@ -15,7 +15,7 @@ defmodule Cham.Pipeline do
   - title: pre-fetched title from the feed (optional)
   """
   def submit_url(url, opts \\ []) do
-    root = Keyword.get(opts, :root, ".")
+    root = Keyword.get(opts, :root, archive_root())
     tags = Keyword.get(opts, :tags, [])
 
     item_attrs =
@@ -243,6 +243,10 @@ defmodule Cham.Pipeline do
       path: relative_path,
       status: "produced"
     })
+  end
+
+  defp archive_root do
+    Application.get_env(:cham, :archive_root, ".")
   end
 
   defp extract_domain(url) do

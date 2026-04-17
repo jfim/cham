@@ -75,22 +75,11 @@ defmodule Cham.Subscriptions.PollWorker do
   end
 
   defp enqueue_ingest(sub, entry) do
-    # Create the item directly so the PollWorker doesn't depend on filesystem
-    # bootstrap. The orchestrator will handle bootstrapping when it picks it up.
-    case Cham.Items.create_item(%{
-           url: entry.url,
-           subscription_id: sub.id,
-           source_item_id: entry.source_item_id,
-           title: entry.title
-         }) do
-      {:ok, item} ->
-        Cham.Pipeline.Orchestrator.kick_off(item.id)
-        {:ok, item}
-
-      {:error, reason} ->
-        Logger.warning("Failed to create item for #{entry.url}: #{inspect(reason)}")
-        {:error, reason}
-    end
+    Cham.Pipeline.submit_url(entry.url,
+      subscription_id: sub.id,
+      source_item_id: entry.source_item_id,
+      title: entry.title
+    )
   end
 
   defp record_seen(sub, entry) do

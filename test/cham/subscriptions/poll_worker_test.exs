@@ -30,6 +30,15 @@ defmodule Cham.Subscriptions.PollWorkerTest do
   end
 
   setup do
+    tmp =
+      Path.join(System.tmp_dir!(), "poll_worker_test_#{:erlang.unique_integer([:positive])}")
+
+    File.mkdir_p!(tmp)
+    on_exit(fn -> File.rm_rf!(tmp) end)
+
+    Application.put_env(:cham, :archive_root, tmp)
+    on_exit(fn -> Application.delete_env(:cham, :archive_root) end)
+
     # BackendRegistry is supervised via the application in tests; ensure it exists.
     case Process.whereis(Cham.Subscriptions.BackendRegistry) do
       nil -> {:ok, _} = start_supervised({BackendRegistry, []})

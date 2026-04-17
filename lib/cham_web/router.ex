@@ -20,6 +20,8 @@ defmodule ChamWeb.Router do
     live "/", DashboardLive
     live "/items/:id", ItemDetailLive
     live "/config", ConfigLive
+    live "/subscriptions", SubscriptionIndexLive
+    live "/subscriptions/:id", SubscriptionShowLive
   end
 
   scope "/api/v1", ChamWeb do

@@ -15,6 +15,10 @@ defmodule Cham.Subscriptions.PollWorker do
     sub = Subscriptions.get_subscription!(id)
     mode = parse_backfill(args["backfill"])
 
+    # For explicit re-backfill runs, entries previously marked as seen-only
+    # should be re-considered. For cron polls (mode = :none), they stay deduped.
+    reconsider_seen = mode != :none
+
     try do
       {:ok, backend} = BackendRegistry.lookup(String.to_existing_atom(sub.backend))
 
@@ -22,7 +26,7 @@ defmodule Cham.Subscriptions.PollWorker do
         backend.stream_pages(sub.source_url)
         |> Enum.reduce_while([], fn page, acc ->
           page_ids = Enum.map(page, & &1.source_item_id)
-          already_seen = seen_source_ids(sub.id, page_ids)
+          already_seen = seen_source_ids(sub.id, page_ids, reconsider_seen)
 
           new_in_page = Enum.reject(page, fn e -> e.source_item_id in already_seen end)
 
@@ -64,17 +68,39 @@ defmodule Cham.Subscriptions.PollWorker do
     end
   end
 
-  defp seen_source_ids(_subscription_id, []), do: []
+  defp seen_source_ids(_subscription_id, [], _), do: []
 
-  defp seen_source_ids(subscription_id, ids) do
-    Repo.all(
+  # When reconsider_seen? is true (explicit re-backfill), ignore rows that
+  # only exist to mark a source_item_id as seen during a prior backfill —
+  # they should be eligible for ingest this time.
+  defp seen_source_ids(subscription_id, ids, reconsider_seen?) do
+    base =
       from i in Item,
         where: i.subscription_id == ^subscription_id and i.source_item_id in ^ids,
         select: i.source_item_id
-    )
+
+    query =
+      if reconsider_seen? do
+        from i in base,
+          where: fragment("COALESCE(?->>'backfill_seen', 'false')", i.metadata) != "true"
+      else
+        base
+      end
+
+    Repo.all(query)
   end
 
   defp enqueue_ingest(sub, entry) do
+    # Remove any prior backfill-seen marker so submit_url can insert a new item
+    # for this source_item_id without tripping the unique constraint.
+    Repo.delete_all(
+      from i in Item,
+        where:
+          i.subscription_id == ^sub.id and
+            i.source_item_id == ^entry.source_item_id and
+            fragment("COALESCE(?->>'backfill_seen', 'false')", i.metadata) == "true"
+    )
+
     Cham.Pipeline.submit_url(entry.url,
       subscription_id: sub.id,
       source_item_id: entry.source_item_id,

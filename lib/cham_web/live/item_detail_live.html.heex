@@ -39,6 +39,90 @@
       <% end %>
     </div>
 
+
+    <%!-- Feed Subscribe Section --%>
+    <%= if @item.content_type == "feed" and (not is_nil(@feed_metadata) or not is_nil(@existing_subscription)) do %>
+      <section class="mt-6 border-t pt-4">
+        <%= if @existing_subscription do %>
+          <p>
+            <.link
+              navigate={~p"/subscriptions/#{@existing_subscription.id}"}
+              class="underline text-blue-600"
+            >
+              View existing subscription
+            </.link>
+          </p>
+        <% else %>
+          <h2 class="text-xl font-semibold mb-2">Subscribe to {@feed_metadata["title"]}</h2>
+          <%= if @feed_metadata["description"] do %>
+            <p class="text-sm text-gray-600 mb-4">{@feed_metadata["description"]}</p>
+          <% end %>
+
+          <h3 class="font-medium text-sm mb-1">Recent entries</h3>
+          <ul class="text-sm mb-4">
+            <%= for entry <- Enum.take(@feed_metadata["entries"] || [], 10) do %>
+              <li class="py-0.5">
+                {entry["title"]}
+                <%= if entry["timestamp"] do %>
+                  <span class="text-gray-500">— {entry["timestamp"]}</span>
+                <% end %>
+              </li>
+            <% end %>
+          </ul>
+
+          <%!-- TODO: "Display as feed" toggle to show archived raw XML is not yet implemented
+               because the archived XML is not easily accessible via the current artifact API.
+               The feed_metadata artifact stores parsed JSON, not the raw XML. --%>
+
+          <.form for={%{}} phx-submit="subscribe" class="space-y-3 max-w-md">
+            <div>
+              <label class="block text-sm font-medium">Title</label>
+              <input
+                name="title"
+                value={@feed_metadata["title"]}
+                class="border px-2 py-1 w-full"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium">Poll interval</label>
+              <select name="poll_interval_seconds" class="border px-2 py-1">
+                <option value="3600">1 hour</option>
+                <option value="21600">6 hours</option>
+                <option value="86400" selected>24 hours</option>
+              </select>
+            </div>
+
+            <fieldset class="border p-2">
+              <legend class="text-sm font-medium px-1">Backfill</legend>
+              <label class="block">
+                <input type="radio" name="backfill[mode]" value="none" checked /> None (ingest new items only)
+              </label>
+              <label class="block">
+                <input type="radio" name="backfill[mode]" value="last_n" />
+                Last
+                <input
+                  type="number"
+                  name="backfill[n]"
+                  value="10"
+                  class="border px-1 w-16"
+                  min="1"
+                /> items
+              </label>
+              <label class="block">
+                <input type="radio" name="backfill[mode]" value="since" />
+                Since
+                <input type="date" name="backfill[date]" class="border px-1" />
+              </label>
+            </fieldset>
+
+            <button type="submit" class="bg-blue-600 text-white px-3 py-1 rounded">
+              Subscribe
+            </button>
+          </.form>
+        <% end %>
+      </section>
+    <% end %>
     <%!-- Processing View --%>
     <div :if={is_processing?(@item)} class="mb-8 rounded-lg border border-gray-200 bg-white p-6">
       <h2 class="text-sm font-semibold text-gray-700 mb-4">Processing Pipeline</h2>

@@ -23,6 +23,8 @@ defmodule ChamWeb.ItemDetailLive do
         do: Cham.Subscriptions.get_subscription!(item.subscription_id),
         else: nil
 
+    {feed_metadata, existing_subscription} = load_feed_assigns(item, artifacts)
+
     {:ok,
      socket
      |> assign(:page_title, item.title || "Item Detail")
@@ -33,6 +35,8 @@ defmodule ChamWeb.ItemDetailLive do
      |> assign(:progress, progress)
      |> assign(:return_path, return_path)
      |> assign(:active_tab, nil)
+     |> assign(:feed_metadata, feed_metadata)
+     |> assign(:existing_subscription, existing_subscription)
      |> assign_content(item, artifacts, stage_history)}
   end
 
@@ -67,34 +71,20 @@ defmodule ChamWeb.ItemDetailLive do
   end
 
   def handle_event("subscribe", params, socket) do
-    item = socket.assigns.item
-    attrs = %{}
+    backfill = parse_backfill_params(params["backfill"] || %{})
 
-    attrs =
-      if title = params["title"], do: Map.put(attrs, :title, title), else: attrs
+    attrs = %{
+      title: params["title"],
+      poll_interval_seconds: String.to_integer(params["poll_interval_seconds"] || "86400"),
+      backfill: backfill
+    }
 
-    attrs =
-      if interval = params["poll_interval_seconds"] do
-        case Integer.parse(interval) do
-          {n, ""} -> Map.put(attrs, :poll_interval_seconds, n)
-          _ -> attrs
-        end
-      else
-        attrs
-      end
+    case Cham.Subscriptions.subscribe_from_item(socket.assigns.item.id, attrs) do
+      {:ok, sub} ->
+        {:noreply, push_navigate(socket, to: ~p"/subscriptions/#{sub.id}")}
 
-    case Cham.Subscriptions.subscribe_from_item(item.id, attrs) do
-      {:ok, _sub} ->
-        {:noreply, put_flash(socket, :info, "Subscribed successfully")}
-
-      {:error, :no_feed_metadata} ->
-        {:noreply, put_flash(socket, :error, "No feed metadata found for this item")}
-
-      {:error, changeset} when is_struct(changeset, Ecto.Changeset) ->
-        {:noreply, put_flash(socket, :error, "Failed to create subscription")}
-
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to subscribe")}
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Subscribe failed: #{inspect(reason)}")}
     end
   end
 
@@ -120,6 +110,7 @@ defmodule ChamWeb.ItemDetailLive do
       artifacts = Items.list_artifacts(item_id)
       stage_history = Tracker.get_stage_history(item_id)
       progress = Tracker.get_progress(item_id)
+      existing_subscription = Cham.Subscriptions.get_by_source_url(item.url)
 
       {:noreply,
        socket
@@ -128,11 +119,54 @@ defmodule ChamWeb.ItemDetailLive do
        |> assign(:artifacts, artifacts)
        |> assign(:stage_history, stage_history)
        |> assign(:progress, progress)
+       |> assign(:existing_subscription, existing_subscription)
        |> assign_content(item, artifacts, stage_history)}
     else
       {:noreply, socket}
     end
   end
+
+  defp parse_backfill_params(%{"mode" => "none"}), do: :none
+
+  defp parse_backfill_params(%{"mode" => "last_n"} = p) do
+    n = String.to_integer(p["n"] || "10")
+    {:last_n, n}
+  end
+
+  defp parse_backfill_params(%{"mode" => "since"} = p) do
+    case DateTime.from_iso8601((p["date"] || "") <> "T00:00:00Z") do
+      {:ok, dt, _} -> {:since, dt}
+      _ -> :none
+    end
+  end
+
+  defp parse_backfill_params(_), do: :none
+
+  defp load_feed_assigns(%{content_type: "feed"} = item, artifacts) do
+    feed_meta_artifact =
+      Enum.find(artifacts, fn a ->
+        labels = a.labels || %{}
+        labels["origin"] == "derived" and labels["type"] == "feed_metadata"
+      end)
+
+    feed_metadata =
+      case feed_meta_artifact do
+        nil ->
+          nil
+
+        artifact ->
+          case Items.read_artifact_content(item, artifact) do
+            {:ok, content} -> Jason.decode!(content)
+            _ -> nil
+          end
+      end
+
+    existing_subscription = Cham.Subscriptions.get_by_source_url(item.url)
+
+    {feed_metadata, existing_subscription}
+  end
+
+  defp load_feed_assigns(_item, _artifacts), do: {nil, nil}
 
   defp build_return_path(params) do
     query =

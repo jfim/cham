@@ -7,6 +7,10 @@ Personal knowledge archiving system. Elixir/Phoenix monolith.
 Design specifications are in `design-docs/` (symlinked). Read them before working on a subsystem.
 Implementation plans are in `docs/superpowers/plans/`.
 
+## Improvements / TODOs
+
+Track future improvements, ideas, and TODOs in `/home/jfim/sync/Obsidian Personal/Personal/Projects/Active/Cham/Improvements.md`. When you discover something worth doing later (missing smoke test coverage, deferred UI polish, known tech debt, etc.), append it there rather than leaving scattered TODOs in code.
+
 ## Tech Stack
 
 - Elixir 1.17+, OTP 27+

@@ -88,7 +88,8 @@ defmodule Cham.Subscriptions.PollWorker do
       subscription_id: sub.id,
       source_item_id: entry.source_item_id,
       title: entry.title,
-      status: "complete"
+      status: "complete",
+      metadata: %{"backfill_seen" => true}
     })
   end
 

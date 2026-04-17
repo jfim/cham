@@ -117,11 +117,25 @@ defmodule Cham.Items do
 
   def list_items(filters \\ []) do
     include_subscribed_feeds = Keyword.get(filters, :include_subscribed_feeds, false)
+    include_backfill_seen = Keyword.get(filters, :include_backfill_seen, false)
+
+    remaining_filters =
+      filters
+      |> Keyword.delete(:include_subscribed_feeds)
+      |> Keyword.delete(:include_backfill_seen)
 
     base =
       Item
-      |> apply_filters(Keyword.delete(filters, :include_subscribed_feeds))
+      |> apply_filters(remaining_filters)
       |> order_by([i], desc: i.inserted_at)
+
+    base =
+      if include_backfill_seen do
+        base
+      else
+        from i in base,
+          where: fragment("COALESCE(?->>'backfill_seen', 'false')", i.metadata) != "true"
+      end
 
     query =
       if include_subscribed_feeds do
@@ -164,6 +178,7 @@ defmodule Cham.Items do
       on: s.source_url == i.url,
       where: not is_nil(i.content_type),
       where: i.content_type != "feed" or is_nil(s.id),
+      where: fragment("COALESCE(?->>'backfill_seen', 'false')", i.metadata) != "true",
       group_by: i.content_type,
       select: {i.content_type, count(i.id)}
     )

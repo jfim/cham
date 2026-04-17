@@ -210,4 +210,98 @@ defmodule Cham.Items do
     |> where([a], a.item_id == ^item_id)
     |> Repo.all()
   end
+
+  @doc """
+  Returns a URL to the preferred thumbnail for an item, or `nil` if none
+  is available. Providers are tried in the order configured under
+  `display.thumbnail_provider_order`.
+  """
+  def best_thumbnail_url(%Item{} = item) do
+    order = provider_order("thumbnail_provider_order", ["ffmpeg"])
+    thumb_artifacts = item_id_thumbnail_artifacts(item.id)
+
+    artifact =
+      Enum.find_value(order, fn provider ->
+        Enum.find(thumb_artifacts, fn a ->
+          (a.labels || %{})["provider"] == provider
+        end)
+      end)
+
+    # Fall back to any thumbnail artifact regardless of provider if none of
+    # the preferred ones matched (e.g. a provider not listed in the config).
+    artifact = artifact || List.first(thumb_artifacts)
+
+    if artifact do
+      filename = artifact.filenames |> List.first() |> Path.basename()
+      "/api/v1/items/#{item.id}/files/#{filename}"
+    end
+  end
+
+  def best_thumbnail_url(_), do: nil
+
+  @doc """
+  Returns the preferred display title: consults title-override artifacts in
+  the order configured under `display.title_provider_order`, and falls back
+  to the item's own title if no override is present.
+  """
+  def best_title(%Item{} = item) do
+    order = provider_order("title_provider_order", ["clean_title"])
+    override_artifacts = item_id_title_override_artifacts(item.id)
+
+    override =
+      Enum.find_value(order, fn provider ->
+        Enum.find(override_artifacts, fn a ->
+          (a.labels || %{})["provider"] == provider
+        end)
+      end)
+
+    case override do
+      nil ->
+        item.title
+
+      artifact ->
+        case read_artifact_content(item, artifact) do
+          {:ok, content} -> String.trim(content)
+          _ -> item.title
+        end
+    end
+  end
+
+  def best_title(_), do: nil
+
+  defp item_id_thumbnail_artifacts(item_id) do
+    Repo.all(
+      from a in Artifact,
+        where: a.item_id == ^item_id,
+        where:
+          fragment("?->>'type'", a.labels) == "thumbnail" and
+            fragment("?->>'origin'", a.labels) == "derived",
+        where: a.status == "produced"
+    )
+  end
+
+  defp item_id_title_override_artifacts(item_id) do
+    Repo.all(
+      from a in Artifact,
+        where: a.item_id == ^item_id,
+        where: fragment("?->>'type'", a.labels) == "title_override",
+        where: a.status == "produced"
+    )
+  end
+
+  defp provider_order(key, fallback) do
+    value =
+      case Cham.Config.Manager.read_all("display") do
+        {:ok, cfg} -> Map.get(cfg, String.to_atom(key))
+        _ -> nil
+      end
+
+    case value do
+      s when is_binary(s) and s != "" ->
+        s |> String.split(",") |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == ""))
+
+      _ ->
+        fallback
+    end
+  end
 end

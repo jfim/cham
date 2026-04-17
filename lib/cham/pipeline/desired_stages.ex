@@ -25,7 +25,8 @@ defmodule Cham.Pipeline.DesiredStages do
       %{"type" => "transcript"},
       %{"type" => "summary"},
       %{"type" => "tags"},
-      %{"type" => "clean_title"}
+      %{"type" => "clean_title"},
+      %{"type" => "thumbnail"}
     ],
     "document" => [
       %{"type" => "content"},

@@ -41,6 +41,7 @@ defmodule Cham.Application do
         register_pipeline_config()
         register_desired_artifacts_config()
         register_enabled_plugins_config()
+        register_display_config()
         Cham.Subscriptions.BackendRegistry.register(Cham.Subscriptions.Backends.RSS)
         register_subscription_backend_config(Cham.Subscriptions.Backends.RSS)
         {:ok, pid}
@@ -81,7 +82,8 @@ defmodule Cham.Application do
       Cham.Plugins.TranscribeFireworks,
       Cham.Plugins.SummarizeOllama,
       Cham.Plugins.AutoTag,
-      Cham.Plugins.CleanTitle
+      Cham.Plugins.CleanTitle,
+      Cham.Plugins.ExtractThumbnail
     ]
 
     for mod <- core_plugins do
@@ -148,6 +150,37 @@ defmodule Cham.Application do
       end)
 
     Cham.Config.Manager.register("enabled_plugins", schema)
+  end
+
+  defp register_display_config do
+    schema = [
+      %{
+        key: :thumbnail_provider_order,
+        type: :string,
+        default: "ffmpeg",
+        description:
+          "Comma-separated list of thumbnail providers in preference order. " <>
+            "The first provider with an available artifact wins.",
+        required: false,
+        options: nil
+      },
+      %{
+        key: :title_provider_order,
+        type: :string,
+        default: "clean_title",
+        description:
+          "Comma-separated list of title-override providers in preference order. " <>
+            "Falls back to item.title when none match.",
+        required: false,
+        options: nil
+      }
+    ]
+
+    case Cham.Config.Manager.register("display", schema) do
+      :ok -> :ok
+      {:error, :already_registered} -> :ok
+      {:error, reason} -> Logger.warning("Failed to register display config: #{inspect(reason)}")
+    end
   end
 
   defp register_subscription_backend_config(mod) do

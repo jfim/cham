@@ -29,6 +29,12 @@ defmodule ChamWeb.EventController do
         |> put_status(:not_found)
         |> put_view(ChamWeb.ItemJSON)
         |> json(%{error: "not found"})
+
+      {:error, :ambiguous} ->
+        conn
+        |> put_status(:conflict)
+        |> put_view(ChamWeb.ItemJSON)
+        |> json(%{error: "ambiguous id prefix"})
     end
   end
 

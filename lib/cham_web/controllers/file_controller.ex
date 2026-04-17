@@ -22,6 +22,9 @@ defmodule ChamWeb.FileController do
       {:error, :not_found} ->
         conn |> send_resp(404, "not found") |> halt()
 
+      {:error, :ambiguous} ->
+        conn |> send_resp(409, "ambiguous id prefix") |> halt()
+
       {:error, :file_not_found} ->
         conn |> send_resp(404, "file not found") |> halt()
     end

@@ -29,8 +29,34 @@ defmodule Cham.Items do
             end
 
           :error ->
-            {:error, :not_found}
+            lookup_by_id_prefix(id_or_slug)
         end
+    end
+  end
+
+  @min_prefix_length 4
+
+  defp lookup_by_id_prefix(input) do
+    stripped = input |> String.replace("-", "") |> String.downcase()
+
+    if byte_size(stripped) >= @min_prefix_length and
+         Regex.match?(~r/^[0-9a-f]+$/, stripped) do
+      pattern = stripped <> "%"
+
+      matches =
+        Repo.all(
+          from i in Item,
+            where: fragment("replace(?::text, '-', '') LIKE ?", i.id, ^pattern),
+            limit: 2
+        )
+
+      case matches do
+        [item] -> {:ok, item}
+        [] -> {:error, :not_found}
+        _ -> {:error, :ambiguous}
+      end
+    else
+      {:error, :not_found}
     end
   end
 

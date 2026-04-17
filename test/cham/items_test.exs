@@ -41,6 +41,66 @@ defmodule Cham.ItemsTest do
     end
   end
 
+  describe "get_item_by_slug_or_id/1" do
+    test "finds by full UUID" do
+      {:ok, item} = Items.create_item(%{url: "https://example.com/by-uuid"})
+      assert {:ok, %Item{id: id}} = Items.get_item_by_slug_or_id(item.id)
+      assert id == item.id
+    end
+
+    test "finds by slug" do
+      {:ok, item} = Items.create_item(%{url: "https://example.com/by-slug"})
+      {:ok, item} = Items.update_item(item, %{slug: "my-slug"})
+      assert {:ok, %Item{id: id}} = Items.get_item_by_slug_or_id("my-slug")
+      assert id == item.id
+    end
+
+    test "finds by uuid prefix" do
+      {:ok, item} = Items.create_item(%{url: "https://example.com/by-prefix"})
+      prefix = String.slice(item.id, 0, 8)
+      assert {:ok, %Item{id: id}} = Items.get_item_by_slug_or_id(prefix)
+      assert id == item.id
+    end
+
+    test "finds by uuid prefix without dashes" do
+      {:ok, item} = Items.create_item(%{url: "https://example.com/by-prefix-nodash"})
+      prefix = item.id |> String.replace("-", "") |> String.slice(0, 10)
+      assert {:ok, %Item{id: id}} = Items.get_item_by_slug_or_id(prefix)
+      assert id == item.id
+    end
+
+    test "returns :not_found for unknown prefix" do
+      assert {:error, :not_found} = Items.get_item_by_slug_or_id("deadbeef")
+    end
+
+    test "rejects prefixes shorter than 4 chars" do
+      {:ok, _item} = Items.create_item(%{url: "https://example.com/short"})
+      assert {:error, :not_found} = Items.get_item_by_slug_or_id("ab")
+    end
+
+    test "returns :ambiguous when multiple items share a prefix" do
+      # Seed two items, then force their ids to share an 8-char hex prefix.
+      {:ok, a} = Items.create_item(%{url: "https://example.com/amb-a"})
+      {:ok, b} = Items.create_item(%{url: "https://example.com/amb-b"})
+
+      prefix = "abababab"
+      id1 = prefix <> "-1111-1111-1111-111111111111"
+      id2 = prefix <> "-2222-2222-2222-222222222222"
+
+      Ecto.Adapters.SQL.query!(Cham.Repo, "UPDATE items SET id = $1 WHERE id = $2", [
+        Ecto.UUID.dump!(id1),
+        Ecto.UUID.dump!(a.id)
+      ])
+
+      Ecto.Adapters.SQL.query!(Cham.Repo, "UPDATE items SET id = $1 WHERE id = $2", [
+        Ecto.UUID.dump!(id2),
+        Ecto.UUID.dump!(b.id)
+      ])
+
+      assert {:error, :ambiguous} = Items.get_item_by_slug_or_id(prefix)
+    end
+  end
+
   describe "update_item/2" do
     test "updates item fields" do
       {:ok, item} = Items.create_item(%{url: "https://example.com/update"})

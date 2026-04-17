@@ -68,6 +68,12 @@ defmodule ChamWeb.ItemController do
           stage_executions: stage_executions
         )
 
+      {:error, :ambiguous} ->
+        conn
+        |> put_status(:conflict)
+        |> put_view(ChamWeb.ItemJSON)
+        |> render("error.json", error: "ambiguous id prefix; multiple items match")
+
       {:error, :not_found} ->
         conn
         |> put_status(:not_found)
@@ -98,6 +104,12 @@ defmodule ChamWeb.ItemController do
             |> render("error.json", error: "failed to delete item")
         end
 
+      {:error, :ambiguous} ->
+        conn
+        |> put_status(:conflict)
+        |> put_view(ChamWeb.ItemJSON)
+        |> render("error.json", error: "ambiguous id prefix; multiple items match")
+
       {:error, :not_found} ->
         conn
         |> put_status(:not_found)
@@ -121,6 +133,12 @@ defmodule ChamWeb.ItemController do
             |> put_view(ChamWeb.ItemJSON)
             |> render("error.json", error: "item is already in a terminal status")
         end
+
+      {:error, :ambiguous} ->
+        conn
+        |> put_status(:conflict)
+        |> put_view(ChamWeb.ItemJSON)
+        |> render("error.json", error: "ambiguous id prefix; multiple items match")
 
       {:error, :not_found} ->
         conn
@@ -152,6 +170,12 @@ defmodule ChamWeb.ItemController do
             |> render("error.json", error: "failed to retry item")
         end
 
+      {:error, :ambiguous} ->
+        conn
+        |> put_status(:conflict)
+        |> put_view(ChamWeb.ItemJSON)
+        |> render("error.json", error: "ambiguous id prefix; multiple items match")
+
       {:error, :not_found} ->
         conn
         |> put_status(:not_found)
@@ -179,6 +203,12 @@ defmodule ChamWeb.ItemController do
             |> put_view(ChamWeb.ItemJSON)
             |> render("error.json", error: "failed to reprocess item")
         end
+
+      {:error, :ambiguous} ->
+        conn
+        |> put_status(:conflict)
+        |> put_view(ChamWeb.ItemJSON)
+        |> render("error.json", error: "ambiguous id prefix; multiple items match")
 
       {:error, :not_found} ->
         conn

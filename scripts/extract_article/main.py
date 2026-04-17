@@ -53,6 +53,23 @@ def main():
         if meta.sitename:
             result["sitename"] = meta.sitename
 
+    # Cheap listing aids: word count and a single-line excerpt built from the
+    # first paragraph(s) of plain prose. Strip markdown-ish link/image syntax
+    # and code fences so the excerpt reads naturally at list-row size.
+    import re
+
+    stripped = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", text)
+    stripped = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", stripped)
+    stripped = re.sub(r"`{1,3}[^`]*`{1,3}", "", stripped)
+    stripped = re.sub(r"^#+\s*", "", stripped, flags=re.MULTILINE)
+    words = re.findall(r"\w+", stripped)
+    result["word_count"] = len(words)
+
+    # Excerpt: collapse whitespace, take ~280 chars.
+    compact = " ".join(stripped.split())
+    if compact:
+        result["excerpt"] = compact[:280]
+
     print(json.dumps(result))
 
 

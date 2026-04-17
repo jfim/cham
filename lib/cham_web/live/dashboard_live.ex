@@ -189,6 +189,38 @@ defmodule ChamWeb.DashboardLive do
     end)
   end
 
+  defp meta_line(%Cham.Items.Item{} = item) do
+    host =
+      case URI.parse(item.url || "") do
+        %URI{host: h} when is_binary(h) and h != "" -> h
+        _ -> nil
+      end
+
+    wc = item.metadata && item.metadata["word_count"]
+
+    parts =
+      []
+      |> then(fn p -> if wc && wc > 0, do: ["#{format_word_count(wc)} words" | p], else: p end)
+      |> then(fn p ->
+        if wc && wc > 0, do: ["#{reading_time_minutes(wc)} min read" | p], else: p
+      end)
+      |> then(fn p -> if host, do: [host | p], else: p end)
+      |> Enum.reverse()
+
+    case parts do
+      [] -> item.url || ""
+      parts -> Enum.join(parts, " · ")
+    end
+  end
+
+  defp format_word_count(n) when n >= 1_000, do: "#{Float.round(n / 1000, 1)}k"
+  defp format_word_count(n), do: Integer.to_string(n)
+
+  defp reading_time_minutes(word_count) do
+    # ~200 wpm is the common readability heuristic
+    max(1, div(word_count + 199, 200))
+  end
+
   defp content_type_label(type) do
     case type do
       "article" -> "Articles"

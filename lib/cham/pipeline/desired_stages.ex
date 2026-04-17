@@ -64,6 +64,7 @@ defmodule Cham.Pipeline.DesiredStages do
 
       Enum.filter(ready_stages, fn stage ->
         MapSet.member?(@core_stages, stage.plugin_id) or
+          produces_original?(stage) or
           MapSet.member?(required_ids, stage.plugin_id)
       end)
     end
@@ -127,6 +128,10 @@ defmodule Cham.Pipeline.DesiredStages do
       end)
 
     expand_dependencies(upstream, all_stages, new_visited)
+  end
+
+  defp produces_original?(stage) do
+    Enum.any?(stage.output_labels, &(Map.get(&1, "origin") == "original"))
   end
 
   defp filter_disabled(stages) do

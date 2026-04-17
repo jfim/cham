@@ -84,7 +84,7 @@ defmodule Cham.Pipeline.DesiredStagesTest do
       # Simulate ready stages: everything
       desired = [%{"type" => "content"}, %{"type" => "summary"}]
 
-      required = DesiredStages.resolve_required_stages(desired, all)
+      _required = DesiredStages.resolve_required_stages(desired, all)
       filtered = DesiredStages.filter_stages(all, nil, all)
 
       # With nil content_type, nothing is filtered

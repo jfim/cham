@@ -14,7 +14,7 @@ defmodule Cham.Subscriptions.RssParser do
           | {:error, term()}
   def parse(xml) when is_binary(xml) do
     try do
-      {doc, _rest} = :xmerl_scan.string(String.to_charlist(xml), quiet: true)
+      {doc, _rest} = :xmerl_scan.string(:binary.bin_to_list(xml), quiet: true)
       parse_doc(doc)
     rescue
       e -> {:error, e}

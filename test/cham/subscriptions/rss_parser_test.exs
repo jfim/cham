@@ -47,4 +47,13 @@ defmodule Cham.Subscriptions.RssParserTest do
   test "invalid XML returns error" do
     assert {:error, _} = RssParser.parse("not xml at all")
   end
+
+  test "parses UTF-8 content (accented chars) without xmerl byte/codepoint confusion" do
+    assert {:ok, %{title: title, description: description, entries: [entry]}} =
+             RssParser.parse(fixture("utf8.xml"))
+
+    assert title == "Blog en français"
+    assert description == "Accents and çedillas"
+    assert entry.title == "Première publication"
+  end
 end

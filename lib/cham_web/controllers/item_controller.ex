@@ -7,6 +7,21 @@ defmodule ChamWeb.ItemController do
   action_fallback :handle_error
 
   def create(conn, %{"url" => url} = params) do
+    case Cham.Subscriptions.get_by_source_url(url) do
+      nil ->
+        do_create(conn, url, params)
+
+      sub ->
+        conn
+        |> put_status(:see_other)
+        |> json(%{
+          subscription_id: sub.id,
+          redirect: "/subscriptions/#{sub.id}"
+        })
+    end
+  end
+
+  defp do_create(conn, url, params) do
     tags = Map.get(params, "tags", [])
 
     case Pipeline.submit_url(url, tags: tags) do

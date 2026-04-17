@@ -18,10 +18,16 @@ defmodule ChamWeb.ItemDetailLive do
 
     return_path = build_return_path(params)
 
+    sub =
+      if item.subscription_id,
+        do: Cham.Subscriptions.get_subscription!(item.subscription_id),
+        else: nil
+
     {:ok,
      socket
      |> assign(:page_title, item.title || "Item Detail")
      |> assign(:item, item)
+     |> assign(:subscription, sub)
      |> assign(:artifacts, artifacts)
      |> assign(:stage_history, stage_history)
      |> assign(:progress, progress)

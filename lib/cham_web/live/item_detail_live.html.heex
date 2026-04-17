@@ -32,6 +32,11 @@
         </a>
         <.relative_time at={@item.inserted_at} />
       </div>
+      <%= if @subscription do %>
+        <p class="provenance text-sm text-gray-600 mt-1">
+          from <.link navigate={~p"/subscriptions/#{@subscription.id}"}>{@subscription.title}</.link>
+        </p>
+      <% end %>
     </div>
 
     <%!-- Processing View --%>

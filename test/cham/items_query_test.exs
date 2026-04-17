@@ -9,6 +9,35 @@ defmodule Cham.ItemsQueryTest do
     item
   end
 
+  describe "list_items/1 with subscribed-feed filtering" do
+    test "default hides feed items whose URL has an existing subscription" do
+      {:ok, _sub} =
+        Cham.Subscriptions.create_subscription(%{
+          source_url: "https://hidden.example/feed",
+          backend: "cham_rss",
+          title: "Hidden",
+          poll_interval_seconds: 86_400
+        })
+
+      {:ok, _feed_item} =
+        Cham.Items.create_item(%{
+          url: "https://hidden.example/feed",
+          content_type: "feed"
+        })
+
+      {:ok, _regular} = Cham.Items.create_item(%{url: "https://plain.example/post"})
+
+      urls = Cham.Items.list_items() |> Enum.map(& &1.url)
+      refute "https://hidden.example/feed" in urls
+      assert "https://plain.example/post" in urls
+
+      urls_all =
+        Cham.Items.list_items(include_subscribed_feeds: true) |> Enum.map(& &1.url)
+
+      assert "https://hidden.example/feed" in urls_all
+    end
+  end
+
   describe "list_items/1 with content_type filter" do
     test "filters by content_type" do
       create_item!("https://example.com/article1", %{content_type: "article"})

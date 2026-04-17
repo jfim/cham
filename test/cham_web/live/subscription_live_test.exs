@@ -43,6 +43,29 @@ defmodule ChamWeb.SubscriptionLiveTest do
     assert html =~ "No subscriptions yet"
   end
 
+  test "item detail shows 'from {subscription.title}' when item has a subscription_id", %{conn: conn} do
+    start_supervised!({Cham.JobTracking.Tracker, name: Cham.JobTracking.Tracker})
+
+    {:ok, sub} =
+      Cham.Subscriptions.create_subscription(%{
+        source_url: "https://p.example/f",
+        backend: "cham_rss",
+        title: "My Feed",
+        poll_interval_seconds: 86_400
+      })
+
+    {:ok, item} =
+      Cham.Items.create_item(%{
+        url: "https://p.example/item",
+        subscription_id: sub.id,
+        source_item_id: "p1"
+      })
+
+    {:ok, _view, html} = live(conn, "/items/#{item.id}")
+    assert html =~ "from"
+    assert html =~ "My Feed"
+  end
+
   test "show page lists items for the subscription and supports rename", %{conn: conn} do
     {:ok, sub} =
       Cham.Subscriptions.create_subscription(%{

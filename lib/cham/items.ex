@@ -116,10 +116,24 @@ defmodule Cham.Items do
   end
 
   def list_items(filters \\ []) do
-    Item
-    |> apply_filters(filters)
-    |> order_by([i], desc: i.inserted_at)
-    |> Repo.all()
+    include_subscribed_feeds = Keyword.get(filters, :include_subscribed_feeds, false)
+
+    base =
+      Item
+      |> apply_filters(Keyword.delete(filters, :include_subscribed_feeds))
+      |> order_by([i], desc: i.inserted_at)
+
+    query =
+      if include_subscribed_feeds do
+        base
+      else
+        from i in base,
+          left_join: s in Cham.Subscriptions.Subscription,
+          on: s.source_url == i.url,
+          where: i.content_type != "feed" or is_nil(s.id)
+      end
+
+    Repo.all(query)
   end
 
   defp apply_filters(query, []), do: query

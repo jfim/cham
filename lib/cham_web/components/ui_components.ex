@@ -313,4 +313,66 @@ defmodule ChamWeb.UIComponents do
   end
 
   def domain_from_url(_), do: ""
+
+  @doc """
+  Minimal navigation sidebar used on pages other than the dashboard
+  (subscriptions, settings, item detail fallback, etc.). Matches the
+  visual frame of the dashboard sidebar without the item-filter controls.
+
+  ## Example
+
+      <.nav_sidebar active={:subscriptions} />
+  """
+  attr :active, :atom, default: nil, doc: "which link to highlight (:subscriptions | :settings | nil)"
+  use Phoenix.VerifiedRoutes, endpoint: ChamWeb.Endpoint, router: ChamWeb.Router
+
+  def nav_sidebar(assigns) do
+    ~H"""
+    <aside class="w-64 bg-white border-r border-gray-200 flex flex-col">
+      <div class="px-4 py-5 border-b border-gray-100">
+        <.link navigate={~p"/"} class="text-xl font-bold text-indigo-600 hover:text-indigo-500">
+          Cham
+        </.link>
+      </div>
+
+      <div class="px-4 py-3 border-b border-gray-100">
+        <.link
+          navigate={~p"/"}
+          class="flex items-center gap-2 px-2 py-1.5 rounded text-sm text-gray-600 hover:bg-gray-50"
+        >
+          <ChamWeb.CoreComponents.icon name="hero-home" class="h-4 w-4 text-gray-400" /> Dashboard
+        </.link>
+      </div>
+
+      <div class="flex-1"></div>
+
+      <div class="px-4 py-3 border-t border-gray-100 space-y-1">
+        <.link
+          navigate={~p"/subscriptions"}
+          class={[
+            "flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-gray-50",
+            if(@active == :subscriptions,
+              do: "bg-indigo-50 text-indigo-700 font-medium",
+              else: "text-gray-600"
+            )
+          ]}
+        >
+          <ChamWeb.CoreComponents.icon name="hero-rss" class="h-4 w-4 text-gray-400" /> Subscriptions
+        </.link>
+        <.link
+          navigate={~p"/config"}
+          class={[
+            "flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-gray-50",
+            if(@active == :settings,
+              do: "bg-indigo-50 text-indigo-700 font-medium",
+              else: "text-gray-600"
+            )
+          ]}
+        >
+          <ChamWeb.CoreComponents.icon name="hero-cog-6-tooth" class="h-4 w-4 text-gray-400" /> Settings
+        </.link>
+      </div>
+    </aside>
+    """
+  end
 end

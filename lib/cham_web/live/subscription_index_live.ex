@@ -29,7 +29,9 @@ defmodule ChamWeb.SubscriptionIndexLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="p-6">
+    <div class="flex min-h-screen">
+      <.nav_sidebar active={:subscriptions} />
+      <main class="flex-1 bg-gray-50 px-6 py-6 overflow-x-auto">
       <h1 class="text-2xl font-bold mb-4">Subscriptions</h1>
 
       <table class="w-full text-left">
@@ -90,6 +92,7 @@ defmodule ChamWeb.SubscriptionIndexLive do
           <% end %>
         </tbody>
       </table>
+      </main>
     </div>
     """
   end

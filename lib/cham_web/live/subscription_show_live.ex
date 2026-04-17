@@ -76,7 +76,10 @@ defmodule ChamWeb.SubscriptionShowLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="p-6 max-w-4xl">
+    <div class="flex min-h-screen">
+      <.nav_sidebar active={:subscriptions} />
+      <main class="flex-1 bg-gray-50 px-6 py-6">
+      <div class="max-w-4xl">
       <h1 class="text-2xl font-bold mb-2">{@subscription.title}</h1>
       <p class="text-sm text-gray-500 mb-6">{@subscription.source_url}</p>
 
@@ -164,6 +167,8 @@ defmodule ChamWeb.SubscriptionShowLive do
           <% end %>
         </ul>
       </section>
+      </div>
+      </main>
     </div>
     """
   end

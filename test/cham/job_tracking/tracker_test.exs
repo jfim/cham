@@ -7,7 +7,6 @@ defmodule Cham.JobTracking.TrackerTest do
     StageStarted,
     StageCompleted,
     StageFailed,
-    StageSnoozed,
     StageProgress
   }
 

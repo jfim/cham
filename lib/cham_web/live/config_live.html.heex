@@ -105,9 +105,29 @@
 
           <form phx-submit="save_config" class="space-y-5">
             <div :for={field <- @active_section.schema} class="space-y-1">
-              <label for={"config-#{field.key}"} class="block text-sm font-medium text-gray-700">
-                {field.key}
-              </label>
+              <div class="flex items-center justify-between">
+                <label for={"config-#{field.key}"} class="block text-sm font-medium text-gray-700">
+                  {field.key}
+                  <%= if Map.get(@overridden, Atom.to_string(field.key)) do %>
+                    <span class="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                      overridden
+                    </span>
+                  <% else %>
+                    <span class="ml-2 inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                      default
+                    </span>
+                  <% end %>
+                </label>
+                <button
+                  :if={Map.get(@overridden, Atom.to_string(field.key))}
+                  type="button"
+                  phx-click="reset_key"
+                  phx-value-key={Atom.to_string(field.key)}
+                  class="text-xs text-indigo-600 hover:text-indigo-500"
+                >
+                  Reset to default
+                </button>
+              </div>
               <p :if={field[:description]} class="text-xs text-gray-400">{field[:description]}</p>
 
               <%= if field.type == :boolean do %>

@@ -16,6 +16,7 @@ defmodule ChamWeb.ConfigLive do
      |> assign(:system_sections, system_sections)
      |> assign(:active_section, nil)
      |> assign(:form_values, %{})
+     |> assign(:overridden, %{})
      |> assign(:save_result, nil)}
   end
 
@@ -25,16 +26,52 @@ defmodule ChamWeb.ConfigLive do
 
     if section do
       values = read_section_config(namespace)
+      raw = read_section_raw(namespace)
 
       form_values =
         Enum.into(section.schema, %{}, fn field ->
           {Atom.to_string(field.key), format_value(Map.get(values, field.key, field.default))}
         end)
 
+      overridden =
+        Enum.into(section.schema, %{}, fn field ->
+          {Atom.to_string(field.key), Map.has_key?(raw, Atom.to_string(field.key))}
+        end)
+
       {:noreply,
        socket
        |> assign(:active_section, section)
        |> assign(:form_values, form_values)
+       |> assign(:overridden, overridden)
+       |> assign(:save_result, nil)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("reset_key", %{"key" => key}, socket) do
+    section = socket.assigns.active_section
+
+    if section do
+      :ok = ConfigManager.reset_key(section.namespace, key)
+
+      values = read_section_config(section.namespace)
+      raw = read_section_raw(section.namespace)
+
+      form_values =
+        Enum.into(section.schema, %{}, fn field ->
+          {Atom.to_string(field.key), format_value(Map.get(values, field.key, field.default))}
+        end)
+
+      overridden =
+        Enum.into(section.schema, %{}, fn field ->
+          {Atom.to_string(field.key), Map.has_key?(raw, Atom.to_string(field.key))}
+        end)
+
+      {:noreply,
+       socket
+       |> assign(:form_values, form_values)
+       |> assign(:overridden, overridden)
        |> assign(:save_result, nil)}
     else
       {:noreply, socket}
@@ -54,9 +91,17 @@ defmodule ChamWeb.ConfigLive do
 
       case ConfigManager.write_all(section.namespace, coerced) do
         :ok ->
+          raw = read_section_raw(section.namespace)
+
+          overridden =
+            Enum.into(section.schema, %{}, fn field ->
+              {Atom.to_string(field.key), Map.has_key?(raw, Atom.to_string(field.key))}
+            end)
+
           {:noreply,
            socket
            |> assign(:save_result, :ok)
+           |> assign(:overridden, overridden)
            |> assign(:form_values, Map.new(params, fn {k, v} -> {k, v} end))}
 
         {:error, errors} ->
@@ -114,6 +159,13 @@ defmodule ChamWeb.ConfigLive do
 
   defp read_section_config(namespace) do
     case ConfigManager.read_all(namespace) do
+      {:ok, values} -> values
+      {:error, _} -> %{}
+    end
+  end
+
+  defp read_section_raw(namespace) do
+    case ConfigManager.read_raw(namespace) do
       {:ok, values} -> values
       {:error, _} -> %{}
     end

@@ -20,8 +20,24 @@ defmodule Cham.Config.Manager do
     GenServer.call(server, {:read_all, namespace})
   end
 
+  @doc """
+  Returns the raw stored values for a namespace (no defaults applied).
+  Useful for distinguishing "user-overridden" keys from "using the schema default".
+  """
+  def read_raw(server \\ __MODULE__, namespace) do
+    GenServer.call(server, {:read_raw, namespace})
+  end
+
   def write_all(server \\ __MODULE__, namespace, values) do
     GenServer.call(server, {:write_all, namespace, values})
+  end
+
+  @doc """
+  Remove a key from a namespace's stored values. The key reverts to its
+  schema default on the next read. No-op if the key is not currently stored.
+  """
+  def reset_key(server \\ __MODULE__, namespace, key) do
+    GenServer.call(server, {:reset_key, namespace, key})
   end
 
   def list_schemas(server \\ __MODULE__) do
@@ -72,6 +88,32 @@ defmodule Cham.Config.Manager do
       schema ->
         raw_values = get_nested(state.raw, namespace)
         {:reply, Schema.validate(raw_values, schema), state}
+    end
+  end
+
+  def handle_call({:read_raw, namespace}, _from, state) do
+    {:reply, {:ok, get_nested(state.raw, namespace)}, state}
+  end
+
+  def handle_call({:reset_key, namespace, key}, _from, state) do
+    key_str = if is_atom(key), do: Atom.to_string(key), else: key
+    current = Map.get(state.raw, namespace, %{})
+
+    if Map.has_key?(current, key_str) do
+      updated = Map.delete(current, key_str)
+
+      new_raw =
+        if updated == %{} do
+          Map.delete(state.raw, namespace)
+        else
+          Map.put(state.raw, namespace, updated)
+        end
+
+      write_toml_file(state.toml_path, new_raw)
+      publish_change(state.event_bus, namespace, %{key_str => :reset})
+      {:reply, :ok, %{state | raw: new_raw}}
+    else
+      {:reply, :ok, state}
     end
   end
 

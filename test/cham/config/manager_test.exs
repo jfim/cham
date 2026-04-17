@@ -106,6 +106,17 @@ defmodule Cham.Config.ManagerTest do
       assert {:error, :unknown_namespace} = Manager.write_all(context.name, "nope", %{key: 1})
     end
 
+    test "accepts string keys as well as atom keys", context do
+      start_manager(context)
+      :ok = Manager.register(context.name, "worker", @worker_schema)
+
+      # ConfigLive sends string keys; regression test for a crash where
+      # write_all called Atom.to_string/1 on already-string keys.
+      assert :ok = Manager.write_all(context.name, "worker", %{"queue_general" => 7})
+      assert {:ok, config} = Manager.read_all(context.name, "worker")
+      assert config.queue_general == 7
+    end
+
     test "preserves other namespaces when writing", context do
       start_manager(context)
       archive_schema = [%{key: :path, type: :string, default: "archive", description: "Path"}]

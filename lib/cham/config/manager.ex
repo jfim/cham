@@ -83,7 +83,10 @@ defmodule Cham.Config.Manager do
       schema ->
         string_values =
           values
-          |> Enum.into(%{}, fn {k, v} -> {Atom.to_string(k), v} end)
+          |> Enum.into(%{}, fn
+            {k, v} when is_atom(k) -> {Atom.to_string(k), v}
+            {k, v} when is_binary(k) -> {k, v}
+          end)
 
         merged = Map.merge(Map.get(state.raw, namespace, %{}), string_values)
 

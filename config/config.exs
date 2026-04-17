@@ -54,7 +54,14 @@ config :phoenix, :json_library, Jason
 
 config :cham, Oban,
   repo: Cham.Repo,
-  queues: [general: 5, network: 3, gpu: 1, subscriptions: 2]
+  queues: [general: 5, network: 3, gpu: 1, subscriptions: 2],
+  plugins: [
+    Oban.Plugins.Pruner,
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"* * * * *", Cham.Subscriptions.PollScheduler}
+     ]}
+  ]
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

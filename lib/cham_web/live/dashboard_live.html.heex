@@ -91,7 +91,7 @@
       <div :if={map_size(@tag_counts) == 0} class="text-xs text-gray-400">No tags yet</div>
       <div class="flex flex-wrap gap-1.5">
         <.tag_pill
-          :for={{tag, count} <- Enum.sort(@tag_counts)}
+          :for={{tag, count} <- Enum.sort_by(@tag_counts, fn {t, c} -> {-c, t} end)}
           tag={tag}
           count={count}
           active={@active_tag == tag}

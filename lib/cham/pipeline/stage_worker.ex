@@ -11,7 +11,7 @@ defmodule Cham.Pipeline.StageWorker do
   Oban perform callback. Job args: %{"item_id" => id, "stage_module" => module_string, "plugin_id" => id}
   """
   @impl Oban.Worker
-  def perform(%Oban.Job{args: args}) do
+  def perform(%Oban.Job{args: args, attempt: attempt}) do
     item_id = args["item_id"]
     stage_module = String.to_existing_atom(args["stage_module"])
     plugin_id = args["plugin_id"]
@@ -25,7 +25,7 @@ defmodule Cham.Pipeline.StageWorker do
     else
       item_dir = resolve_item_dir(item)
 
-      case execute_stage(stage_module, plugin_id, item, item_dir) do
+      case execute_stage(stage_module, plugin_id, item, item_dir, attempt) do
         {:ok, _stage_dir} ->
           # Re-check status before notifying orchestrator
           refreshed = Items.get_item!(item_id)
@@ -62,14 +62,15 @@ defmodule Cham.Pipeline.StageWorker do
   writes artifact.json, records artifacts in DB, publishes events.
   Returns {:ok, stage_dir} | {:error, reason} | {:snooze, ms, reason}.
   """
-  def execute_stage(stage_module, plugin_id, item, item_dir) do
+  def execute_stage(stage_module, plugin_id, item, item_dir, attempt \\ 1) do
     start_time = System.monotonic_time(:millisecond)
     start_ts = DateTime.utc_now() |> DateTime.to_unix()
 
     # Publish start event
     Cham.EventBus.publish("pipeline:stage_started", %StageStarted{
       stage_id: plugin_id,
-      item_id: item.id
+      item_id: item.id,
+      attempt: attempt
     })
 
     # Create working directory
@@ -107,7 +108,8 @@ defmodule Cham.Pipeline.StageWorker do
         Cham.EventBus.publish("pipeline:stage_failed", %StageFailed{
           stage_id: plugin_id,
           item_id: item.id,
-          error: inspect(reason)
+          error: inspect(reason),
+          attempt: attempt
         })
 
         {:error, reason}

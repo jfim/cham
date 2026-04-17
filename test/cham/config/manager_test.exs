@@ -130,6 +130,24 @@ defmodule Cham.Config.ManagerTest do
       assert archive_config.path == "/data/archive"
     end
 
+    test "nested namespace round-trips through TOML file across restart", context do
+      # Regression: writes stored namespace as flat dotted key in state.raw,
+      # but init/1 parsed [plugins.foo] sections as nested maps, so reads
+      # after a restart returned defaults instead of saved values.
+      File.write!(context.toml_path, "")
+      {:ok, pid1} = Manager.start_link(name: context.name, toml_path: context.toml_path)
+      plugin_schema = [%{key: :api_key, type: :string, default: "", options: nil, required: false}]
+      :ok = Manager.register(context.name, "plugins.summarize_ollama", plugin_schema)
+      :ok = Manager.write_all(context.name, "plugins.summarize_ollama", %{"api_key" => "fw_live"})
+      GenServer.stop(pid1)
+
+      {:ok, _pid2} = Manager.start_link(name: context.name, toml_path: context.toml_path)
+      :ok = Manager.register(context.name, "plugins.summarize_ollama", plugin_schema)
+
+      assert {:ok, %{api_key: "fw_live"}} =
+               Manager.read_all(context.name, "plugins.summarize_ollama")
+    end
+
     test "persisted values survive restart", context do
       start_manager(context)
       :ok = Manager.register(context.name, "worker", @worker_schema)

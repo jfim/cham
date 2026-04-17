@@ -39,7 +39,7 @@ defmodule Cham.Config.Manager do
       if File.exists?(toml_path) do
         case Toml.decode_file(toml_path) do
           {:ok, parsed} ->
-            parsed
+            flatten_sections(parsed)
 
           {:error, reason} ->
             Logger.error(
@@ -110,14 +110,28 @@ defmodule Cham.Config.Manager do
   # --- Private ---
 
   defp get_nested(raw, namespace) do
-    keys = String.split(namespace, ".")
+    Map.get(raw, namespace, %{})
+  end
 
-    Enum.reduce_while(keys, raw, fn key, acc ->
-      case acc do
-        %{} -> {:cont, Map.get(acc, key, %{})}
-        _ -> {:halt, %{}}
+  # Flatten nested TOML sections into dotted keys so reads and writes share
+  # the same shape. `[plugins.foo]` parses as %{"plugins" => %{"foo" => ...}},
+  # but writes store under the flat "plugins.foo" key. Normalize to flat.
+  defp flatten_sections(map, prefix \\ "")
+
+  defp flatten_sections(map, prefix) when is_map(map) do
+    Enum.reduce(map, %{}, fn {k, v}, acc ->
+      full = if prefix == "", do: k, else: "#{prefix}.#{k}"
+
+      cond do
+        is_map(v) and has_sub_section?(v) -> Map.merge(acc, flatten_sections(v, full))
+        is_map(v) -> Map.put(acc, full, v)
+        true -> Map.put(acc, full, v)
       end
     end)
+  end
+
+  defp has_sub_section?(map) when is_map(map) do
+    Enum.any?(map, fn {_, v} -> is_map(v) end)
   end
 
   defp write_toml_file(path, raw) do

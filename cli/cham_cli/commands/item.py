@@ -202,16 +202,46 @@ def open(id_or_slug: str):
 
 
 @item.command()
-@click.argument("id_or_slug")
+@click.argument("id_or_slug", required=False)
 @click.option("--retry-failed", is_flag=True, help="Also retry previously failed stages")
 @click.option("--invalidate", "-i", multiple=True, help="Stage plugin_id to invalidate and re-run")
+@click.option("--all", "all_items", is_flag=True, help="Reprocess every archived item")
+@click.option("--type", "content_type", default=None, help="With --all, restrict to a content type")
 @click.option("--follow", "do_follow", is_flag=True, help="Follow live progress after reprocess")
 @click.option("--json", "use_json", is_flag=True, help="Output as JSON")
-def reprocess(id_or_slug: str, retry_failed: bool, invalidate: tuple, do_follow: bool, use_json: bool):
+def reprocess(id_or_slug: str, retry_failed: bool, invalidate: tuple, all_items: bool, content_type: str, do_follow: bool, use_json: bool):
     """Reprocess an item, running any new or missing stages."""
     client = _make_client()
 
     invalidate_list = list(invalidate) if invalidate else None
+
+    if all_items:
+        if not invalidate_list:
+            print("Error: --all requires at least one --invalidate <stage>", file=sys.stderr)
+            sys.exit(2)
+        if id_or_slug:
+            print("Error: cannot pass an id with --all", file=sys.stderr)
+            sys.exit(2)
+
+        items = client.list_items(content_type=content_type)
+        if not items:
+            print("No items to reprocess.")
+            return
+
+        for item_data in items:
+            item_id = item_data["id"]
+            display = item_data.get("title") or item_data.get("url", item_id[:8])
+            client.reprocess_item(item_id, retry_failed=retry_failed, invalidate=invalidate_list)
+            print(f"Reprocessing {','.join(invalidate_list)} on: {display}")
+
+        if use_json:
+            from cham_cli.output import print_json
+            print_json({"reprocessed": len(items), "invalidated": invalidate_list})
+        return
+
+    if not id_or_slug:
+        print("Error: provide an item ID/slug, or use --all", file=sys.stderr)
+        sys.exit(2)
 
     # Interactive stage picker when no --invalidate provided and in TTY mode
     if not invalidate_list and sys.stdout.isatty() and not use_json:

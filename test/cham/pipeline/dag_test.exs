@@ -238,5 +238,21 @@ defmodule Cham.Pipeline.DAGTest do
 
       assert DAG.find_downstream_stages(stages, "summarize") == []
     end
+
+    test "ignores stages whose only matcher is empty (match-all fallback)" do
+      # Regression: download stages declared input_matchers: [%{}] as a
+      # match-all sigil. find_downstream_stages then treated them as
+      # downstream of every stage's outputs, cascading to mark the entire
+      # pipeline as downstream — so invalidating any stage wiped the
+      # download artifact too.
+      stages = [
+        stage("transcribe", [%{"format" => "video"}], [%{"type" => "transcript"}]),
+        stage("summarize", [%{"type" => "transcript"}], [%{"type" => "summary"}]),
+        stage("download_ytdlp", [%{}], [%{"type" => "initial_download"}])
+      ]
+
+      downstream = DAG.find_downstream_stages(stages, "summarize")
+      assert downstream == []
+    end
   end
 end

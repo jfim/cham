@@ -21,6 +21,13 @@ defmodule ChamWeb.ItemController do
     end
   end
 
+  def create(conn, _params) do
+    conn
+    |> put_status(:unprocessable_entity)
+    |> put_view(ChamWeb.ItemJSON)
+    |> render("error.json", error: "url is required")
+  end
+
   defp do_create(conn, url, params) do
     tags = Map.get(params, "tags", [])
 
@@ -46,13 +53,6 @@ defmodule ChamWeb.ItemController do
           |> render("error.json", error: message)
         end
     end
-  end
-
-  def create(conn, _params) do
-    conn
-    |> put_status(:unprocessable_entity)
-    |> put_view(ChamWeb.ItemJSON)
-    |> render("error.json", error: "url is required")
   end
 
   def index(conn, params) do

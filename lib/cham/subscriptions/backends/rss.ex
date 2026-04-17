@@ -61,14 +61,17 @@ defmodule Cham.Subscriptions.Backends.RSS do
     end
   end
 
+  @default_user_agent "Cham Subscriptions/1.0"
+  @config_namespace "subscriptions.cham_rss"
+
   defp user_agent do
     try do
-      case Cham.Config.Manager.get("plugins.cham_rss_subscription.user_agent") do
-        {:ok, v} when is_binary(v) -> v
-        _ -> "Cham Subscriptions/1.0"
+      case Cham.Config.Manager.read_all(@config_namespace) do
+        {:ok, %{user_agent: v}} when is_binary(v) and v != "" -> v
+        _ -> @default_user_agent
       end
     rescue
-      _ -> "Cham Subscriptions/1.0"
+      _ -> @default_user_agent
     end
   end
 end

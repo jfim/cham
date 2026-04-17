@@ -42,6 +42,7 @@ defmodule Cham.Application do
         register_desired_artifacts_config()
         register_enabled_plugins_config()
         Cham.Subscriptions.BackendRegistry.register(Cham.Subscriptions.Backends.RSS)
+        register_subscription_backend_config(Cham.Subscriptions.Backends.RSS)
         {:ok, pid}
 
       error ->
@@ -147,6 +148,27 @@ defmodule Cham.Application do
       end)
 
     Cham.Config.Manager.register("enabled_plugins", schema)
+  end
+
+  defp register_subscription_backend_config(mod) do
+    schema = if function_exported?(mod, :config_schema, 0), do: mod.config_schema(), else: []
+
+    if schema != [] do
+      namespace = "subscriptions.#{mod.id()}"
+
+      case Cham.Config.Manager.register(namespace, schema) do
+        :ok ->
+          :ok
+
+        {:error, :already_registered} ->
+          :ok
+
+        {:error, reason} ->
+          Logger.warning(
+            "Failed to register config for backend #{mod.id()}: #{inspect(reason)}"
+          )
+      end
+    end
   end
 
   defp register_plugin_config(mod) do

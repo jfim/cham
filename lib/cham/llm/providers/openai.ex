@@ -40,14 +40,6 @@ defmodule Cham.LLM.Providers.OpenAI do
   defp parse_response(%{"choices" => [%{"message" => %{"content" => content}} | _]}),
     do: {:ok, strip_thinking(content)}
 
-  defp strip_thinking(text) when is_binary(text) do
-    text
-    |> String.replace(~r/<think>[\s\S]*?<\/think>/m, "")
-    |> String.trim()
-  end
-
-  defp strip_thinking(text), do: text
-
   defp parse_response(body) when is_binary(body) do
     case Jason.decode(body) do
       {:ok, decoded} -> parse_response(decoded)
@@ -56,4 +48,12 @@ defmodule Cham.LLM.Providers.OpenAI do
   end
 
   defp parse_response(_), do: {:error, "failed to parse response"}
+
+  defp strip_thinking(text) when is_binary(text) do
+    text
+    |> String.replace(~r/<think>[\s\S]*?<\/think>/m, "")
+    |> String.trim()
+  end
+
+  defp strip_thinking(text), do: text
 end

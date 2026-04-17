@@ -159,10 +159,14 @@ defmodule Cham.Items do
   defp apply_filters(query, [_ | rest]), do: apply_filters(query, rest)
 
   def count_by_content_type do
-    Item
-    |> where([i], not is_nil(i.content_type))
-    |> group_by([i], i.content_type)
-    |> select([i], {i.content_type, count(i.id)})
+    from(i in Item,
+      left_join: s in Cham.Subscriptions.Subscription,
+      on: s.source_url == i.url,
+      where: not is_nil(i.content_type),
+      where: i.content_type != "feed" or is_nil(s.id),
+      group_by: i.content_type,
+      select: {i.content_type, count(i.id)}
+    )
     |> Repo.all()
     |> Map.new()
   end

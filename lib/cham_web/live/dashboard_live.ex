@@ -30,9 +30,6 @@ defmodule ChamWeb.DashboardLive do
       []
       |> then(fn f -> if active_type, do: [{:content_type, active_type} | f], else: f end)
       |> then(fn f -> if active_tag, do: [{:tag, active_tag} | f], else: f end)
-      |> then(fn f ->
-        if active_type == "feed", do: [{:include_subscribed_feeds, true} | f], else: f
-      end)
 
     items = Items.list_items(filters)
     in_progress = Items.list_in_progress_items()

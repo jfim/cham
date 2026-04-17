@@ -1,0 +1,17 @@
+# Smoke test configuration template.
+# The smoke_test.sh script substitutes ${FIREWORKS_API_KEY} via envsubst.
+
+[plugins.summarize_ollama]
+model = "accounts/fireworks/models/qwen3-8b"
+url = "https://api.fireworks.ai/inference/v1"
+api_key = "${FIREWORKS_API_KEY}"
+
+[plugins.auto_tag]
+model = "accounts/fireworks/models/qwen3-8b"
+url = "https://api.fireworks.ai/inference/v1"
+api_key = "${FIREWORKS_API_KEY}"
+
+[plugins.clean_title]
+model = "accounts/fireworks/models/qwen3-8b"
+url = "https://api.fireworks.ai/inference/v1"
+api_key = "${FIREWORKS_API_KEY}"

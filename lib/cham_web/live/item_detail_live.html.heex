@@ -220,7 +220,10 @@
 
         <div :if={@active_tab == "actions"} class="space-y-6">
           <%!-- Retry Failed --%>
-          <div :if={has_failed_stages?(@stage_history)} class="flex items-start gap-4 p-4 bg-red-50 rounded-lg border border-red-200">
+          <div
+            :if={has_failed_stages?(@stage_history)}
+            class="flex items-start gap-4 p-4 bg-red-50 rounded-lg border border-red-200"
+          >
             <div class="flex-1">
               <h3 class="text-sm font-semibold text-red-800">Retry Failed Stages</h3>
               <p class="text-xs text-red-600 mt-1">
@@ -259,7 +262,10 @@
           </div>
 
           <%!-- Reprocess All --%>
-          <div :if={@stage_history != []} class="flex items-start gap-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+          <div
+            :if={@stage_history != []}
+            class="flex items-start gap-4 p-4 bg-amber-50 rounded-lg border border-amber-200"
+          >
             <div class="flex-1">
               <h3 class="text-sm font-semibold text-amber-800">Reprocess Everything</h3>
               <p class="text-xs text-amber-600 mt-1">

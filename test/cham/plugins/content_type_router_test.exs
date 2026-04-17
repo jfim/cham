@@ -223,3 +223,68 @@ defmodule Cham.Plugins.ContentTypeRouterTest do
     end
   end
 end
+
+defmodule Cham.Plugins.ContentTypeRouterFeedTest do
+  use ExUnit.Case, async: true
+
+  alias Cham.Plugins.ContentTypeRouter.RouteStage
+
+  setup do
+    dir = Path.join(System.tmp_dir!(), "ct_router_#{System.unique_integer([:positive])}")
+    File.mkdir_p!(dir)
+    on_exit(fn -> File.rm_rf!(dir) end)
+    {:ok, dir: dir}
+  end
+
+  test "routes application/rss+xml to feed format", %{dir: dir} do
+    File.write!(Path.join(dir, "original"), "<?xml version=\"1.0\"?><rss></rss>")
+
+    input = %{
+      labels: %{
+        "origin" => "original",
+        "type" => "initial_download",
+        "content_type" => "application/rss+xml"
+      },
+      filenames: ["original"],
+      input_path: dir
+    }
+
+    {:ok, result} = RouteStage.perform([input], dir, [], "id")
+    [out] = result.artifacts
+    assert out.labels["format"] == "feed"
+  end
+
+  test "routes application/atom+xml to feed format", %{dir: dir} do
+    File.write!(Path.join(dir, "original"), "<?xml version=\"1.0\"?><feed></feed>")
+
+    input = %{
+      labels: %{
+        "origin" => "original",
+        "type" => "initial_download",
+        "content_type" => "application/atom+xml"
+      },
+      filenames: ["original"],
+      input_path: dir
+    }
+
+    {:ok, result} = RouteStage.perform([input], dir, [], "id")
+    assert [%{labels: %{"format" => "feed"}} | _] = result.artifacts
+  end
+
+  test "detects RSS by magic when content_type is octet-stream", %{dir: dir} do
+    File.write!(Path.join(dir, "original"), "<?xml version=\"1.0\"?><rss version=\"2.0\"></rss>")
+
+    input = %{
+      labels: %{
+        "origin" => "original",
+        "type" => "initial_download",
+        "content_type" => "application/octet-stream"
+      },
+      filenames: ["original"],
+      input_path: dir
+    }
+
+    {:ok, result} = RouteStage.perform([input], dir, [], "id")
+    assert [%{labels: %{"format" => "feed"}} | _] = result.artifacts
+  end
+end

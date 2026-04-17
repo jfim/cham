@@ -104,7 +104,7 @@ defmodule Cham.Plugins.ContentTypeRouter.RouteStage do
   defp detect_by_magic_bytes(path) do
     case File.open(path, [:read, :binary]) do
       {:ok, f} ->
-        data = IO.binread(f, 16)
+        data = IO.binread(f, 512)
         File.close(f)
 
         case data do
@@ -137,6 +137,19 @@ defmodule Cham.Plugins.ContentTypeRouter.RouteStage do
 
   # WebM
   defp match_magic(<<0x1A, 0x45, 0xDF, 0xA3, _::binary>>), do: {:ok, "video/webm"}
+
+  defp match_magic(<<"<?xml", rest::binary>>) do
+    window = rest |> binary_part(0, min(byte_size(rest), 512))
+
+    cond do
+      String.contains?(window, "<rss") -> {:ok, "application/rss+xml"}
+      String.contains?(window, "<feed") -> {:ok, "application/atom+xml"}
+      true -> :unknown
+    end
+  end
+
+  defp match_magic(<<"<rss", _::binary>>), do: {:ok, "application/rss+xml"}
+  defp match_magic(<<"<feed", _::binary>>), do: {:ok, "application/atom+xml"}
 
   defp match_magic(_), do: :unknown
 
@@ -172,6 +185,17 @@ defmodule Cham.Plugins.ContentTypeRouter.RouteStage do
   defp route_labels("audio/" <> _) do
     {%{"origin" => "original", "format" => "audio"}, "audio"}
   end
+
+  defp route_labels("application/rss+xml") do
+    {%{"origin" => "original", "format" => "feed"}, "feed"}
+  end
+
+  defp route_labels("application/atom+xml") do
+    {%{"origin" => "original", "format" => "feed"}, "feed"}
+  end
+
+  defp route_labels("text/xml"), do: route_labels("application/rss+xml")
+  defp route_labels("application/xml"), do: route_labels("application/rss+xml")
 
   defp route_labels(_) do
     {%{"origin" => "original", "format" => "unknown"}, "unknown"}

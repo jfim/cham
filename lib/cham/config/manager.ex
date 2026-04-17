@@ -1,12 +1,9 @@
 defmodule Cham.Config.Manager do
   use GenServer
+  require Logger
 
   alias Cham.Config.{Schema, TomlEncoder}
-
-  defmodule ConfigChanged do
-    @enforce_keys [:namespace, :values]
-    defstruct [:namespace, :values]
-  end
+  alias Cham.Config.Events.ConfigChanged
 
   # --- Client API ---
 
@@ -41,8 +38,15 @@ defmodule Cham.Config.Manager do
     raw =
       if File.exists?(toml_path) do
         case Toml.decode_file(toml_path) do
-          {:ok, parsed} -> parsed
-          {:error, _} -> %{}
+          {:ok, parsed} ->
+            parsed
+
+          {:error, reason} ->
+            Logger.error(
+              "Failed to parse TOML config at #{toml_path}: #{inspect(reason)}. Using empty config."
+            )
+
+            %{}
         end
       else
         %{}

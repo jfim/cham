@@ -164,7 +164,7 @@ defmodule Cham.Config.ManagerTest do
 
       :ok = Manager.write_all(context.name, "worker", %{queue_general: 10})
 
-      assert_receive %Cham.Config.Manager.ConfigChanged{
+      assert_receive %Cham.Config.Events.ConfigChanged{
         namespace: "worker",
         values: %{queue_general: 10}
       }
@@ -178,7 +178,7 @@ defmodule Cham.Config.ManagerTest do
 
       :ok = Manager.write_all(context.name, "worker", %{queue_general: 10})
 
-      assert_receive %Cham.Config.Manager.ConfigChanged{namespace: "worker"}
+      assert_receive %Cham.Config.Events.ConfigChanged{namespace: "worker"}
     end
 
     test "does not publish event when event_bus is nil", context do
@@ -189,7 +189,7 @@ defmodule Cham.Config.ManagerTest do
 
       :ok = Manager.write_all(context.name, "worker", %{queue_general: 10})
 
-      refute_receive %Cham.Config.Manager.ConfigChanged{}
+      refute_receive %Cham.Config.Events.ConfigChanged{}
     end
   end
 end

@@ -48,6 +48,7 @@ config/cham.toml
 # Python build artifacts
 __pycache__/
 *.egg-info/
+cli/build/
 
 # Runtime data
 /archive/

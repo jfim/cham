@@ -70,8 +70,8 @@ defmodule Cham.Plugins.TranscribeFireworks.TranscribeStage do
   @impl true
   def input_matchers do
     [
-      %{"origin" => "original", "format" => "video"},
-      %{"origin" => "original", "format" => "audio"}
+      %{"origin" => "original", "format" => "audio"},
+      %{"origin" => "derived", "format" => "audio"}
     ]
   end
 
@@ -95,12 +95,10 @@ defmodule Cham.Plugins.TranscribeFireworks.TranscribeStage do
 
   @impl true
   def can_process?(current_artifacts) do
-    has_media =
-      Enum.any?(current_artifacts, fn labels ->
-        labels["origin"] == "original" and labels["format"] in ["video", "audio"]
-      end)
+    has_audio =
+      Enum.any?(current_artifacts, fn labels -> labels["format"] == "audio" end)
 
-    if has_media, do: {:ready, input_matchers(), []}, else: :not_applicable
+    if has_audio, do: {:ready, input_matchers(), []}, else: :not_applicable
   end
 
   @endpoints %{

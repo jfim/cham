@@ -72,6 +72,7 @@ defmodule Cham.Application do
       Cham.Plugins.ContentTypeRouter,
       Cham.Plugins.ExtractArticle,
       Cham.Plugins.ExtractPdf,
+      Cham.Plugins.ExtractAudio,
       Cham.Plugins.TranscribeWhisper,
       Cham.Plugins.TranscribeFireworks,
       Cham.Plugins.SummarizeOllama,

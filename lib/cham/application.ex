@@ -21,7 +21,8 @@ defmodule Cham.Application do
         {Cham.Config.Manager,
          toml_path: Application.get_env(:cham, :config_toml_path, "config/cham.toml"),
          event_bus: Cham.PubSub},
-        {Cham.Plugin.Registry, name: Cham.Plugin.Registry, plugin_order: []}
+        {Cham.Plugin.Registry, name: Cham.Plugin.Registry, plugin_order: []},
+        {Cham.Subscriptions.BackendRegistry, []}
       ] ++
         orchestrator_children() ++
         tracker_children() ++
@@ -40,6 +41,7 @@ defmodule Cham.Application do
         register_pipeline_config()
         register_desired_artifacts_config()
         register_enabled_plugins_config()
+        Cham.Subscriptions.BackendRegistry.register(Cham.Subscriptions.Backends.RSS)
         {:ok, pid}
 
       error ->
@@ -71,6 +73,7 @@ defmodule Cham.Application do
       Cham.Plugins.GenericDownloadUrl,
       Cham.Plugins.ContentTypeRouter,
       Cham.Plugins.ExtractArticle,
+      Cham.Plugins.ExtractFeedItems,
       Cham.Plugins.ExtractPdf,
       Cham.Plugins.ExtractAudio,
       Cham.Plugins.TranscribeWhisper,

@@ -11,7 +11,9 @@ defmodule Cham.Pipeline.Orchestrator do
 
   alias Cham.Archive.ArchiveManager
   alias Cham.Items
+  alias Cham.Items.Events.{ItemArchived, ItemStatusChanged}
   alias Cham.Pipeline.{DAG, DesiredStages, StageWorker}
+  alias Cham.Pipeline.Events.PipelineComplete
   alias Cham.Plugin.Registry
 
   @terminal_statuses ~w(complete incomplete failed cancelled)
@@ -331,7 +333,18 @@ defmodule Cham.Pipeline.Orchestrator do
 
     case Items.update_item(item, attrs) do
       {:ok, updated} ->
-        Cham.EventBus.publish("item:status_changed", %{item_id: updated.id, status: status})
+        Cham.EventBus.publish("item:status_changed", %ItemStatusChanged{
+          item_id: updated.id,
+          status: status
+        })
+
+        if status in @terminal_statuses do
+          Cham.EventBus.publish("pipeline:complete", %PipelineComplete{
+            item_id: updated.id,
+            status: status
+          })
+        end
+
         {:ok, updated}
 
       error ->
@@ -365,6 +378,13 @@ defmodule Cham.Pipeline.Orchestrator do
           })
 
         Logger.info("Item #{item.id} transitioned to archive at #{archive_path}")
+
+        Cham.EventBus.publish("item:archived", %ItemArchived{
+          item_id: updated_item.id,
+          slug: slug,
+          archive_path: archive_path
+        })
+
         evaluate_and_enqueue(updated_item.id, state)
 
       {:error, reason} ->

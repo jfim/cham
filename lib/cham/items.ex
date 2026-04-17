@@ -3,6 +3,7 @@ defmodule Cham.Items do
 
   alias Cham.Repo
   alias Cham.Items.{Item, Artifact}
+  alias Cham.Items.Events.ItemDeleted
 
   def create_item(attrs) do
     %Item{}
@@ -40,7 +41,14 @@ defmodule Cham.Items do
   end
 
   def delete_item(%Item{} = item) do
-    Repo.delete(item)
+    case Repo.delete(item) do
+      {:ok, deleted} = result ->
+        publish_deleted(deleted)
+        result
+
+      other ->
+        other
+    end
   end
 
   @doc """
@@ -61,9 +69,17 @@ defmodule Cham.Items do
     end
 
     case Repo.delete(item) do
-      {:ok, _} -> :ok
-      {:error, changeset} -> {:error, changeset}
+      {:ok, deleted} ->
+        publish_deleted(deleted)
+        :ok
+
+      {:error, changeset} ->
+        {:error, changeset}
     end
+  end
+
+  defp publish_deleted(%Item{id: id, slug: slug}) do
+    Cham.EventBus.publish("item:deleted", %ItemDeleted{item_id: id, slug: slug})
   end
 
   def list_stage_executions(item_id) do

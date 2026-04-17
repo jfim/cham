@@ -1,5 +1,6 @@
 defmodule Cham.Pipeline do
   alias Cham.Items
+  alias Cham.Items.Events.{ItemCreated, ItemStatusChanged}
   alias Cham.Archive.{ArchiveManager, FilesystemManager}
 
   @doc """
@@ -17,7 +18,7 @@ defmodule Cham.Pipeline do
     with {:ok, item} <- Items.create_item(%{url: url, tags: tags}),
          {:ok, item} <- setup_bootstrap(item, root),
          {:ok, _artifact} <- create_input_artifact(item, url) do
-      Cham.EventBus.publish("item:created", %{item: item})
+      Cham.EventBus.publish("item:created", %ItemCreated{item_id: item.id, url: item.url})
       Cham.Pipeline.Orchestrator.kick_off(item.id)
       {:ok, item}
     end
@@ -77,7 +78,7 @@ defmodule Cham.Pipeline do
 
         case Items.update_item(item, %{status: "cancelled"}) do
           {:ok, updated} ->
-            Cham.EventBus.publish("item:status_changed", %{
+            Cham.EventBus.publish("item:status_changed", %ItemStatusChanged{
               item_id: updated.id,
               status: "cancelled"
             })

@@ -155,7 +155,7 @@ defmodule Cham.ItemsQueryTest do
       assert bootstrapping.id in result_ids
       assert processing.id in result_ids
       assert failed.id in result_ids
-      assert incomplete.id in result_ids
+      refute incomplete.id in result_ids
       refute complete.id in result_ids
     end
 

@@ -195,7 +195,7 @@ defmodule Cham.Items do
   end
 
   def list_in_progress_items do
-    statuses = ["bootstrapping", "processing", "failed", "incomplete"]
+    statuses = ["bootstrapping", "processing", "failed"]
 
     Item
     |> where([i], i.status in ^statuses)

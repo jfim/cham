@@ -52,26 +52,6 @@ defmodule ChamWeb.ItemDetailLive do
     {:noreply, socket}
   end
 
-  defp maybe_load_transcript(socket, "transcript") do
-    case socket.assigns.transcript do
-      %{state: :not_loaded} ->
-        loaded =
-          resolve_artifact_content(
-            socket.assigns.item,
-            socket.assigns.artifacts,
-            socket.assigns.stage_history,
-            "transcript"
-          )
-
-        assign(socket, :transcript, loaded)
-
-      _ ->
-        socket
-    end
-  end
-
-  defp maybe_load_transcript(socket, _tab), do: socket
-
   def handle_event("retry_failed", _params, socket) do
     item = socket.assigns.item
 
@@ -151,6 +131,26 @@ defmodule ChamWeb.ItemDetailLive do
       {:noreply, socket}
     end
   end
+
+  defp maybe_load_transcript(socket, "transcript") do
+    case socket.assigns.transcript do
+      %{state: :not_loaded} ->
+        loaded =
+          resolve_artifact_content(
+            socket.assigns.item,
+            socket.assigns.artifacts,
+            socket.assigns.stage_history,
+            "transcript"
+          )
+
+        assign(socket, :transcript, loaded)
+
+      _ ->
+        socket
+    end
+  end
+
+  defp maybe_load_transcript(socket, _tab), do: socket
 
   defp parse_backfill_params(%{"mode" => "none"}), do: :none
 

@@ -79,95 +79,95 @@ defmodule ChamWeb.SubscriptionShowLive do
     <div class="flex min-h-screen">
       <.nav_sidebar active={:subscriptions} />
       <main class="flex-1 bg-gray-50 px-6 py-6">
-      <div class="max-w-4xl">
-      <h1 class="text-2xl font-bold mb-2">{@subscription.title}</h1>
-      <p class="text-sm text-gray-500 mb-6">{@subscription.source_url}</p>
+        <div class="max-w-4xl">
+          <h1 class="text-2xl font-bold mb-2">{@subscription.title}</h1>
+          <p class="text-sm text-gray-500 mb-6">{@subscription.source_url}</p>
 
-      <section id="settings" class="mb-8">
-        <h2 class="text-lg font-semibold mb-2">Settings</h2>
-        <.form
-          for={%{}}
-          as={:subscription}
-          id="settings-form"
-          phx-submit="update_settings"
-          class="space-y-2"
-        >
-          <div>
-            <label class="block text-sm">Title</label>
-            <input
-              name="subscription[title]"
-              value={@subscription.title}
-              class="border px-2 py-1 w-full"
-            />
-          </div>
-          <div>
-            <label class="block text-sm">Poll interval</label>
-            <select name="subscription[poll_interval_seconds]" class="border px-2 py-1">
-              <option value="3600" selected={@subscription.poll_interval_seconds == 3600}>
-                1 hour
-              </option>
-              <option value="21600" selected={@subscription.poll_interval_seconds == 21600}>
-                6 hours
-              </option>
-              <option value="86400" selected={@subscription.poll_interval_seconds == 86400}>
-                24 hours
-              </option>
-            </select>
-          </div>
-          <div>
-            <label class="inline-flex items-center gap-2 text-sm">
-              <input
-                type="hidden"
-                name="subscription[active]"
-                value="false"
-              />
-              <input
-                type="checkbox"
-                name="subscription[active]"
-                value="true"
-                checked={@subscription.active}
-              /> Active
-            </label>
-          </div>
-          <button type="submit" class="bg-blue-600 text-white px-3 py-1 rounded">Save</button>
-        </.form>
-      </section>
+          <section id="settings" class="mb-8">
+            <h2 class="text-lg font-semibold mb-2">Settings</h2>
+            <.form
+              for={%{}}
+              as={:subscription}
+              id="settings-form"
+              phx-submit="update_settings"
+              class="space-y-2"
+            >
+              <div>
+                <label class="block text-sm">Title</label>
+                <input
+                  name="subscription[title]"
+                  value={@subscription.title}
+                  class="border px-2 py-1 w-full"
+                />
+              </div>
+              <div>
+                <label class="block text-sm">Poll interval</label>
+                <select name="subscription[poll_interval_seconds]" class="border px-2 py-1">
+                  <option value="3600" selected={@subscription.poll_interval_seconds == 3600}>
+                    1 hour
+                  </option>
+                  <option value="21600" selected={@subscription.poll_interval_seconds == 21600}>
+                    6 hours
+                  </option>
+                  <option value="86400" selected={@subscription.poll_interval_seconds == 86400}>
+                    24 hours
+                  </option>
+                </select>
+              </div>
+              <div>
+                <label class="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="hidden"
+                    name="subscription[active]"
+                    value="false"
+                  />
+                  <input
+                    type="checkbox"
+                    name="subscription[active]"
+                    value="true"
+                    checked={@subscription.active}
+                  /> Active
+                </label>
+              </div>
+              <button type="submit" class="bg-blue-600 text-white px-3 py-1 rounded">Save</button>
+            </.form>
+          </section>
 
-      <section class="mb-8">
-        <h2 class="text-lg font-semibold mb-2">Re-run backfill</h2>
-        <.form for={%{}} phx-submit="backfill" class="space-y-2">
-          <div>
-            <label class="inline-flex items-center gap-2">
-              <input type="radio" name="mode" value="last_n" /> Last
-              <input name="n" value="10" type="number" class="border px-2 py-1 w-20" /> items
-            </label>
-          </div>
-          <div>
-            <label class="inline-flex items-center gap-2">
-              <input type="radio" name="mode" value="since" /> Since
-              <input name="date" type="date" class="border px-2 py-1" />
-            </label>
-          </div>
-          <button type="submit" class="bg-blue-600 text-white px-3 py-1 rounded">Run</button>
-        </.form>
-      </section>
+          <section class="mb-8">
+            <h2 class="text-lg font-semibold mb-2">Re-run backfill</h2>
+            <.form for={%{}} phx-submit="backfill" class="space-y-2">
+              <div>
+                <label class="inline-flex items-center gap-2">
+                  <input type="radio" name="mode" value="last_n" /> Last
+                  <input name="n" value="10" type="number" class="border px-2 py-1 w-20" /> items
+                </label>
+              </div>
+              <div>
+                <label class="inline-flex items-center gap-2">
+                  <input type="radio" name="mode" value="since" /> Since
+                  <input name="date" type="date" class="border px-2 py-1" />
+                </label>
+              </div>
+              <button type="submit" class="bg-blue-600 text-white px-3 py-1 rounded">Run</button>
+            </.form>
+          </section>
 
-      <section>
-        <h2 class="text-lg font-semibold mb-2">Items</h2>
-        <ul class="space-y-1">
-          <%= for item <- @items do %>
-            <li>
-              <.link navigate={~p"/items/#{item.id}"} class="underline">
-                {item.title || item.url}
-              </.link>
-            </li>
-          <% end %>
-          <%= if @items == [] do %>
-            <li class="text-gray-500">No items yet.</li>
-          <% end %>
-        </ul>
-      </section>
-      </div>
+          <section>
+            <h2 class="text-lg font-semibold mb-2">Items</h2>
+            <ul class="space-y-1">
+              <%= for item <- @items do %>
+                <li>
+                  <.link navigate={~p"/items/#{item.id}"} class="underline">
+                    {item.title || item.url}
+                  </.link>
+                </li>
+              <% end %>
+              <%= if @items == [] do %>
+                <li class="text-gray-500">No items yet.</li>
+              <% end %>
+            </ul>
+          </section>
+        </div>
       </main>
     </div>
     """

@@ -328,7 +328,10 @@ defmodule ChamWeb.UIComponents do
 
       <.nav_sidebar active={:subscriptions} />
   """
-  attr :active, :atom, default: nil, doc: "which link to highlight (:subscriptions | :settings | nil)"
+  attr :active, :atom,
+    default: nil,
+    doc: "which link to highlight (:subscriptions | :settings | nil)"
+
   use Phoenix.VerifiedRoutes, endpoint: ChamWeb.Endpoint, router: ChamWeb.Router
 
   def nav_sidebar(assigns) do
@@ -374,7 +377,8 @@ defmodule ChamWeb.UIComponents do
             )
           ]}
         >
-          <ChamWeb.CoreComponents.icon name="hero-cog-6-tooth" class="h-4 w-4 text-gray-400" /> Settings
+          <ChamWeb.CoreComponents.icon name="hero-cog-6-tooth" class="h-4 w-4 text-gray-400" />
+          Settings
         </.link>
       </div>
     </aside>

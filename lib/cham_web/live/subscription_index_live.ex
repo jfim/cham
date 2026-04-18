@@ -32,66 +32,66 @@ defmodule ChamWeb.SubscriptionIndexLive do
     <div class="flex min-h-screen">
       <.nav_sidebar active={:subscriptions} />
       <main class="flex-1 bg-gray-50 px-6 py-6 overflow-x-auto">
-      <h1 class="text-2xl font-bold mb-4">Subscriptions</h1>
+        <h1 class="text-2xl font-bold mb-4">Subscriptions</h1>
 
-      <table class="w-full text-left">
-        <thead>
-          <tr class="border-b">
-            <th class="py-2 pr-4">Title</th>
-            <th class="py-2 pr-4">Source</th>
-            <th class="py-2 pr-4">Backend</th>
-            <th class="py-2 pr-4">Last poll</th>
-            <th class="py-2 pr-4">Interval</th>
-            <th class="py-2 pr-4">Status</th>
-            <th class="py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <%= for sub <- @subscriptions do %>
-            <tr id={"sub-#{sub.id}"} class="border-b">
-              <td class="py-2 pr-4">
-                <.link navigate={~p"/subscriptions/#{sub.id}"}>{sub.title}</.link>
-              </td>
-              <td class="py-2 pr-4 text-sm">{sub.source_url}</td>
-              <td class="py-2 pr-4">{sub.backend}</td>
-              <td class="py-2 pr-4 text-sm">{format_ts(sub.last_polled_at)}</td>
-              <td class="py-2 pr-4">{format_interval(sub.poll_interval_seconds)}</td>
-              <td class="py-2 pr-4">
-                <%= cond do %>
-                  <% not sub.active -> %>
-                    <span class="text-gray-500">paused</span>
-                  <% sub.consecutive_failures > @failure_threshold -> %>
-                    <span class="text-red-600">
-                      Last {sub.consecutive_failures} polls failed: {sub.last_error}
-                    </span>
-                  <% true -> %>
-                    <span class="text-green-600">ok</span>
-                <% end %>
-              </td>
-              <td class="py-2">
-                <button phx-click="toggle_active" phx-value-id={sub.id} class="underline">
-                  {if sub.active, do: "Pause", else: "Resume"}
-                </button>
-                <button
-                  phx-click="delete"
-                  phx-value-id={sub.id}
-                  data-confirm="Delete this subscription?"
-                  class="underline text-red-600 ml-2"
-                >
-                  Delete
-                </button>
-              </td>
+        <table class="w-full text-left">
+          <thead>
+            <tr class="border-b">
+              <th class="py-2 pr-4">Title</th>
+              <th class="py-2 pr-4">Source</th>
+              <th class="py-2 pr-4">Backend</th>
+              <th class="py-2 pr-4">Last poll</th>
+              <th class="py-2 pr-4">Interval</th>
+              <th class="py-2 pr-4">Status</th>
+              <th class="py-2"></th>
             </tr>
-          <% end %>
-          <%= if @subscriptions == [] do %>
-            <tr>
-              <td colspan="7" class="py-4 text-gray-500 text-center">
-                No subscriptions yet.
-              </td>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            <%= for sub <- @subscriptions do %>
+              <tr id={"sub-#{sub.id}"} class="border-b">
+                <td class="py-2 pr-4">
+                  <.link navigate={~p"/subscriptions/#{sub.id}"}>{sub.title}</.link>
+                </td>
+                <td class="py-2 pr-4 text-sm">{sub.source_url}</td>
+                <td class="py-2 pr-4">{sub.backend}</td>
+                <td class="py-2 pr-4 text-sm">{format_ts(sub.last_polled_at)}</td>
+                <td class="py-2 pr-4">{format_interval(sub.poll_interval_seconds)}</td>
+                <td class="py-2 pr-4">
+                  <%= cond do %>
+                    <% not sub.active -> %>
+                      <span class="text-gray-500">paused</span>
+                    <% sub.consecutive_failures > @failure_threshold -> %>
+                      <span class="text-red-600">
+                        Last {sub.consecutive_failures} polls failed: {sub.last_error}
+                      </span>
+                    <% true -> %>
+                      <span class="text-green-600">ok</span>
+                  <% end %>
+                </td>
+                <td class="py-2">
+                  <button phx-click="toggle_active" phx-value-id={sub.id} class="underline">
+                    {if sub.active, do: "Pause", else: "Resume"}
+                  </button>
+                  <button
+                    phx-click="delete"
+                    phx-value-id={sub.id}
+                    data-confirm="Delete this subscription?"
+                    class="underline text-red-600 ml-2"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            <% end %>
+            <%= if @subscriptions == [] do %>
+              <tr>
+                <td colspan="7" class="py-4 text-gray-500 text-center">
+                  No subscriptions yet.
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
       </main>
     </div>
     """

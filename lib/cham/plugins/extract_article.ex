@@ -8,7 +8,7 @@ defmodule Cham.Plugins.ExtractArticle do
   def name, do: "Article Extractor"
 
   @impl true
-  def description, do: "Extracts article content from HTML pages using trafilatura"
+  def description, do: "Extracts article content from HTML pages using readability-lxml"
 
   @impl true
   def config_schema, do: []
@@ -27,7 +27,8 @@ defmodule Cham.Plugins.ExtractArticle.ExtractStage do
   def name, do: "Extract Article"
 
   @impl true
-  def description, do: "Extracts article text and metadata from HTML using trafilatura"
+  def description,
+    do: "Extracts article text and metadata from HTML using readability-lxml + markdownify"
 
   @impl true
   def input_matchers,
@@ -92,7 +93,7 @@ defmodule Cham.Plugins.ExtractArticle.ExtractStage do
              }
            ],
            item_metadata: item_metadata,
-           provenance: %{"tool" => "trafilatura"}
+           provenance: %{"tool" => "readability-lxml"}
          }}
 
       {:ok, output, _stderr, exit_code} ->

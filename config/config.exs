@@ -54,9 +54,10 @@ config :phoenix, :json_library, Jason
 
 config :cham, Oban,
   repo: Cham.Repo,
-  queues: [general: 5, network: 3, gpu: 1, subscriptions: 2],
+  queues: [general: 0, network: 0, gpu: 0, subscriptions: 0],
   plugins: [
     Oban.Plugins.Pruner,
+    {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)},
     {Oban.Plugins.Cron,
      crontab: [
        {"* * * * *", Cham.Subscriptions.PollScheduler}

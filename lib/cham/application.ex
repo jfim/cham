@@ -26,6 +26,7 @@ defmodule Cham.Application do
       ] ++
         orchestrator_children() ++
         tracker_children() ++
+        queue_scaler_children() ++
         [
           # Start to serve requests, typically the last entry
           ChamWeb.Endpoint
@@ -233,6 +234,14 @@ defmodule Cham.Application do
   defp tracker_children do
     if Application.get_env(:cham, :start_tracker, true) do
       [Cham.JobTracking.Tracker]
+    else
+      []
+    end
+  end
+
+  defp queue_scaler_children do
+    if Application.get_env(:cham, :start_queue_scaler, true) do
+      [Cham.Pipeline.QueueScaler]
     else
       []
     end

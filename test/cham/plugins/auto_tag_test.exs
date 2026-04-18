@@ -10,7 +10,7 @@ defmodule Cham.Plugins.AutoTagTest do
     end
 
     test "name" do
-      assert AutoTag.name() == "Auto Tagger"
+      assert AutoTag.name() == "LLM Auto Tagger"
     end
 
     test "config_schema has model, max_tags, url, and api_key" do

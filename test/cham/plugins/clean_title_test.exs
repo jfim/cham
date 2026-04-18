@@ -10,7 +10,7 @@ defmodule Cham.Plugins.CleanTitleTest do
     end
 
     test "name" do
-      assert CleanTitle.name() == "Title Cleaner"
+      assert CleanTitle.name() == "LLM Title Cleaner"
     end
 
     test "config_schema has model, url, and api_key" do

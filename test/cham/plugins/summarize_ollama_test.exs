@@ -10,7 +10,7 @@ defmodule Cham.Plugins.SummarizeOllamaTest do
     end
 
     test "name" do
-      assert SummarizeOllama.name() == "Ollama Summarizer"
+      assert SummarizeOllama.name() == "LLM Summarizer"
     end
 
     test "config_schema has model, max_input_tokens, url, and api_key" do

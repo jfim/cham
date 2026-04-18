@@ -5,7 +5,7 @@ defmodule Cham.Plugins.AutoTag do
   def plugin_id, do: "auto_tag"
 
   @impl true
-  def name, do: "Auto Tagger"
+  def name, do: "LLM Auto Tagger"
 
   @impl true
   def description, do: "LLM-based automatic tagging"

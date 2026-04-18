@@ -5,7 +5,7 @@ defmodule Cham.Plugins.CleanTitle do
   def plugin_id, do: "clean_title"
 
   @impl true
-  def name, do: "Title Cleaner"
+  def name, do: "LLM Title Cleaner"
 
   @impl true
   def description, do: "LLM-based title cleanup"

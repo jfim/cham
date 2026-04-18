@@ -5,7 +5,7 @@ defmodule Cham.Plugins.SummarizeOllama do
   def plugin_id, do: "summarize_ollama"
 
   @impl true
-  def name, do: "Ollama Summarizer"
+  def name, do: "LLM Summarizer"
 
   @impl true
   def description, do: "LLM-based summarization using Ollama"

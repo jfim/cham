@@ -18,7 +18,7 @@ defmodule Cham.JobTracking.StageExecution do
     belongs_to :item, Cham.Items.Item
   end
 
-  @statuses ~w(started completed failed snoozed)
+  @statuses ~w(started completed failed snoozed crashed)
 
   def changeset(execution, attrs) do
     execution

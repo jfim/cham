@@ -91,6 +91,28 @@ defmodule Cham.TestPlugins.StageB do
     do: {:ok, %{artifacts: [], item_metadata: %{}, provenance: %{}}}
 end
 
+defmodule Cham.TestPlugins.RaisingStage do
+  @behaviour Cham.Stage
+
+  @impl true
+  def name, do: "Raising Stage"
+  @impl true
+  def description, do: "Test stage that raises an exception"
+  @impl true
+  def input_matchers, do: [%{"domain" => "example.com"}]
+  @impl true
+  def output_labels, do: [%{"origin" => "derived", "type" => "none"}]
+  @impl true
+  def queue, do: :general
+  @impl true
+  def max_attempts, do: 1
+
+  @impl true
+  def perform(_inputs, _dir, _desired, _item_id) do
+    raise "kaboom"
+  end
+end
+
 defmodule Cham.TestPlugins.PluginEcho do
   @behaviour Cham.Plugin
 

@@ -14,6 +14,11 @@ defmodule Cham.JobTracking.Tracker do
 
   import Ecto.Query
 
+  require Logger
+
+  @oban_exception_event [:oban, :job, :exception]
+  @oban_telemetry_handler_id "cham-tracker-oban-exception"
+
   # --- Client API ---
 
   def start_link(opts) do
@@ -36,9 +41,84 @@ defmodule Cham.JobTracking.Tracker do
 
   @impl true
   def init(_opts) do
+    reconcile_orphaned_executions()
     Cham.EventBus.subscribe("pipeline")
+    attach_oban_telemetry()
+    Process.flag(:trap_exit, true)
     {:ok, %{progress: %{}}}
   end
+
+  @impl true
+  def terminate(_reason, _state) do
+    :telemetry.detach(@oban_telemetry_handler_id)
+    :ok
+  end
+
+  @doc """
+  Mark any stage_executions still in "started" status as "crashed".
+  At boot time no worker can still be running a prior stage, so any
+  lingering "started" row is an orphan from a previous crash, restart,
+  or ungraceful shutdown.
+  """
+  def reconcile_orphaned_executions do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    {count, _} =
+      StageExecution
+      |> where([s], s.status == "started")
+      |> Repo.update_all(
+        set: [
+          status: "crashed",
+          ended_at: now,
+          error: "process terminated before completion (reconciled at startup)"
+        ]
+      )
+
+    if count > 0 do
+      Logger.warning("Tracker: reconciled #{count} orphaned stage execution(s) as crashed")
+    end
+
+    count
+  end
+
+  defp attach_oban_telemetry do
+    :telemetry.detach(@oban_telemetry_handler_id)
+
+    :telemetry.attach(
+      @oban_telemetry_handler_id,
+      @oban_exception_event,
+      &__MODULE__.handle_oban_exception/4,
+      nil
+    )
+  end
+
+  @doc false
+  def handle_oban_exception(@oban_exception_event, _measurements, metadata, _config) do
+    case metadata do
+      %{job: %Oban.Job{worker: "Cham.Pipeline.StageWorker", args: args, attempt: attempt}} ->
+        Cham.EventBus.publish("pipeline:stage_failed", %StageFailed{
+          stage_id: args["plugin_id"],
+          item_id: args["item_id"],
+          error: format_oban_exception(metadata),
+          attempt: attempt
+        })
+
+      _ ->
+        :ok
+    end
+  rescue
+    exception ->
+      Logger.error(
+        "Tracker telemetry handler failed: #{Exception.format(:error, exception, __STACKTRACE__)}"
+      )
+  end
+
+  defp format_oban_exception(%{kind: kind, reason: reason, stacktrace: stacktrace}) do
+    Exception.format(kind, reason, stacktrace)
+  end
+
+  defp format_oban_exception(%{reason: reason}), do: inspect(reason)
+  defp format_oban_exception(_), do: "unknown error"
 
   @impl true
   def handle_info(%StageStarted{} = event, state) do

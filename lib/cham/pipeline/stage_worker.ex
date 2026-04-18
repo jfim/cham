@@ -80,7 +80,32 @@ defmodule Cham.Pipeline.StageWorker do
     input_artifacts = resolve_inputs(stage_module, item.id, item_dir)
 
     # Execute the stage
-    case stage_module.perform(input_artifacts, stage_dir, [], item.id) do
+    result =
+      try do
+        stage_module.perform(input_artifacts, stage_dir, [], item.id)
+      rescue
+        exception ->
+          publish_crash_failure(
+            plugin_id,
+            item.id,
+            attempt,
+            Exception.format(:error, exception, __STACKTRACE__)
+          )
+
+          reraise exception, __STACKTRACE__
+      catch
+        kind, reason ->
+          publish_crash_failure(
+            plugin_id,
+            item.id,
+            attempt,
+            Exception.format(kind, reason, __STACKTRACE__)
+          )
+
+          :erlang.raise(kind, reason, __STACKTRACE__)
+      end
+
+    case result do
       {:ok, result} ->
         end_ts = DateTime.utc_now() |> DateTime.to_unix()
         duration_ms = System.monotonic_time(:millisecond) - start_time
@@ -117,6 +142,15 @@ defmodule Cham.Pipeline.StageWorker do
       {:snooze, duration_ms, reason} ->
         {:snooze, duration_ms, reason}
     end
+  end
+
+  defp publish_crash_failure(plugin_id, item_id, attempt, formatted_error) do
+    Cham.EventBus.publish("pipeline:stage_failed", %StageFailed{
+      stage_id: plugin_id,
+      item_id: item_id,
+      error: formatted_error,
+      attempt: attempt
+    })
   end
 
   defp resolve_item_dir(item) do

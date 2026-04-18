@@ -3,7 +3,7 @@ defmodule Cham.Pipeline.StageWorkerTest do
 
   alias Cham.Pipeline.StageWorker
   alias Cham.Items
-  alias Cham.Pipeline.Events.{StageStarted, StageCompleted}
+  alias Cham.Pipeline.Events.{StageStarted, StageCompleted, StageFailed}
 
   setup do
     tmp = Path.join(System.tmp_dir!(), "cham_worker_test_#{:erlang.unique_integer([:positive])}")
@@ -62,6 +62,27 @@ defmodule Cham.Pipeline.StageWorkerTest do
       # Verify events published
       assert_receive %StageStarted{stage_id: "echo_stage", item_id: _}
       assert_receive %StageCompleted{stage_id: "echo_stage", item_id: _}
+    end
+
+    test "publishes StageFailed and reraises when stage raises", %{item: item, tmp: tmp} do
+      item_dir = Path.join(tmp, "item")
+      File.mkdir_p!(Path.join(item_dir, "processing"))
+
+      Cham.EventBus.subscribe("pipeline")
+
+      assert_raise RuntimeError, "kaboom", fn ->
+        StageWorker.execute_stage(
+          Cham.TestPlugins.RaisingStage,
+          "raising_stage",
+          item,
+          item_dir,
+          2
+        )
+      end
+
+      assert_receive %StageStarted{stage_id: "raising_stage", attempt: 2}
+      assert_receive %StageFailed{stage_id: "raising_stage", attempt: 2, error: error}
+      assert error =~ "kaboom"
     end
   end
 

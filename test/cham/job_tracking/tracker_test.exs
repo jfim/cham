@@ -1,7 +1,8 @@
 defmodule Cham.JobTracking.TrackerTest do
   use Cham.DataCase
 
-  alias Cham.JobTracking.Tracker
+  alias Cham.JobTracking.{Tracker, StageExecution}
+  alias Cham.Repo
 
   alias Cham.Pipeline.Events.{
     StageStarted,
@@ -82,6 +83,110 @@ defmodule Cham.JobTracking.TrackerTest do
       history = Tracker.get_stage_history(item.id)
       failed = Enum.find(history, &(&1.status == "failed"))
       assert failed.error == "model not available"
+    end
+  end
+
+  describe "startup reconciliation" do
+    test "marks orphaned 'started' executions as 'crashed'", %{item: item} do
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      {:ok, orphan} =
+        %StageExecution{}
+        |> StageExecution.changeset(%{
+          item_id: item.id,
+          stage: "auto_tag",
+          status: "started",
+          attempt: 1,
+          started_at: now
+        })
+        |> Repo.insert()
+
+      count = Tracker.reconcile_orphaned_executions()
+      assert count >= 1
+
+      reloaded = Repo.get!(StageExecution, orphan.id)
+      assert reloaded.status == "crashed"
+      assert reloaded.ended_at != nil
+      assert reloaded.error =~ "reconciled at startup"
+    end
+
+    test "does not touch non-started executions", %{item: item} do
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      {:ok, completed} =
+        %StageExecution{}
+        |> StageExecution.changeset(%{
+          item_id: item.id,
+          stage: "extract",
+          status: "completed",
+          attempt: 1,
+          started_at: now,
+          ended_at: now,
+          duration_ms: 10
+        })
+        |> Repo.insert()
+
+      Tracker.reconcile_orphaned_executions()
+
+      reloaded = Repo.get!(StageExecution, completed.id)
+      assert reloaded.status == "completed"
+    end
+  end
+
+  describe "oban exception telemetry" do
+    test "publishes StageFailed when StageWorker job raises", %{item: item} do
+      Cham.EventBus.subscribe("pipeline")
+
+      job = %Oban.Job{
+        worker: "Cham.Pipeline.StageWorker",
+        args: %{"item_id" => item.id, "plugin_id" => "auto_tag"},
+        attempt: 2
+      }
+
+      metadata = %{
+        job: job,
+        kind: :error,
+        reason: %RuntimeError{message: "boom"},
+        stacktrace: []
+      }
+
+      Tracker.handle_oban_exception(
+        [:oban, :job, :exception],
+        %{duration: 0},
+        metadata,
+        nil
+      )
+
+      assert_receive %StageFailed{
+        stage_id: "auto_tag",
+        item_id: received_id,
+        attempt: 2,
+        error: err
+      }
+
+      assert received_id == item.id
+      assert err =~ "boom"
+    end
+
+    test "ignores non-StageWorker jobs" do
+      Cham.EventBus.subscribe("pipeline")
+
+      job = %Oban.Job{
+        worker: "Some.Other.Worker",
+        args: %{},
+        attempt: 1
+      }
+
+      metadata = %{job: job, kind: :error, reason: :whatever, stacktrace: []}
+
+      Tracker.handle_oban_exception(
+        [:oban, :job, :exception],
+        %{duration: 0},
+        metadata,
+        nil
+      )
+
+      refute_receive %StageFailed{}, 50
     end
   end
 

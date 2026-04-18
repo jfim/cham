@@ -117,7 +117,7 @@ defmodule Cham.Subscriptions do
   Enqueue an immediate poll for an existing subscription (no backfill).
   """
   def enqueue_poll(%Subscription{} = sub) do
-    %{"subscription_id" => sub.id, "backfill" => "none"}
+    %{"subscription_id" => sub.id, "backfill" => "incremental"}
     |> Cham.Subscriptions.PollWorker.new()
     |> Oban.insert()
   end

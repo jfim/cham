@@ -14,6 +14,13 @@ defmodule Cham.Subscriptions.BackfillTest do
     assert length(seen) == 2
   end
 
+  test "mode :incremental ingests all entries (for ongoing polls)" do
+    entries = [entry("b", ~U[2026-04-14 00:00:00Z]), entry("a", ~U[2026-04-13 00:00:00Z])]
+
+    assert {:ingest, ingest, :seen, []} = Backfill.select(entries, :incremental)
+    assert Enum.map(ingest, & &1.source_item_id) == ["b", "a"]
+  end
+
   test "mode {:last_n, 1} ingests newest one" do
     entries = [entry("b", ~U[2026-04-14 00:00:00Z]), entry("a", ~U[2026-04-13 00:00:00Z])]
 

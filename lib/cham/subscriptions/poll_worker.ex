@@ -16,8 +16,8 @@ defmodule Cham.Subscriptions.PollWorker do
     mode = parse_backfill(args["backfill"])
 
     # For explicit re-backfill runs, entries previously marked as seen-only
-    # should be re-considered. For cron polls (mode = :none), they stay deduped.
-    reconsider_seen = mode != :none
+    # should be re-considered. For cron/incremental polls, they stay deduped.
+    reconsider_seen = mode not in [:none, :incremental]
 
     try do
       {:ok, backend} = BackendRegistry.lookup(String.to_existing_atom(sub.backend))
@@ -119,7 +119,8 @@ defmodule Cham.Subscriptions.PollWorker do
     })
   end
 
-  defp parse_backfill(nil), do: :none
+  defp parse_backfill(nil), do: :incremental
+  defp parse_backfill("incremental"), do: :incremental
   defp parse_backfill("none"), do: :none
   defp parse_backfill(%{"mode" => "last_n", "n" => n}) when is_integer(n), do: {:last_n, n}
 

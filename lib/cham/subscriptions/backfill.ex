@@ -5,10 +5,12 @@ defmodule Cham.Subscriptions.Backfill do
   the second set as already seen so they won't be re-discovered.
   """
 
-  @type mode :: :none | {:last_n, pos_integer()} | {:since, DateTime.t()}
+  @type mode :: :none | :incremental | {:last_n, pos_integer()} | {:since, DateTime.t()}
 
   @spec select([map()], mode()) :: {:ingest, [map()], :seen, [map()]}
   def select(entries, :none), do: {:ingest, [], :seen, entries}
+
+  def select(entries, :incremental), do: {:ingest, entries, :seen, []}
 
   def select(entries, {:last_n, n}) when is_integer(n) and n > 0 do
     {ingest, seen} = Enum.split(entries, n)

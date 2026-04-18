@@ -20,6 +20,16 @@ defmodule ChamWeb.SubscriptionIndexLive do
     {:noreply, assign(socket, :subscriptions, Subscriptions.list_subscriptions())}
   end
 
+  def handle_event("poll_now", %{"id" => id}, socket) do
+    sub = Subscriptions.get_subscription!(id)
+    {:ok, _} = Subscriptions.enqueue_poll(sub)
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Polling \"#{sub.title}\" now…")
+     |> assign(:subscriptions, Subscriptions.list_subscriptions())}
+  end
+
   def handle_event("delete", %{"id" => id}, socket) do
     sub = Subscriptions.get_subscription!(id)
     {:ok, _} = Subscriptions.delete_subscription(sub)
@@ -69,17 +79,42 @@ defmodule ChamWeb.SubscriptionIndexLive do
                   <% end %>
                 </td>
                 <td class="py-2">
-                  <button phx-click="toggle_active" phx-value-id={sub.id} class="underline">
-                    {if sub.active, do: "Pause", else: "Resume"}
-                  </button>
-                  <button
-                    phx-click="delete"
-                    phx-value-id={sub.id}
-                    data-confirm="Delete this subscription?"
-                    class="underline text-red-600 ml-2"
-                  >
-                    Delete
-                  </button>
+                  <div class="flex items-center gap-1">
+                    <button
+                      type="button"
+                      phx-click="poll_now"
+                      phx-value-id={sub.id}
+                      title="Poll now"
+                      aria-label="Poll now"
+                      class="p-1.5 rounded hover:bg-gray-200 text-gray-700"
+                    >
+                      <ChamWeb.CoreComponents.icon name="hero-arrow-path" class="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      phx-click="toggle_active"
+                      phx-value-id={sub.id}
+                      title={if sub.active, do: "Pause", else: "Resume"}
+                      aria-label={if sub.active, do: "Pause", else: "Resume"}
+                      class="p-1.5 rounded hover:bg-gray-200 text-gray-700"
+                    >
+                      <ChamWeb.CoreComponents.icon
+                        name={if sub.active, do: "hero-pause", else: "hero-play"}
+                        class="h-4 w-4"
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      phx-click="delete"
+                      phx-value-id={sub.id}
+                      data-confirm="Delete this subscription?"
+                      title="Delete"
+                      aria-label="Delete"
+                      class="p-1.5 rounded hover:bg-red-100 text-red-600"
+                    >
+                      <ChamWeb.CoreComponents.icon name="hero-trash" class="h-4 w-4" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             <% end %>

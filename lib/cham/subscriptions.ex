@@ -113,6 +113,15 @@ defmodule Cham.Subscriptions do
     |> Oban.insert()
   end
 
+  @doc """
+  Enqueue an immediate poll for an existing subscription (no backfill).
+  """
+  def enqueue_poll(%Subscription{} = sub) do
+    %{"subscription_id" => sub.id, "backfill" => "none"}
+    |> Cham.Subscriptions.PollWorker.new()
+    |> Oban.insert()
+  end
+
   defp encode_backfill(:none), do: "none"
   defp encode_backfill(nil), do: "none"
   defp encode_backfill({:last_n, n}), do: %{"mode" => "last_n", "n" => n}

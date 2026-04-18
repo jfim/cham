@@ -7,12 +7,14 @@ defmodule ChamWeb.ConfigLive do
   @impl true
   def mount(_params, _session, socket) do
     plugins = load_plugins()
+    subscription_backends = load_subscription_backends()
     system_sections = load_system_sections()
 
     {:ok,
      socket
      |> assign(:page_title, "Configuration")
      |> assign(:plugins, plugins)
+     |> assign(:subscription_backends, subscription_backends)
      |> assign(:system_sections, system_sections)
      |> assign(:active_section, nil)
      |> assign(:form_values, %{})
@@ -127,7 +129,9 @@ defmodule ChamWeb.ConfigLive do
 
   defp load_system_sections do
     ConfigManager.list_schemas()
-    |> Enum.reject(fn {ns, _schema} -> String.starts_with?(ns, "plugins.") end)
+    |> Enum.reject(fn {ns, _schema} ->
+      String.starts_with?(ns, "plugins.") or String.starts_with?(ns, "subscriptions.")
+    end)
     |> Enum.map(fn {namespace, schema} ->
       %{
         namespace: namespace,
@@ -139,8 +143,33 @@ defmodule ChamWeb.ConfigLive do
     end)
   end
 
+  defp load_subscription_backends do
+    case Process.whereis(Cham.Subscriptions.BackendRegistry) do
+      nil ->
+        []
+
+      _pid ->
+        Cham.Subscriptions.BackendRegistry.list()
+        |> Enum.map(fn mod ->
+          schema =
+            if function_exported?(mod, :config_schema, 0), do: mod.config_schema(), else: []
+
+          %{
+            namespace: "subscriptions.#{mod.id()}",
+            name: mod.name(),
+            description: "",
+            schema: schema,
+            kind: :subscription_backend
+          }
+        end)
+        |> Enum.sort_by(& &1.name)
+    end
+  end
+
   defp section_name("desired_artifacts"), do: "Desired Artifacts"
   defp section_name("enabled_plugins"), do: "Enabled Plugins"
+  defp section_name("display"), do: "Display"
+  defp section_name("pipeline"), do: "Pipelines"
   defp section_name(ns), do: ns
 
   defp section_description("desired_artifacts"),
@@ -152,9 +181,11 @@ defmodule ChamWeb.ConfigLive do
   defp section_description(_), do: ""
 
   defp find_section(socket, namespace) do
-    Enum.find(socket.assigns.system_sections ++ socket.assigns.plugins, fn s ->
-      s.namespace == namespace
-    end)
+    Enum.find(
+      socket.assigns.system_sections ++
+        socket.assigns.subscription_backends ++ socket.assigns.plugins,
+      fn s -> s.namespace == namespace end
+    )
   end
 
   defp read_section_config(namespace) do

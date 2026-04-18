@@ -42,6 +42,41 @@
           </div>
         </div>
 
+        <div :if={@subscription_backends != []}>
+          <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+            Subscriptions
+          </h2>
+          <div class="space-y-1 mb-6">
+            <button
+              :for={backend <- @subscription_backends}
+              phx-click="select_section"
+              phx-value-namespace={backend.namespace}
+              phx-value-name={backend.name}
+              disabled={backend.schema == []}
+              class={[
+                "w-full text-left px-3 py-2 rounded-md text-sm",
+                cond do
+                  @active_section && @active_section.namespace == backend.namespace ->
+                    "bg-indigo-50 text-indigo-700 font-medium"
+
+                  backend.schema != [] ->
+                    "text-gray-700 hover:bg-gray-100"
+
+                  true ->
+                    "text-gray-400 cursor-not-allowed"
+                end
+              ]}
+            >
+              <div class="font-medium">{backend.name}</div>
+              <div class="text-xs text-gray-400 mt-0.5">
+                {if backend.schema != [],
+                  do: "#{length(backend.schema)} settings",
+                  else: "No settings"}
+              </div>
+            </button>
+          </div>
+        </div>
+
         <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Plugins</h2>
         <div class="space-y-1">
           <button

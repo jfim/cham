@@ -192,9 +192,19 @@ defmodule ChamWeb.ItemDetailLive do
 
   defp resolve_primary_content(item, artifacts, stage_history) do
     case item.content_type do
-      "article" -> resolve_artifact_content(item, artifacts, stage_history, "content", "original")
+      "article" -> resolve_article_content(item, artifacts, stage_history)
       "video" -> resolve_artifact_content(item, artifacts, stage_history, "transcript")
       _ -> %{state: :not_requested, content: nil, error: nil}
+    end
+  end
+
+  defp resolve_article_content(item, artifacts, stage_history) do
+    case resolve_artifact_content(item, artifacts, stage_history, "content", "derived") do
+      %{state: :available} = result ->
+        result
+
+      _ ->
+        resolve_artifact_content(item, artifacts, stage_history, "content", "original")
     end
   end
 

@@ -83,7 +83,8 @@ defmodule Cham.Application do
       Cham.Plugins.SummarizeOllama,
       Cham.Plugins.AutoTag,
       Cham.Plugins.CleanTitle,
-      Cham.Plugins.ExtractThumbnail
+      Cham.Plugins.ExtractThumbnail,
+      Cham.Plugins.DownloadImages
     ]
 
     for mod <- core_plugins do
@@ -197,9 +198,7 @@ defmodule Cham.Application do
           :ok
 
         {:error, reason} ->
-          Logger.warning(
-            "Failed to register config for backend #{mod.id()}: #{inspect(reason)}"
-          )
+          Logger.warning("Failed to register config for backend #{mod.id()}: #{inspect(reason)}")
       end
     end
   end

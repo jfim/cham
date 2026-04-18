@@ -24,8 +24,16 @@ defmodule Cham.Plugins.AutoTag do
       %{
         key: :max_tags,
         type: :integer,
-        default: 10,
+        default: 8,
         description: "Maximum number of tags to generate",
+        required: false,
+        options: nil
+      },
+      %{
+        key: :existing_tags_limit,
+        type: :integer,
+        default: 100,
+        description: "Number of most-popular existing tags to include in the prompt for reuse",
         required: false,
         options: nil
       },
@@ -49,9 +57,9 @@ defmodule Cham.Plugins.AutoTag do
         key: :prompt,
         type: :string,
         default:
-          "Analyze the following text and generate relevant tags for categorization. Return ONLY a JSON array of lowercase, hyphenated tags. No explanation, no markdown. Example: [\"machine-learning\", \"elixir\", \"web-development\"]\n\n---\n\n{{text}}",
+          "Analyze the following text and generate 2 to 8 relevant tags for categorization.\n\nStrongly prefer reusing tags from this list of existing tags (use the exact spelling):\n{{existing_tags}}\n\nOnly invent a new tag if no existing tag fits. New tags must be lowercase and hyphenated.\n\nReturn ONLY a JSON array of tags. No explanation, no markdown. Example: [\"machine-learning\", \"elixir\", \"web-development\"]\n\n---\n\n{{text}}",
         description:
-          "Prompt template. Use {{text}} as placeholder. Must return a JSON array of strings.",
+          "Prompt template. Use {{text}} and {{existing_tags}} as placeholders. Must return a JSON array of strings.",
         required: false,
         options: nil
       }
@@ -122,7 +130,8 @@ defmodule Cham.Plugins.AutoTag.TagStage do
   def perform(input_artifacts, working_dir, _desired, _item_id) do
     config = get_config()
     model = Map.get(config, :model, "llama3.1:8b")
-    max_tags = Map.get(config, :max_tags, 10)
+    max_tags = Map.get(config, :max_tags, 8)
+    existing_tags_limit = Map.get(config, :existing_tags_limit, 100)
 
     [input | _] = input_artifacts
     [filename | _] = input.filenames
@@ -130,53 +139,89 @@ defmodule Cham.Plugins.AutoTag.TagStage do
 
     case File.read(text_path) do
       {:ok, text} ->
-        # Truncate to ~32k chars
-        truncated = String.slice(text, 0, 32_000)
+        word_count = text |> String.split(~r/\s+/, trim: true) |> length()
 
-        prompt_template =
-          Map.get(
-            config,
-            :prompt,
-            "Analyze the following text and generate relevant tags for categorization. Return ONLY a JSON array of lowercase, hyphenated tags. No explanation, no markdown. Example: [\"machine-learning\", \"elixir\", \"web-development\"]\n\n---\n\n{{text}}"
-          )
+        if word_count < 50 do
+          output_path = Path.join(working_dir, "tags.json")
+          File.write!(output_path, Jason.encode!([]))
 
-        prompt = String.replace(prompt_template, "{{text}}", truncated)
-
-        llm_opts = [model: model, url: config[:url], api_key: config[:api_key]]
-
-        case Cham.LLM.Provider.generate(Cham.LLM.Providers.OpenAI, prompt, llm_opts) do
-          {:ok, response} ->
-            tags = parse_tags(response, max_tags)
-            output_path = Path.join(working_dir, "tags.json")
-            File.write!(output_path, Jason.encode!(tags))
-
-            {:ok,
-             %{
-               artifacts: [
-                 %{
-                   labels: %{"origin" => "derived", "type" => "tags"},
-                   filenames: ["tags.json"]
-                 }
-               ],
-               item_metadata: %{"tags" => tags},
-               provenance: %{"model" => model}
-             }}
-
-          {:error, reason} ->
-            reason_str = to_string(reason)
-
-            if String.contains?(reason_str, "connection refused") or
-                 String.contains?(reason_str, "ECONNREFUSED") do
-              {:snooze, 30_000, "LLM not available: #{reason_str}"}
-            else
-              {:error, reason_str}
-            end
+          {:ok,
+           %{
+             artifacts: [
+               %{
+                 labels: %{"origin" => "derived", "type" => "tags"},
+                 filenames: ["tags.json"]
+               }
+             ],
+             item_metadata: %{"tags" => []},
+             provenance: %{"skipped" => "insufficient_input", "word_count" => word_count}
+           }}
+        else
+          tag_with_llm(text, working_dir, config, model, max_tags, existing_tags_limit)
         end
 
       {:error, reason} ->
         {:error, "Failed to read input file #{text_path}: #{inspect(reason)}"}
     end
   end
+
+  defp tag_with_llm(text, working_dir, config, model, max_tags, existing_tags_limit) do
+    truncated = String.slice(text, 0, 32_000)
+    existing_tags = popular_existing_tags(existing_tags_limit)
+
+    prompt_template =
+      Map.get(
+        config,
+        :prompt,
+        "Analyze the following text and generate 2 to 8 relevant tags for categorization.\n\nStrongly prefer reusing tags from this list of existing tags (use the exact spelling):\n{{existing_tags}}\n\nOnly invent a new tag if no existing tag fits. New tags must be lowercase and hyphenated.\n\nReturn ONLY a JSON array of tags. No explanation, no markdown. Example: [\"machine-learning\", \"elixir\", \"web-development\"]\n\n---\n\n{{text}}"
+      )
+
+    prompt =
+      prompt_template
+      |> String.replace("{{existing_tags}}", format_existing_tags(existing_tags))
+      |> String.replace("{{text}}", truncated)
+
+    llm_opts = [model: model, url: config[:url], api_key: config[:api_key]]
+
+    case Cham.LLM.Provider.generate(Cham.LLM.Providers.OpenAI, prompt, llm_opts) do
+      {:ok, response} ->
+        tags = parse_tags(response, max_tags)
+        output_path = Path.join(working_dir, "tags.json")
+        File.write!(output_path, Jason.encode!(tags))
+
+        {:ok,
+         %{
+           artifacts: [
+             %{
+               labels: %{"origin" => "derived", "type" => "tags"},
+               filenames: ["tags.json"]
+             }
+           ],
+           item_metadata: %{"tags" => tags},
+           provenance: %{"model" => model}
+         }}
+
+      {:error, reason} ->
+        reason_str = to_string(reason)
+
+        if String.contains?(reason_str, "connection refused") or
+             String.contains?(reason_str, "ECONNREFUSED") do
+          {:snooze, 30_000, "LLM not available: #{reason_str}"}
+        else
+          {:error, reason_str}
+        end
+    end
+  end
+
+  defp popular_existing_tags(limit) do
+    Cham.Items.count_by_tag()
+    |> Enum.sort_by(fn {_tag, count} -> -count end)
+    |> Enum.take(limit)
+    |> Enum.map(fn {tag, _count} -> tag end)
+  end
+
+  defp format_existing_tags([]), do: "(no existing tags yet)"
+  defp format_existing_tags(tags), do: Enum.join(tags, ", ")
 
   @doc """
   Parses an LLM response into a list of normalized tags.

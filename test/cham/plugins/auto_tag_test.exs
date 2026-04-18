@@ -25,7 +25,7 @@ defmodule Cham.Plugins.AutoTagTest do
       assert model_field.default == "llama3.1:8b"
 
       max_tags_field = Enum.find(schema, &(&1.key == :max_tags))
-      assert max_tags_field.default == 10
+      assert max_tags_field.default == 8
     end
 
     test "init returns ok" do

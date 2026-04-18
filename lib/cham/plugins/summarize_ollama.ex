@@ -129,54 +129,81 @@ defmodule Cham.Plugins.SummarizeOllama.SummarizeStage do
 
     case File.read(text_path) do
       {:ok, text} ->
-        max_chars = max_input_tokens * 4
-        truncated = String.slice(text, 0, max_chars)
+        word_count = text |> String.split(~r/\s+/, trim: true) |> length()
 
-        prompt_template =
-          Map.get(
-            config,
-            :prompt,
-            "Summarize the following text concisely. Focus on the key points and main ideas. Write the summary in Markdown format.\n\n---\n\n{{text}}"
-          )
+        if word_count < 50 do
+          output_path = Path.join(working_dir, "summary.md")
+          File.write!(output_path, "")
 
-        prompt = String.replace(prompt_template, "{{text}}", truncated)
-
-        llm_opts = [model: model, url: config[:url], api_key: config[:api_key]]
-
-        case Cham.LLM.Provider.generate(Cham.LLM.Providers.OpenAI, prompt, llm_opts) do
-          {:ok, summary} ->
-            output_path = Path.join(working_dir, "summary.md")
-            File.write!(output_path, summary)
-
-            {:ok,
-             %{
-               artifacts: [
-                 %{
-                   labels: %{
-                     "origin" => "derived",
-                     "type" => "summary",
-                     "content_type" => "text/markdown"
-                   },
-                   filenames: ["summary.md"]
-                 }
-               ],
-               item_metadata: %{},
-               provenance: %{"model" => model}
-             }}
-
-          {:error, reason} ->
-            reason_str = to_string(reason)
-
-            if String.contains?(reason_str, "connection refused") or
-                 String.contains?(reason_str, "ECONNREFUSED") do
-              {:snooze, 30_000, "Ollama not available: #{reason_str}"}
-            else
-              {:error, reason_str}
-            end
+          {:ok,
+           %{
+             artifacts: [
+               %{
+                 labels: %{
+                   "origin" => "derived",
+                   "type" => "summary",
+                   "content_type" => "text/markdown"
+                 },
+                 filenames: ["summary.md"]
+               }
+             ],
+             item_metadata: %{},
+             provenance: %{"skipped" => "insufficient_input", "word_count" => word_count}
+           }}
+        else
+          summarize_with_llm(text, max_input_tokens, working_dir, config, model)
         end
 
       {:error, reason} ->
         {:error, "Failed to read input file #{text_path}: #{inspect(reason)}"}
+    end
+  end
+
+  defp summarize_with_llm(text, max_input_tokens, working_dir, config, model) do
+    max_chars = max_input_tokens * 4
+    truncated = String.slice(text, 0, max_chars)
+
+    prompt_template =
+      Map.get(
+        config,
+        :prompt,
+        "Summarize the following text concisely. Focus on the key points and main ideas. Write the summary in Markdown format.\n\n---\n\n{{text}}"
+      )
+
+    prompt = String.replace(prompt_template, "{{text}}", truncated)
+
+    llm_opts = [model: model, url: config[:url], api_key: config[:api_key]]
+
+    case Cham.LLM.Provider.generate(Cham.LLM.Providers.OpenAI, prompt, llm_opts) do
+      {:ok, summary} ->
+        output_path = Path.join(working_dir, "summary.md")
+        File.write!(output_path, summary)
+
+        {:ok,
+         %{
+           artifacts: [
+             %{
+               labels: %{
+                 "origin" => "derived",
+                 "type" => "summary",
+                 "content_type" => "text/markdown"
+               },
+               filenames: ["summary.md"]
+             }
+           ],
+           item_metadata: %{},
+           provenance: %{"model" => model}
+         }}
+
+      {:error, reason} ->
+        reason_str = to_string(reason)
+
+        if String.contains?(reason_str, "connection refused") or
+             String.contains?(reason_str, "ECONNREFUSED") do
+          {:snooze, 30_000, "Ollama not available: #{reason_str}"}
+        else
+          {:error, reason_str}
+        end
     end
   end
 

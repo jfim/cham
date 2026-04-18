@@ -374,6 +374,23 @@
             <.icon name="hero-cog-6-tooth" class="h-8 w-8 mx-auto mb-2" />
             <p>No pipeline stages to manage yet.</p>
           </div>
+
+          <%!-- Delete Item --%>
+          <div class="flex items-start gap-4 p-4 bg-red-50 rounded-lg border border-red-200">
+            <div class="flex-1">
+              <h3 class="text-sm font-semibold text-red-800">Delete Item</h3>
+              <p class="text-xs text-red-600 mt-1">
+                Permanently delete this item and its archive files. This cannot be undone.
+              </p>
+            </div>
+            <button
+              phx-click="delete_item"
+              data-confirm="Permanently delete this item and all archive files? This cannot be undone."
+              class="shrink-0 inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500"
+            >
+              <.icon name="hero-trash" class="h-4 w-4" /> Delete Item
+            </button>
+          </div>
         </div>
       </div>
     </div>

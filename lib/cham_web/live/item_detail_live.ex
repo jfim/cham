@@ -94,6 +94,27 @@ defmodule ChamWeb.ItemDetailLive do
     end
   end
 
+  def handle_event("delete_item", _params, socket) do
+    item = socket.assigns.item
+
+    if item.status in ~w(bootstrapping processing) do
+      Cham.Pipeline.cancel(item.id)
+    end
+
+    item = Items.get_item!(item.id)
+
+    case Items.delete_item_with_files(item) do
+      :ok ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Item deleted")
+         |> push_navigate(to: socket.assigns.return_path)}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete item")}
+    end
+  end
+
   def handle_event("reprocess_all", _params, socket) do
     item = socket.assigns.item
     stage_ids = socket.assigns.stage_history |> Enum.map(& &1.stage) |> Enum.uniq()

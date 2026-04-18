@@ -38,6 +38,15 @@ defmodule Cham.Plugins.AutoTag do
         options: nil
       },
       %{
+        key: :seed_tags,
+        type: :string,
+        default: "",
+        description:
+          "Comma-separated tag vocabulary to prime the tagger, unioned with popular existing tags",
+        required: false,
+        options: nil
+      },
+      %{
         key: :url,
         type: :string,
         default: "http://localhost:11434",
@@ -132,6 +141,7 @@ defmodule Cham.Plugins.AutoTag.TagStage do
     model = Map.get(config, :model, "llama3.1:8b")
     max_tags = Map.get(config, :max_tags, 8)
     existing_tags_limit = Map.get(config, :existing_tags_limit, 100)
+    seed_tags = parse_seed_tags(Map.get(config, :seed_tags, ""))
 
     [input | _] = input_artifacts
     [filename | _] = input.filenames
@@ -157,7 +167,7 @@ defmodule Cham.Plugins.AutoTag.TagStage do
              provenance: %{"skipped" => "insufficient_input", "word_count" => word_count}
            }}
         else
-          tag_with_llm(text, working_dir, config, model, max_tags, existing_tags_limit)
+          tag_with_llm(text, working_dir, config, model, max_tags, existing_tags_limit, seed_tags)
         end
 
       {:error, reason} ->
@@ -165,9 +175,12 @@ defmodule Cham.Plugins.AutoTag.TagStage do
     end
   end
 
-  defp tag_with_llm(text, working_dir, config, model, max_tags, existing_tags_limit) do
+  defp tag_with_llm(text, working_dir, config, model, max_tags, existing_tags_limit, seed_tags) do
     truncated = String.slice(text, 0, 32_000)
-    existing_tags = popular_existing_tags(existing_tags_limit)
+
+    existing_tags =
+      (seed_tags ++ popular_existing_tags(existing_tags_limit))
+      |> Enum.uniq()
 
     prompt_template =
       Map.get(
@@ -222,6 +235,17 @@ defmodule Cham.Plugins.AutoTag.TagStage do
 
   defp format_existing_tags([]), do: "(no existing tags yet)"
   defp format_existing_tags(tags), do: Enum.join(tags, ", ")
+
+  defp parse_seed_tags(nil), do: []
+  defp parse_seed_tags(""), do: []
+
+  defp parse_seed_tags(raw) when is_binary(raw) do
+    raw
+    |> String.split(",")
+    |> Enum.map(&String.trim/1)
+    |> Enum.map(&String.downcase/1)
+    |> Enum.reject(&(&1 == ""))
+  end
 
   @doc """
   Parses an LLM response into a list of normalized tags.

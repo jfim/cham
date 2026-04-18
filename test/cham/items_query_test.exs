@@ -133,6 +133,32 @@ defmodule Cham.ItemsQueryTest do
     end
   end
 
+  describe "clear_tags/1" do
+    test "clears tags on every tagged item" do
+      a = create_item!("https://example.com/clear1", %{tags: ["elixir", "phoenix"]})
+      b = create_item!("https://example.com/clear2", %{tags: ["foo"]})
+      c = create_item!("https://example.com/clear3", %{tags: []})
+
+      count = Items.clear_tags()
+
+      assert count == 2
+      assert Items.get_item!(a.id).tags == []
+      assert Items.get_item!(b.id).tags == []
+      assert Items.get_item!(c.id).tags == []
+    end
+
+    test "filters by content_type" do
+      a = create_item!("https://example.com/ct_a", %{tags: ["x"], content_type: "article"})
+      v = create_item!("https://example.com/ct_v", %{tags: ["y"], content_type: "video"})
+
+      count = Items.clear_tags(content_type: "article")
+
+      assert count == 1
+      assert Items.get_item!(a.id).tags == []
+      assert Items.get_item!(v.id).tags == ["y"]
+    end
+  end
+
   describe "list_in_progress_items/0" do
     test "returns items with in-progress statuses" do
       {:ok, bootstrapping} = Items.create_item(%{url: "https://example.com/boot"})

@@ -32,6 +32,8 @@ defmodule ChamWeb.Router do
     post "/items/:id/cancel", ItemController, :cancel
     post "/items/:id/retry", ItemController, :retry
     get "/items/:id/events", EventController, :stream
+
+    post "/tags/clear", TagController, :clear
   end
 
   scope "/api/v1", ChamWeb do

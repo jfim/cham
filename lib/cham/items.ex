@@ -186,6 +186,27 @@ defmodule Cham.Items do
     |> Map.new()
   end
 
+  @doc """
+  Clears tags (sets to `[]`) on every item, optionally filtered by content type.
+
+  Returns the number of items updated.
+  """
+  def clear_tags(opts \\ []) do
+    content_type = Keyword.get(opts, :content_type)
+
+    query = from(i in Item, where: i.tags != ^[])
+
+    query =
+      if content_type do
+        where(query, [i], i.content_type == ^content_type)
+      else
+        query
+      end
+
+    {count, _} = Repo.update_all(query, set: [tags: []])
+    count
+  end
+
   def count_by_tag do
     Item
     |> select([i], i.tags)

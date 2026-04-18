@@ -4,6 +4,7 @@ import click
 
 from cham_cli.commands.item import item
 from cham_cli.commands.config_cmd import config_group
+from cham_cli.commands.tags import tags
 
 
 @click.group()
@@ -15,3 +16,4 @@ def cli():
 
 cli.add_command(item)
 cli.add_command(config_group)
+cli.add_command(tags)

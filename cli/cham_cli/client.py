@@ -90,6 +90,13 @@ class ChamClient:
             payload["from_stage"] = from_stage
         return self._request("POST", f"/api/v1/items/{id_or_slug}/retry", json=payload)
 
+    def clear_tags(self, content_type: Optional[str] = None) -> dict:
+        """Clear tags on all items (optionally filtered by content type) via POST /api/v1/tags/clear."""
+        payload: dict[str, Any] = {}
+        if content_type:
+            payload["content_type"] = content_type
+        return self._request("POST", "/api/v1/tags/clear", json=payload)
+
     def stream_events(self, id_or_slug: str):
         """Stream SSE events for an item. Yields (event_type, data_dict) tuples."""
         url = f"{self.base_url}/api/v1/items/{id_or_slug}/events"

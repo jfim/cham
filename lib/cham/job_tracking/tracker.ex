@@ -63,6 +63,13 @@ defmodule Cham.JobTracking.Tracker do
   def reconcile_orphaned_executions do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
 
+    orphan_item_ids =
+      StageExecution
+      |> where([s], s.status == "started")
+      |> select([s], s.item_id)
+      |> Repo.all()
+      |> Enum.uniq()
+
     {count, _} =
       StageExecution
       |> where([s], s.status == "started")
@@ -74,9 +81,24 @@ defmodule Cham.JobTracking.Tracker do
         ]
       )
 
+    stuck_count = reconcile_stuck_items(orphan_item_ids)
+
     if count > 0 do
-      Logger.warning("Tracker: reconciled #{count} orphaned stage execution(s) as crashed")
+      Logger.warning(
+        "Tracker: reconciled #{count} orphaned stage execution(s) as crashed (#{stuck_count} item(s) moved to incomplete)"
+      )
     end
+
+    count
+  end
+
+  defp reconcile_stuck_items(item_ids) when item_ids == [], do: 0
+
+  defp reconcile_stuck_items(item_ids) do
+    {count, _} =
+      Cham.Items.Item
+      |> where([i], i.id in ^item_ids and i.status in ["processing", "bootstrapping"])
+      |> Repo.update_all(set: [status: "incomplete"])
 
     count
   end

@@ -110,6 +110,44 @@ defmodule Cham.JobTracking.TrackerTest do
       assert reloaded.error =~ "reconciled at startup"
     end
 
+    test "moves processing items with orphaned executions to incomplete", %{item: item} do
+      {:ok, item} = Items.update_item(item, %{status: "processing"})
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      %StageExecution{}
+      |> StageExecution.changeset(%{
+        item_id: item.id,
+        stage: "transcribe",
+        status: "started",
+        attempt: 1,
+        started_at: now
+      })
+      |> Repo.insert!()
+
+      Tracker.reconcile_orphaned_executions()
+
+      assert Items.get_item!(item.id).status == "incomplete"
+    end
+
+    test "leaves already-terminal items alone", %{item: item} do
+      {:ok, item} = Items.update_item(item, %{status: "complete"})
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      %StageExecution{}
+      |> StageExecution.changeset(%{
+        item_id: item.id,
+        stage: "transcribe",
+        status: "started",
+        attempt: 1,
+        started_at: now
+      })
+      |> Repo.insert!()
+
+      Tracker.reconcile_orphaned_executions()
+
+      assert Items.get_item!(item.id).status == "complete"
+    end
+
     test "does not touch non-started executions", %{item: item} do
       now = DateTime.utc_now() |> DateTime.truncate(:second)
 

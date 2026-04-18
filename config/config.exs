@@ -54,7 +54,12 @@ config :phoenix, :json_library, Jason
 
 config :cham, Oban,
   repo: Cham.Repo,
-  queues: [general: 0, network: 0, gpu: 0, subscriptions: 0],
+  queues: [
+    general: [limit: 1, paused: true],
+    network: [limit: 1, paused: true],
+    gpu: [limit: 1, paused: true],
+    subscriptions: [limit: 1, paused: true]
+  ],
   plugins: [
     Oban.Plugins.Pruner,
     {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)},

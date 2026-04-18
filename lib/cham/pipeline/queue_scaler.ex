@@ -82,7 +82,12 @@ defmodule Cham.Pipeline.QueueScaler do
     case Cham.Config.Manager.read_all(@namespace) do
       {:ok, values} ->
         Enum.each(values, fn {queue, limit} ->
-          Oban.scale_queue(queue: queue, limit: limit)
+          if limit > 0 do
+            Oban.scale_queue(queue: queue, limit: limit)
+            Oban.resume_queue(queue: queue)
+          else
+            Oban.pause_queue(queue: queue)
+          end
         end)
 
       {:error, reason} ->

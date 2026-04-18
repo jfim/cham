@@ -14,11 +14,24 @@ defmodule Cham.Subscriptions.PollWorkerTest do
     @behaviour Cham.Subscriptions.Backend
     def id, do: :mock
     def name, do: "Mock"
+
     def stream_pages(_url) do
-      [[
-        %{source_item_id: "b", url: "https://mock/b", title: "B", timestamp: ~U[2026-04-14 00:00:00Z]},
-        %{source_item_id: "a", url: "https://mock/a", title: "A", timestamp: ~U[2026-04-13 00:00:00Z]}
-      ]]
+      [
+        [
+          %{
+            source_item_id: "b",
+            url: "https://mock/b",
+            title: "B",
+            timestamp: ~U[2026-04-14 00:00:00Z]
+          },
+          %{
+            source_item_id: "a",
+            url: "https://mock/a",
+            title: "A",
+            timestamp: ~U[2026-04-13 00:00:00Z]
+          }
+        ]
+      ]
     end
   end
 
@@ -51,7 +64,9 @@ defmodule Cham.Subscriptions.PollWorkerTest do
   end
 
   defp items_for(sub_id) do
-    Repo.all(from i in Item, where: i.subscription_id == ^sub_id, order_by: [asc: i.source_item_id])
+    Repo.all(
+      from i in Item, where: i.subscription_id == ^sub_id, order_by: [asc: i.source_item_id]
+    )
   end
 
   test "first poll (no prior items) creates items for all entries" do

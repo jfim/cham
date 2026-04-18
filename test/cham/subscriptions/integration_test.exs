@@ -90,7 +90,10 @@ defmodule Cham.Subscriptions.IntegrationTest do
 
     assert :ok = perform_job(PollWorker, %{"subscription_id" => sub.id})
 
-    items = Repo.all(from i in Item, where: i.subscription_id == ^sub.id, order_by: [asc: i.source_item_id])
+    items =
+      Repo.all(
+        from i in Item, where: i.subscription_id == ^sub.id, order_by: [asc: i.source_item_id]
+      )
 
     ids = Enum.map(items, & &1.source_item_id)
     assert "one" in ids

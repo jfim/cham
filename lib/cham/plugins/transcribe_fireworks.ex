@@ -224,8 +224,7 @@ defmodule Cham.Plugins.TranscribeFireworks.TranscribeStage do
          }
        ],
        item_metadata: %{"language" => language, "duration" => trunc(duration)},
-       provenance:
-         Map.merge(%{"model" => model, "tool" => "fireworks-audio"}, quality)
+       provenance: Map.merge(%{"model" => model, "tool" => "fireworks-audio"}, quality)
      }}
   end
 
@@ -247,8 +246,7 @@ defmodule Cham.Plugins.TranscribeFireworks.TranscribeStage do
       "segment_count" => total,
       "bad_segment_count" => bad,
       "bad_segment_ratio" => if(total > 0, do: bad / total, else: 0.0),
-      "quality_warning" =>
-        total > 0 and bad / total >= @bad_segment_ratio_threshold
+      "quality_warning" => total > 0 and bad / total >= @bad_segment_ratio_threshold
     }
   end
 
@@ -264,8 +262,10 @@ defmodule Cham.Plugins.TranscribeFireworks.TranscribeStage do
     h = trunc(seconds) |> div(3600)
     m = trunc(seconds) |> rem(3600) |> div(60)
     s = trunc(seconds) |> rem(60)
-    if h > 0, do: :io_lib.format("~B:~2..0B:~2..0B", [h, m, s]) |> IO.iodata_to_binary(),
-       else: :io_lib.format("~B:~2..0B", [m, s]) |> IO.iodata_to_binary()
+
+    if h > 0,
+      do: :io_lib.format("~B:~2..0B:~2..0B", [h, m, s]) |> IO.iodata_to_binary(),
+      else: :io_lib.format("~B:~2..0B", [m, s]) |> IO.iodata_to_binary()
   end
 
   defp format_timestamp(_), do: "0:00"

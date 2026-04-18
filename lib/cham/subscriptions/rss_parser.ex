@@ -7,7 +7,11 @@ defmodule Cham.Subscriptions.RssParser do
   require Record
   Record.defrecord(:xmlElement, Record.extract(:xmlElement, from_lib: "xmerl/include/xmerl.hrl"))
   Record.defrecord(:xmlText, Record.extract(:xmlText, from_lib: "xmerl/include/xmerl.hrl"))
-  Record.defrecord(:xmlAttribute, Record.extract(:xmlAttribute, from_lib: "xmerl/include/xmerl.hrl"))
+
+  Record.defrecord(
+    :xmlAttribute,
+    Record.extract(:xmlAttribute, from_lib: "xmerl/include/xmerl.hrl")
+  )
 
   @spec parse(binary()) ::
           {:ok, %{title: String.t(), description: String.t() | nil, entries: [map()]}}
@@ -177,9 +181,23 @@ defmodule Cham.Subscriptions.RssParser do
   defp apply_tz_offset(dt, _), do: dt
 
   defp month_num(<<a, b, c>>) do
-    month_num_lower(<<a + case a do c when c >= ?A and c <= ?Z -> 32; _ -> 0 end,
-                      b + case b do c when c >= ?A and c <= ?Z -> 32; _ -> 0 end,
-                      c + case c do c when c >= ?A and c <= ?Z -> 32; _ -> 0 end>>)
+    month_num_lower(
+      <<a +
+          case a do
+            c when c >= ?A and c <= ?Z -> 32
+            _ -> 0
+          end,
+        b +
+          case b do
+            c when c >= ?A and c <= ?Z -> 32
+            _ -> 0
+          end,
+        c +
+          case c do
+            c when c >= ?A and c <= ?Z -> 32
+            _ -> 0
+          end>>
+    )
   end
 
   defp month_num(_), do: nil

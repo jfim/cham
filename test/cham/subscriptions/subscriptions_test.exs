@@ -110,9 +110,10 @@ defmodule Cham.SubscriptionsTest do
         poll_interval_seconds: 3600
       })
 
-    {:ok, _} = Subscriptions.update_subscription(stale, %{
-      last_polled_at: DateTime.add(now, -7200, :second)
-    })
+    {:ok, _} =
+      Subscriptions.update_subscription(stale, %{
+        last_polled_at: DateTime.add(now, -7200, :second)
+      })
 
     due_urls = Subscriptions.list_due(now) |> Enum.map(& &1.source_url)
     assert "https://b.example/feed" in due_urls

@@ -34,11 +34,11 @@
       </div>
       <%= if @subscription do %>
         <p class="provenance text-sm text-gray-600 mt-1">
-          from <.link navigate={~p"/subscriptions/#{@subscription.id}"}>{@subscription.title}</.link>
+          from
+          <.link navigate={~p"/subscriptions/#{@subscription.id}"}>{@subscription.title}</.link>
         </p>
       <% end %>
     </div>
-
 
     <%!-- Feed Subscribe Section --%>
     <%= if @item.content_type == "feed" and (not is_nil(@feed_metadata) or not is_nil(@existing_subscription)) do %>
@@ -96,11 +96,11 @@
             <fieldset class="border p-2">
               <legend class="text-sm font-medium px-1">Backfill</legend>
               <label class="block">
-                <input type="radio" name="backfill[mode]" value="none" checked /> None (ingest new items only)
+                <input type="radio" name="backfill[mode]" value="none" checked />
+                None (ingest new items only)
               </label>
               <label class="block">
-                <input type="radio" name="backfill[mode]" value="last_n" />
-                Last
+                <input type="radio" name="backfill[mode]" value="last_n" /> Last
                 <input
                   type="number"
                   name="backfill[n]"
@@ -110,8 +110,7 @@
                 /> items
               </label>
               <label class="block">
-                <input type="radio" name="backfill[mode]" value="since" />
-                Since
+                <input type="radio" name="backfill[mode]" value="since" /> Since
                 <input type="date" name="backfill[date]" class="border px-1" />
               </label>
             </fieldset>

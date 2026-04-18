@@ -43,7 +43,9 @@ defmodule ChamWeb.SubscriptionLiveTest do
     assert html =~ "No subscriptions yet"
   end
 
-  test "item detail shows 'from {subscription.title}' when item has a subscription_id", %{conn: conn} do
+  test "item detail shows 'from {subscription.title}' when item has a subscription_id", %{
+    conn: conn
+  } do
     start_supervised!({Cham.JobTracking.Tracker, name: Cham.JobTracking.Tracker})
 
     {:ok, sub} =
@@ -88,7 +90,9 @@ defmodule ChamWeb.SubscriptionLiveTest do
     assert html =~ "An item"
 
     view
-    |> form("#settings-form", subscription: %{title: "Renamed", poll_interval_seconds: "86400", active: "true"})
+    |> form("#settings-form",
+      subscription: %{title: "Renamed", poll_interval_seconds: "86400", active: "true"}
+    )
     |> render_submit()
 
     sub = Cham.Repo.reload!(sub)

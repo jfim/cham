@@ -26,7 +26,9 @@ defmodule ChamWeb.ItemControllerTest do
       assert %{"error" => _} = json_response(conn, 422)
     end
 
-    test "POST /api/v1/items with an already-subscribed URL returns the subscription", %{conn: conn} do
+    test "POST /api/v1/items with an already-subscribed URL returns the subscription", %{
+      conn: conn
+    } do
       {:ok, sub} =
         Cham.Subscriptions.create_subscription(%{
           source_url: "https://already.example/feed.xml",

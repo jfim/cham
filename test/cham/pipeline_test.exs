@@ -79,7 +79,9 @@ defmodule Cham.PipelineTest do
     # walker now traverses the per-item artifact graph using temporal
     # ordering, so an upstream stage that ran *before* the invalidated one
     # is correctly excluded.
-    test "does not delete the upstream download artifact when invalidating a late stage", %{root: root} do
+    test "does not delete the upstream download artifact when invalidating a late stage", %{
+      root: root
+    } do
       {:ok, item} = Pipeline.submit_url("https://example.com/late-invalidate", root: root)
 
       now = DateTime.utc_now() |> DateTime.truncate(:second)

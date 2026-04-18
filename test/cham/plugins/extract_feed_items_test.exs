@@ -6,7 +6,9 @@ defmodule Cham.Plugins.ExtractFeedItemsTest do
   defp fixture(name), do: File.read!(Path.join(["test", "support", "fixtures", "feeds", name]))
 
   test "stage writes feed metadata artifact from rss xml" do
-    working_dir = Path.join(System.tmp_dir!(), "feed_stage_test_#{System.unique_integer([:positive])}")
+    working_dir =
+      Path.join(System.tmp_dir!(), "feed_stage_test_#{System.unique_integer([:positive])}")
+
     input_dir = Path.join(working_dir, "in")
     File.mkdir_p!(input_dir)
     File.mkdir_p!(working_dir)

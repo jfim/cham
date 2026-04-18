@@ -30,22 +30,40 @@ defmodule Cham.Items.Item do
   def create_changeset(item, attrs) do
     item
     |> cast(attrs, [
-      :url, :tags, :title, :content_type, :status, :slug, :metadata,
-      :subscription_id, :source_item_id
+      :url,
+      :tags,
+      :title,
+      :content_type,
+      :status,
+      :slug,
+      :metadata,
+      :subscription_id,
+      :source_item_id
     ])
     |> validate_required([:url])
     |> validate_inclusion(:status, @statuses)
     |> unique_constraint(:url)
     |> unique_constraint(:slug)
     |> unique_constraint([:subscription_id, :source_item_id],
-         name: :items_subscription_source_item_id_index)
+      name: :items_subscription_source_item_id_index
+    )
   end
 
   def update_changeset(item, attrs) do
     item
     |> cast(attrs, [
-      :url, :status, :title, :slug, :content_type, :bootstrap_path, :archive_path,
-      :tags, :error_message, :metadata, :subscription_id, :source_item_id
+      :url,
+      :status,
+      :title,
+      :slug,
+      :content_type,
+      :bootstrap_path,
+      :archive_path,
+      :tags,
+      :error_message,
+      :metadata,
+      :subscription_id,
+      :source_item_id
     ])
     |> validate_inclusion(:status, @statuses)
     |> unique_constraint(:url)

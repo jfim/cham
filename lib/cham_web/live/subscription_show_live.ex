@@ -100,9 +100,15 @@ defmodule ChamWeb.SubscriptionShowLive do
           <div>
             <label class="block text-sm">Poll interval</label>
             <select name="subscription[poll_interval_seconds]" class="border px-2 py-1">
-              <option value="3600" selected={@subscription.poll_interval_seconds == 3600}>1 hour</option>
-              <option value="21600" selected={@subscription.poll_interval_seconds == 21600}>6 hours</option>
-              <option value="86400" selected={@subscription.poll_interval_seconds == 86400}>24 hours</option>
+              <option value="3600" selected={@subscription.poll_interval_seconds == 3600}>
+                1 hour
+              </option>
+              <option value="21600" selected={@subscription.poll_interval_seconds == 21600}>
+                6 hours
+              </option>
+              <option value="86400" selected={@subscription.poll_interval_seconds == 86400}>
+                24 hours
+              </option>
             </select>
           </div>
           <div>
@@ -117,8 +123,7 @@ defmodule ChamWeb.SubscriptionShowLive do
                 name="subscription[active]"
                 value="true"
                 checked={@subscription.active}
-              />
-              Active
+              /> Active
             </label>
           </div>
           <button type="submit" class="bg-blue-600 text-white px-3 py-1 rounded">Save</button>
@@ -131,8 +136,7 @@ defmodule ChamWeb.SubscriptionShowLive do
           <div>
             <label class="inline-flex items-center gap-2">
               <input type="radio" name="mode" value="last_n" /> Last
-              <input name="n" value="10" type="number" class="border px-2 py-1 w-20" />
-              items
+              <input name="n" value="10" type="number" class="border px-2 py-1 w-20" /> items
             </label>
           </div>
           <div>

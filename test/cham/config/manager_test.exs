@@ -136,7 +136,11 @@ defmodule Cham.Config.ManagerTest do
       # after a restart returned defaults instead of saved values.
       File.write!(context.toml_path, "")
       {:ok, pid1} = Manager.start_link(name: context.name, toml_path: context.toml_path)
-      plugin_schema = [%{key: :api_key, type: :string, default: "", options: nil, required: false}]
+
+      plugin_schema = [
+        %{key: :api_key, type: :string, default: "", options: nil, required: false}
+      ]
+
       :ok = Manager.register(context.name, "plugins.summarize_ollama", plugin_schema)
       :ok = Manager.write_all(context.name, "plugins.summarize_ollama", %{"api_key" => "fw_live"})
       GenServer.stop(pid1)

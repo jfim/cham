@@ -236,4 +236,31 @@ defmodule ChamWeb.ConfigLive do
   end
 
   defp has_config?(plugin), do: plugin.schema != []
+
+  # Known acronyms that should be rendered fully uppercase in humanized labels.
+  @acronyms ~w(llm api url id http json toml uri uuid ip tcp udp sql html css db)
+
+  @doc """
+  Humanizes a config key like `oban.queues` or `llm.api_key` into a display
+  label like `Oban Queues` or `LLM API Key`. Words that match known acronyms
+  are uppercased.
+  """
+  def humanize_key(key) when is_atom(key), do: humanize_key(Atom.to_string(key))
+
+  def humanize_key(key) when is_binary(key) do
+    key
+    |> String.split(~r/[._]/, trim: true)
+    |> Enum.map(&humanize_word/1)
+    |> Enum.join(" ")
+  end
+
+  defp humanize_word(word) do
+    downcased = String.downcase(word)
+
+    if downcased in @acronyms do
+      String.upcase(downcased)
+    else
+      String.capitalize(downcased)
+    end
+  end
 end

@@ -116,6 +116,36 @@ defmodule Cham.Items do
   end
 
   def list_items(filters \\ []) do
+    filters
+    |> list_items_query()
+    |> Repo.all()
+  end
+
+  @doc """
+  Returns `{items, total_count}` for the given filters, paginated.
+
+  Options:
+    * `:page` — 1-indexed page number (default: 1)
+    * `:page_size` — page size (default: 100)
+  """
+  def list_items_paginated(filters \\ [], opts \\ []) do
+    page = max(Keyword.get(opts, :page, 1), 1)
+    page_size = max(Keyword.get(opts, :page_size, 100), 1)
+    offset = (page - 1) * page_size
+
+    base_query = list_items_query(filters)
+    total_count = Repo.aggregate(base_query, :count, :id)
+
+    items =
+      base_query
+      |> limit(^page_size)
+      |> offset(^offset)
+      |> Repo.all()
+
+    {items, total_count}
+  end
+
+  defp list_items_query(filters) do
     include_subscribed_feeds = Keyword.get(filters, :include_subscribed_feeds, false)
     include_backfill_seen = Keyword.get(filters, :include_backfill_seen, false)
 
@@ -137,17 +167,14 @@ defmodule Cham.Items do
           where: fragment("COALESCE(?->>'backfill_seen', 'false')", i.metadata) != "true"
       end
 
-    query =
-      if include_subscribed_feeds do
-        base
-      else
-        from i in base,
-          left_join: s in Cham.Subscriptions.Subscription,
-          on: s.source_url == i.url,
-          where: i.content_type != "feed" or is_nil(s.id)
-      end
-
-    Repo.all(query)
+    if include_subscribed_feeds do
+      base
+    else
+      from i in base,
+        left_join: s in Cham.Subscriptions.Subscription,
+        on: s.source_url == i.url,
+        where: i.content_type != "feed" or is_nil(s.id)
+    end
   end
 
   defp apply_filters(query, []), do: query
@@ -170,7 +197,32 @@ defmodule Cham.Items do
     |> apply_filters(rest)
   end
 
+  defp apply_filters(query, [{:search, term} | rest]) when is_binary(term) do
+    trimmed = String.trim(term)
+
+    if trimmed == "" do
+      apply_filters(query, rest)
+    else
+      like = "%" <> escape_like(trimmed) <> "%"
+
+      query
+      |> where(
+        [i],
+        ilike(i.title, ^like) or ilike(i.url, ^like) or
+          ilike(fragment("COALESCE(?->>'excerpt', '')", i.metadata), ^like)
+      )
+      |> apply_filters(rest)
+    end
+  end
+
   defp apply_filters(query, [_ | rest]), do: apply_filters(query, rest)
+
+  defp escape_like(term) do
+    term
+    |> String.replace("\\", "\\\\")
+    |> String.replace("%", "\\%")
+    |> String.replace("_", "\\_")
+  end
 
   def count_by_content_type do
     from(i in Item,

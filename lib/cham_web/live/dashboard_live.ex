@@ -4,6 +4,8 @@ defmodule ChamWeb.DashboardLive do
   alias Cham.Items
   alias Cham.Pipeline
 
+  @page_size 100
+
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
@@ -17,6 +19,7 @@ defmodule ChamWeb.DashboardLive do
       |> assign(:show_in_progress, false)
       |> assign(:show_submit_modal, false)
       |> assign(:submit_error, nil)
+      |> assign(:page_size, @page_size)
 
     {:ok, socket}
   end
@@ -25,13 +28,14 @@ defmodule ChamWeb.DashboardLive do
   def handle_params(params, _uri, socket) do
     active_type = Map.get(params, "type")
     active_tag = Map.get(params, "tag")
+    search_query = params |> Map.get("q", "") |> to_string() |> String.trim()
+    page = parse_page(Map.get(params, "page"))
 
-    filters =
-      []
-      |> then(fn f -> if active_type, do: [{:content_type, active_type} | f], else: f end)
-      |> then(fn f -> if active_tag, do: [{:tag, active_tag} | f], else: f end)
+    filters = build_filters(active_type, active_tag, search_query)
 
-    items = Items.list_items(filters)
+    {items, total_count} =
+      Items.list_items_paginated(filters, page: page, page_size: @page_size)
+
     in_progress = Items.list_in_progress_items()
     type_counts = Items.count_by_content_type()
     tag_counts = Items.count_by_tag()
@@ -39,7 +43,8 @@ defmodule ChamWeb.DashboardLive do
     active_count =
       Enum.count(in_progress, fn item -> item.status in ["bootstrapping", "processing"] end)
 
-    total_count = length(Items.list_items([]))
+    grand_total = length(Items.list_items([]))
+    total_pages = max(div(total_count + @page_size - 1, @page_size), 1)
 
     socket =
       socket
@@ -47,10 +52,14 @@ defmodule ChamWeb.DashboardLive do
       |> assign(:in_progress, in_progress)
       |> assign(:active_type, active_type)
       |> assign(:active_tag, active_tag)
+      |> assign(:search_query, search_query)
+      |> assign(:page, page)
+      |> assign(:total_pages, total_pages)
+      |> assign(:filtered_count, total_count)
       |> assign(:type_counts, type_counts)
       |> assign(:tag_counts, tag_counts)
       |> assign(:active_count, active_count)
-      |> assign(:total_count, total_count)
+      |> assign(:total_count, grand_total)
 
     {:noreply, socket}
   end
@@ -64,13 +73,7 @@ defmodule ChamWeb.DashboardLive do
     new_type = if type == socket.assigns.active_type, do: nil, else: type
 
     params =
-      %{}
-      |> then(fn p -> if new_type, do: Map.put(p, "type", new_type), else: p end)
-      |> then(fn p ->
-        if socket.assigns.active_tag,
-          do: Map.put(p, "tag", socket.assigns.active_tag),
-          else: p
-      end)
+      current_query_params(socket, type: new_type, page: nil)
 
     {:noreply, push_patch(socket, to: ~p"/?#{params}")}
   end
@@ -79,14 +82,14 @@ defmodule ChamWeb.DashboardLive do
     new_tag = if tag == socket.assigns.active_tag, do: nil, else: tag
 
     params =
-      %{}
-      |> then(fn p -> if new_tag, do: Map.put(p, "tag", new_tag), else: p end)
-      |> then(fn p ->
-        if socket.assigns.active_type,
-          do: Map.put(p, "type", socket.assigns.active_type),
-          else: p
-      end)
+      current_query_params(socket, tag: new_tag, page: nil)
 
+    {:noreply, push_patch(socket, to: ~p"/?#{params}")}
+  end
+
+  def handle_event("search", %{"q" => q}, socket) do
+    trimmed = String.trim(q)
+    params = current_query_params(socket, q: nullify_empty(trimmed), page: nil)
     {:noreply, push_patch(socket, to: ~p"/?#{params}")}
   end
 
@@ -116,17 +119,20 @@ defmodule ChamWeb.DashboardLive do
     tag_counts = Items.count_by_tag()
 
     filters =
-      []
-      |> then(fn f ->
-        if socket.assigns.active_type,
-          do: [{:content_type, socket.assigns.active_type} | f],
-          else: f
-      end)
-      |> then(fn f ->
-        if socket.assigns.active_tag, do: [{:tag, socket.assigns.active_tag} | f], else: f
-      end)
+      build_filters(
+        socket.assigns.active_type,
+        socket.assigns.active_tag,
+        socket.assigns[:search_query] || ""
+      )
 
-    items = Items.list_items(filters)
+    {items, total_count} =
+      Items.list_items_paginated(filters,
+        page: socket.assigns[:page] || 1,
+        page_size: @page_size
+      )
+
+    grand_total = length(Items.list_items([]))
+    total_pages = max(div(total_count + @page_size - 1, @page_size), 1)
 
     {:noreply,
      socket
@@ -135,19 +141,66 @@ defmodule ChamWeb.DashboardLive do
      |> assign(:type_counts, type_counts)
      |> assign(:tag_counts, tag_counts)
      |> assign(:items, items)
-     |> assign(:total_count, length(items))}
+     |> assign(:filtered_count, total_count)
+     |> assign(:total_pages, total_pages)
+     |> assign(:total_count, grand_total)}
+  end
+
+  defp build_filters(active_type, active_tag, search_query) do
+    []
+    |> then(fn f -> if active_type, do: [{:content_type, active_type} | f], else: f end)
+    |> then(fn f -> if active_tag, do: [{:tag, active_tag} | f], else: f end)
+    |> then(fn f ->
+      if is_binary(search_query) and search_query != "",
+        do: [{:search, search_query} | f],
+        else: f
+    end)
+  end
+
+  defp parse_page(nil), do: 1
+  defp parse_page(""), do: 1
+
+  defp parse_page(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {n, _} when n >= 1 -> n
+      _ -> 1
+    end
+  end
+
+  defp parse_page(_), do: 1
+
+  defp nullify_empty(""), do: nil
+  defp nullify_empty(value), do: value
+
+  # Builds the query-params map preserving current filters, with overrides.
+  # `nil` override removes that key. `page` is dropped unless explicitly set.
+  defp current_query_params(socket, overrides) do
+    base = %{
+      "type" => socket.assigns.active_type,
+      "tag" => socket.assigns.active_tag,
+      "q" => nullify_empty(socket.assigns[:search_query] || ""),
+      "page" => nil
+    }
+
+    overrides
+    |> Enum.reduce(base, fn {k, v}, acc -> Map.put(acc, to_string(k), v) end)
+    |> Enum.reject(fn {_k, v} -> is_nil(v) or v == "" end)
+    |> Map.new()
   end
 
   defp hero_text(assigns) do
     cond do
+      assigns.search_query && assigns.search_query != "" ->
+        "Cham found #{assigns.filtered_count} #{pluralize("result", assigns.filtered_count)} for \"#{assigns.search_query}\""
+
       assigns.active_type && assigns.active_tag ->
-        "Showing #{content_type_label(assigns.active_type)} tagged \"#{assigns.active_tag}\""
+        "Cham knows about #{assigns.filtered_count} #{content_type_noun(assigns.active_type, assigns.filtered_count)} tagged \"#{assigns.active_tag}\""
 
       assigns.active_type ->
-        "Showing #{content_type_label(assigns.active_type)}"
+        "Cham knows about #{assigns.filtered_count} #{content_type_noun(assigns.active_type, assigns.filtered_count)}"
 
       assigns.active_tag ->
-        "Showing items tagged \"#{assigns.active_tag}\""
+        "Cham knows about #{assigns.filtered_count} #{pluralize("item", assigns.filtered_count)} tagged \"#{assigns.active_tag}\""
 
       assigns.total_count == 0 ->
         "Cham is empty"
@@ -156,6 +209,9 @@ defmodule ChamWeb.DashboardLive do
         "Cham knows about #{assigns.total_count} pieces of information"
     end
   end
+
+  defp pluralize(word, 1), do: word
+  defp pluralize(word, _), do: word <> "s"
 
   defp truncate_url(nil), do: ""
 
@@ -187,6 +243,20 @@ defmodule ChamWeb.DashboardLive do
     |> then(fn p ->
       if assigns.active_tag, do: Map.put(p, "return_tag", assigns.active_tag), else: p
     end)
+  end
+
+  defp page_params(assigns, page) do
+    %{}
+    |> then(fn p ->
+      if assigns.active_type, do: Map.put(p, "type", assigns.active_type), else: p
+    end)
+    |> then(fn p -> if assigns.active_tag, do: Map.put(p, "tag", assigns.active_tag), else: p end)
+    |> then(fn p ->
+      if assigns.search_query && assigns.search_query != "",
+        do: Map.put(p, "q", assigns.search_query),
+        else: p
+    end)
+    |> then(fn p -> if page > 1, do: Map.put(p, "page", Integer.to_string(page)), else: p end)
   end
 
   defp video_meta_line(%Cham.Items.Item{} = item) do
@@ -268,6 +338,20 @@ defmodule ChamWeb.DashboardLive do
       "feed" -> "Feeds"
       _ -> String.capitalize(type || "Items") <> "s"
     end
+  end
+
+  defp content_type_noun(type, count) do
+    {singular, plural} =
+      case type do
+        "article" -> {"article", "articles"}
+        "video" -> {"video", "videos"}
+        "document" -> {"document", "documents"}
+        "podcast" -> {"podcast", "podcasts"}
+        "feed" -> {"feed", "feeds"}
+        _ -> {"item", "items"}
+      end
+
+    if count == 1, do: singular, else: plural
   end
 
   defp content_type_icon(type) do

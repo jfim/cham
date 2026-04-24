@@ -126,19 +126,21 @@
         <h1 class="text-xl font-semibold text-gray-900 flex-1">
           {hero_text(assigns)}
         </h1>
-        <%!-- Disabled search --%>
-        <div class="relative">
+        <%!-- Search --%>
+        <form phx-change="search" phx-submit="search" class="relative">
           <.icon
             name="hero-magnifying-glass"
             class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
           />
           <input
             type="text"
-            disabled
+            name="q"
+            value={@search_query}
+            phx-debounce="300"
             placeholder="Search..."
-            class="pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-400 cursor-not-allowed w-48"
+            class="pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-md bg-white text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 w-56"
           />
-        </div>
+        </form>
       </div>
     </header>
 
@@ -194,6 +196,9 @@
         </.link>
       </div>
 
+      <%!-- Filtered empty state for search --%>
+      <%!-- (shared empty-match block above already covers this) --%>
+
       <%!-- List rows for articles/other --%>
       <div
         :if={not Enum.empty?(@items) && @active_type not in ["video", "document"]}
@@ -227,6 +232,43 @@
           </div>
         </.link>
       </div>
+
+      <%!-- Pagination --%>
+      <nav
+        :if={@total_pages > 1}
+        class="mt-6 flex items-center justify-between border-t border-gray-200 pt-4"
+        aria-label="Pagination"
+      >
+        <div class="text-sm text-gray-500">
+          Page {@page} of {@total_pages} &middot; {@filtered_count} total
+        </div>
+        <div class="flex items-center gap-2">
+          <%= if @page > 1 do %>
+            <.link
+              patch={~p"/?#{page_params(assigns, @page - 1)}"}
+              class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Previous
+            </.link>
+          <% else %>
+            <span class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-400 bg-gray-50 border border-gray-200 rounded-md cursor-not-allowed">
+              Previous
+            </span>
+          <% end %>
+          <%= if @page < @total_pages do %>
+            <.link
+              patch={~p"/?#{page_params(assigns, @page + 1)}"}
+              class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Next
+            </.link>
+          <% else %>
+            <span class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-400 bg-gray-50 border border-gray-200 rounded-md cursor-not-allowed">
+              Next
+            </span>
+          <% end %>
+        </div>
+      </nav>
     </main>
   </div>
 </div>

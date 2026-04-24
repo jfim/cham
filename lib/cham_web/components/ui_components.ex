@@ -337,7 +337,7 @@ defmodule ChamWeb.UIComponents do
 
   def nav_sidebar(assigns) do
     ~H"""
-    <aside class="w-64 bg-white border-r border-gray-200 flex flex-col">
+    <aside class="w-64 shrink-0 bg-white border-r border-gray-200 flex flex-col">
       <div class="px-4 py-5 border-b border-gray-100">
         <.link navigate={~p"/"} class="text-xl font-bold text-indigo-600 hover:text-indigo-500">
           Cham

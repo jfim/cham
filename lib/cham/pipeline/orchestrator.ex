@@ -228,12 +228,17 @@ defmodule Cham.Pipeline.Orchestrator do
   defp failed_stage_ids(item_id) do
     import Ecto.Query
 
-    Cham.Repo.all(
-      from se in Cham.JobTracking.StageExecution,
-        where: se.item_id == ^item_id and se.status == "failed",
-        select: se.stage
-    )
-    |> MapSet.new()
+    failed =
+      Cham.Repo.all(
+        from se in Cham.JobTracking.StageExecution,
+          where: se.item_id == ^item_id and se.status == "failed",
+          select: se.stage
+      )
+      |> MapSet.new()
+
+    # A stage that failed on one attempt and later completed on retry is a
+    # success — transient errors shouldn't latch an item into failed.
+    MapSet.difference(failed, completed_stage_ids(item_id))
   end
 
   defp active_oban_stage_ids(item_id) do

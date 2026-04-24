@@ -15,7 +15,6 @@ import re
 import sys
 from pathlib import Path
 
-import trafilatura
 from bs4 import BeautifulSoup
 from lxml import html as lxml_html
 from markdownify import markdownify as html_to_md
@@ -53,18 +52,12 @@ def _has_content(content_html: str | None) -> bool:
     return bool(frag.text_content().strip()) or frag.find(".//img") is not None
 
 
-def _extract_via_html5lib(html: str) -> str | None:
-    soup = BeautifulSoup(html, "html5lib")
-    for bad in soup.find_all(["script", "style", "noscript"]):
-        bad.decompose()
-    cleaned = str(soup)
-    return trafilatura.extract(
-        cleaned,
-        include_comments=False,
-        include_tables=True,
-        favor_recall=True,
-        output_format="html",
-    )
+def _repair_html(html: str) -> str:
+    # html5lib matches browser parsing and recovers misplaced elements (e.g.
+    # pages that close </html> before <body>, or stray tags inside IE
+    # conditional comments). Re-serializing yields well-formed HTML that
+    # libxml2 — and therefore readability-lxml — can parse in full.
+    return str(BeautifulSoup(html, "html5lib"))
 
 
 def main() -> None:
@@ -82,9 +75,11 @@ def main() -> None:
     if not _has_content(content_html):
         # Readability-lxml's underlying parser drops <body> on some pages with
         # malformed markup (e.g. unclosed <html> tags inside IE conditional
-        # comments). Re-parse with html5lib (browser-accurate) and fall back to
-        # trafilatura, which copes with the cleaned tree.
-        content_html = _extract_via_html5lib(html)
+        # comments). Repair via html5lib and retry readability on the
+        # well-formed output so we keep the good markdown conversion path.
+        html = _repair_html(html)
+        doc = Document(html)
+        content_html = doc.summary(html_partial=True)
         if not _has_content(content_html):
             print("Could not extract article content", file=sys.stderr)
             sys.exit(1)

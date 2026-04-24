@@ -179,8 +179,8 @@ defmodule Cham.Plugins.ExtractArticleIntegrationTest do
 
   # Real-world page (nilenso blog "Trajectory shapes") closed <html> before the
   # <body>, which drops body content under lxml's parser. Readability-lxml then
-  # returns only the <head>. html5lib reparses it correctly, and trafilatura
-  # rescues the content.
+  # returns only the <head>. Repairing via html5lib yields well-formed HTML so
+  # readability can extract the article on retry.
   @malformed_html """
   <!doctype html>
   <html lang="en">

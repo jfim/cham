@@ -1,6 +1,13 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["readability-lxml>=0.8", "markdownify>=0.11", "trafilatura>=1.6", "lxml>=5.0"]
+# dependencies = [
+#   "readability-lxml>=0.8",
+#   "markdownify>=0.11",
+#   "trafilatura>=1.6",
+#   "lxml>=5.0",
+#   "html5lib>=1.1",
+#   "beautifulsoup4>=4.12",
+# ]
 # ///
 
 import json
@@ -8,6 +15,8 @@ import re
 import sys
 from pathlib import Path
 
+import trafilatura
+from bs4 import BeautifulSoup
 from lxml import html as lxml_html
 from markdownify import markdownify as html_to_md
 from readability import Document
@@ -32,6 +41,32 @@ def _unwrap_self_linked_images(text: str) -> str:
     return _SELF_LINKED_IMAGE_RE.sub(repl, text)
 
 
+def _has_content(content_html: str | None) -> bool:
+    # Readability returns a non-empty wrapper element even for empty pages;
+    # check the actual text content rather than just emptiness of the string.
+    if not content_html or not content_html.strip():
+        return False
+    try:
+        frag = lxml_html.fragment_fromstring(content_html, create_parent=True)
+    except Exception:
+        return False
+    return bool(frag.text_content().strip()) or frag.find(".//img") is not None
+
+
+def _extract_via_html5lib(html: str) -> str | None:
+    soup = BeautifulSoup(html, "html5lib")
+    for bad in soup.find_all(["script", "style", "noscript"]):
+        bad.decompose()
+    cleaned = str(soup)
+    return trafilatura.extract(
+        cleaned,
+        include_comments=False,
+        include_tables=True,
+        favor_recall=True,
+        output_format="html",
+    )
+
+
 def main() -> None:
     if len(sys.argv) < 3:
         print("Usage: main.py <html_file> <output_dir>", file=sys.stderr)
@@ -44,18 +79,15 @@ def main() -> None:
 
     doc = Document(html)
     content_html = doc.summary(html_partial=True)
-    # Readability returns a non-empty wrapper element even for empty pages;
-    # check the actual text content rather than just emptiness of the string.
-    has_content = False
-    if content_html and content_html.strip():
-        try:
-            frag = lxml_html.fragment_fromstring(content_html, create_parent=True)
-            has_content = bool(frag.text_content().strip()) or frag.find(".//img") is not None
-        except Exception:
-            has_content = False
-    if not has_content:
-        print("Could not extract article content", file=sys.stderr)
-        sys.exit(1)
+    if not _has_content(content_html):
+        # Readability-lxml's underlying parser drops <body> on some pages with
+        # malformed markup (e.g. unclosed <html> tags inside IE conditional
+        # comments). Re-parse with html5lib (browser-accurate) and fall back to
+        # trafilatura, which copes with the cleaned tree.
+        content_html = _extract_via_html5lib(html)
+        if not _has_content(content_html):
+            print("Could not extract article content", file=sys.stderr)
+            sys.exit(1)
 
     text = html_to_md(content_html, heading_style="ATX")
     text = _unwrap_self_linked_images(text)

@@ -176,4 +176,51 @@ defmodule Cham.Plugins.ExtractArticleIntegrationTest do
 
     assert {:error, _reason} = ExtractStage.perform(input_artifacts, working_dir, [], "item-1")
   end
+
+  # Real-world page (nilenso blog "Trajectory shapes") closed <html> before the
+  # <body>, which drops body content under lxml's parser. Readability-lxml then
+  # returns only the <head>. html5lib reparses it correctly, and trafilatura
+  # rescues the content.
+  @malformed_html """
+  <!doctype html>
+  <html lang="en">
+  <head><title>Broken Page</title></head>
+  </html>
+
+  <body>
+    <article>
+      <h1>Real Article Title</h1>
+      <p>This is the main content of the article. It contains several paragraphs
+      of substantive text. The content needs to be long enough that trafilatura
+      picks it up as real article content rather than boilerplate noise.</p>
+      <p>Here is another paragraph with more information about the topic at hand.
+      This paragraph provides additional context and detail that makes the article
+      more complete and informative for the reader.</p>
+      <p>A third paragraph rounds out the article with concluding thoughts and
+      final observations about the subject matter discussed above.</p>
+    </article>
+  </body>
+  """
+
+  test "perform/4 recovers article when <body> is misplaced after </html>", %{
+    source_dir: source_dir,
+    working_dir: working_dir
+  } do
+    html_file = Path.join(source_dir, "malformed.html")
+    File.write!(html_file, @malformed_html)
+
+    input_artifacts = [
+      %{
+        labels: %{"origin" => "original", "format" => "text", "type" => "article"},
+        filenames: ["malformed.html"],
+        input_path: source_dir
+      }
+    ]
+
+    assert {:ok, _result} = ExtractStage.perform(input_artifacts, working_dir, [], "item-1")
+
+    content = File.read!(Path.join(working_dir, "content.md"))
+    assert content =~ "Real Article Title"
+    assert content =~ "main content of the article"
+  end
 end

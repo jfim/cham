@@ -39,9 +39,20 @@ defmodule ChamWeb.SubscriptionIndexLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex min-h-screen">
-      <.nav_sidebar active={:subscriptions} />
-      <main class="flex-1 bg-gray-50 px-6 py-6 overflow-x-auto">
+    <div class="min-h-screen bg-gray-50">
+      <div class="bg-white border-b border-gray-200 px-8 py-4">
+        <div class="flex items-center justify-between">
+          <.link
+            navigate={~p"/"}
+            class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+          >
+            <ChamWeb.CoreComponents.icon name="hero-arrow-left-mini" class="h-4 w-4" />
+            Back to archive
+          </.link>
+        </div>
+      </div>
+
+      <main class="max-w-6xl mx-auto px-8 py-8 overflow-x-auto">
         <h1 class="text-2xl font-bold mb-4">Subscriptions</h1>
 
         <table class="w-full text-left">
@@ -58,7 +69,7 @@ defmodule ChamWeb.SubscriptionIndexLive do
           </thead>
           <tbody>
             <%= for sub <- @subscriptions do %>
-              <tr id={"sub-#{sub.id}"} class="border-b">
+              <tr id={"sub-#{sub.id}"} class="border-b align-top">
                 <td class="py-2 pr-4">
                   <.link navigate={~p"/subscriptions/#{sub.id}"}>{sub.title}</.link>
                 </td>
@@ -66,14 +77,28 @@ defmodule ChamWeb.SubscriptionIndexLive do
                 <td class="py-2 pr-4">{sub.backend}</td>
                 <td class="py-2 pr-4 text-sm">{format_ts(sub.last_polled_at)}</td>
                 <td class="py-2 pr-4">{format_interval(sub.poll_interval_seconds)}</td>
-                <td class="py-2 pr-4">
+                <td class="py-2 pr-4 max-w-md">
                   <%= cond do %>
                     <% not sub.active -> %>
                       <span class="text-gray-500">paused</span>
                     <% sub.consecutive_failures > @failure_threshold -> %>
-                      <span class="text-red-600">
-                        Last {sub.consecutive_failures} polls failed: {sub.last_error}
-                      </span>
+                      <div class="text-red-600">
+                        <div class="font-medium">
+                          Last {sub.consecutive_failures} polls failed
+                        </div>
+                        <div :if={sub.last_error} class="text-xs text-red-700 mt-0.5 break-words">
+                          {sub.last_error}
+                        </div>
+                      </div>
+                    <% sub.consecutive_failures > 0 -> %>
+                      <div class="text-amber-600">
+                        <div class="font-medium">
+                          {sub.consecutive_failures} recent {failure_noun(sub.consecutive_failures)}
+                        </div>
+                        <div :if={sub.last_error} class="text-xs text-amber-700 mt-0.5 break-words">
+                          {sub.last_error}
+                        </div>
+                      </div>
                     <% true -> %>
                       <span class="text-green-600">ok</span>
                   <% end %>
@@ -131,6 +156,9 @@ defmodule ChamWeb.SubscriptionIndexLive do
     </div>
     """
   end
+
+  defp failure_noun(1), do: "failure"
+  defp failure_noun(_), do: "failures"
 
   defp format_ts(nil), do: "—"
   defp format_ts(dt), do: Calendar.strftime(dt, "%Y-%m-%d %H:%M")

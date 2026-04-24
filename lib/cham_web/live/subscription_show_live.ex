@@ -76,12 +76,34 @@ defmodule ChamWeb.SubscriptionShowLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex min-h-screen">
-      <.nav_sidebar active={:subscriptions} />
-      <main class="flex-1 bg-gray-50 px-6 py-6">
-        <div class="max-w-4xl">
+    <div class="min-h-screen bg-gray-50">
+      <div class="bg-white border-b border-gray-200 px-8 py-4">
+        <div class="flex items-center justify-between">
+          <.link
+            navigate={~p"/subscriptions"}
+            class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+          >
+            <ChamWeb.CoreComponents.icon name="hero-arrow-left-mini" class="h-4 w-4" />
+            Back to subscriptions
+          </.link>
+        </div>
+      </div>
+      <main class="max-w-4xl mx-auto px-8 py-8">
+        <div>
           <h1 class="text-2xl font-bold mb-2">{@subscription.title}</h1>
-          <p class="text-sm text-gray-500 mb-6">{@subscription.source_url}</p>
+          <p class="text-sm text-gray-500 mb-4">{@subscription.source_url}</p>
+
+          <div
+            :if={@subscription.last_error && @subscription.consecutive_failures > 0}
+            class="mb-6 rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm"
+          >
+            <div class="font-medium text-red-800">
+              Last poll failed ({@subscription.consecutive_failures} consecutive {failure_noun(
+                @subscription.consecutive_failures
+              )})
+            </div>
+            <div class="text-red-700 mt-1 break-words">{@subscription.last_error}</div>
+          </div>
 
           <section id="settings" class="mb-8">
             <h2 class="text-lg font-semibold mb-2">Settings</h2>
@@ -172,4 +194,7 @@ defmodule ChamWeb.SubscriptionShowLive do
     </div>
     """
   end
+
+  defp failure_noun(1), do: "failure"
+  defp failure_noun(_), do: "failures"
 end

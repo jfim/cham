@@ -284,10 +284,21 @@ defmodule Cham.Pipeline.Orchestrator do
 
     failed = failed_stage_ids(item.id)
 
+    active = active_oban_stage_ids(item.id)
+
     cond do
       not MapSet.disjoint?(failed, original_stage_ids(stages)) ->
         Logger.warning("Item #{item.id} has failed original-producing stages, marking failed")
         transition_to_terminal(item, "failed", "original stage failed")
+
+      # If a fetch is currently enqueued/running, don't race ahead and declare
+      # bootstrap complete. all_originals_complete? returns true vacuously when
+      # no original-producing stage is "reachable" via the normal DAG (the
+      # fallback fetcher's can_process? returns :not_applicable), and without
+      # this guard a freshly-kicked-off item would archive itself before its
+      # fetch even runs.
+      MapSet.size(active) > 0 ->
+        :ok
 
       DAG.all_originals_complete?(stages, artifacts, completed_ids) ->
         transition_to_archive(item, state)
@@ -382,6 +393,28 @@ defmodule Cham.Pipeline.Orchestrator do
     slug = generate_slug(item)
     root = archive_root()
 
+    cond do
+      # Already archived — just transition phase, no filesystem work to do.
+      is_nil(item.bootstrap_path) and not is_nil(item.archive_path) ->
+        {:ok, updated_item} = Items.update_item(item, %{status: "processing"})
+        evaluate_and_enqueue(updated_item.id, state)
+
+      # No bootstrap_path AND no archive_path — inconsistent state we can't
+      # recover from automatically. Mark failed rather than crashing on
+      # File.rename(nil, _).
+      is_nil(item.bootstrap_path) ->
+        Logger.error(
+          "Cannot archive item #{item.id}: bootstrap_path and archive_path are both nil"
+        )
+
+        transition_to_terminal(item, "failed", "no bootstrap_path to archive from")
+
+      true ->
+        do_move_to_archive(item, root, slug, state)
+    end
+  end
+
+  defp do_move_to_archive(item, root, slug, state) do
     case ArchiveManager.move_to_archive(root, item.bootstrap_path, slug, Date.utc_today()) do
       {:ok, archive_path} ->
         {:ok, updated_item} =

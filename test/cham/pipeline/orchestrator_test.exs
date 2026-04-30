@@ -406,6 +406,60 @@ defmodule Cham.Pipeline.OrchestratorTest do
       assert updated.status == "complete"
     end
 
+    test "processing item with only synthetic input artifact becomes incomplete, not complete",
+         %{orchestrator: orchestrator} do
+      {:ok, item} =
+        Items.create_item(%{
+          url: "https://example.com/no-output-#{System.unique_integer([:positive])}",
+          status: "processing"
+        })
+
+      # Only the synthetic 'input' artifact exists — no real stage produced output.
+      {:ok, _} =
+        Items.create_artifact(%{
+          item_id: item.id,
+          stage: "input",
+          labels: %{"url" => item.url},
+          filenames: [],
+          path: "archive/input",
+          status: "produced"
+        })
+
+      Orchestrator.stage_completed(orchestrator, item.id, "input")
+      :sys.get_state(orchestrator)
+
+      updated = Items.get_item!(item.id)
+      assert updated.status == "incomplete"
+      assert updated.error_message =~ "no pipeline stages produced output"
+    end
+
+    test "transitioning to complete clears a stale error_message from a prior failure",
+         %{orchestrator: orchestrator} do
+      {:ok, item} =
+        Items.create_item(%{
+          url: "https://example.com/cleared-#{System.unique_integer([:positive])}",
+          status: "processing",
+          error_message: "previous failure that should be cleared"
+        })
+
+      {:ok, _} =
+        Items.create_artifact(%{
+          item_id: item.id,
+          stage: "plugin_a",
+          labels: %{"origin" => "derived", "type" => "summary"},
+          filenames: [],
+          path: "archive/plugin_a-20260404T000000Z",
+          status: "produced"
+        })
+
+      Orchestrator.stage_completed(orchestrator, item.id, "plugin_a")
+      :sys.get_state(orchestrator)
+
+      updated = Items.get_item!(item.id)
+      assert updated.status == "complete"
+      assert is_nil(updated.error_message)
+    end
+
     test "processing item becomes incomplete when some stages failed", %{
       orchestrator: orchestrator
     } do

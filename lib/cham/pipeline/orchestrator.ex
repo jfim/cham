@@ -319,22 +319,32 @@ defmodule Cham.Pipeline.Orchestrator do
       else
         failed = failed_stage_ids(item.id)
 
-        if MapSet.size(failed) > 0 do
-          transition_to_terminal(item, "incomplete")
-        else
-          completed_count = Enum.count(artifacts, &(&1.status == "produced"))
+        produced_non_input =
+          Enum.count(artifacts, &(&1.status == "produced" and &1.stage != "input"))
 
-          if completed_count > 0 do
+        cond do
+          MapSet.size(failed) > 0 ->
+            transition_to_terminal(item, "incomplete")
+
+          produced_non_input > 0 ->
             transition_to_terminal(item, "complete")
-          end
+
+          true ->
+            # No active jobs, no ready stages, no failed stages, and no real
+            # output produced — only the synthetic input artifact exists. The
+            # pipeline has nothing more to do for this item, so mark it
+            # incomplete rather than leaving it stuck in "processing".
+            transition_to_terminal(item, "incomplete", "no pipeline stages produced output")
         end
       end
     end
   end
 
   defp transition_to_terminal(item, status, error_message \\ nil) do
-    attrs = %{status: status}
-    attrs = if error_message, do: Map.put(attrs, :error_message, error_message), else: attrs
+    # Always set :error_message: pass the new message when present, otherwise
+    # explicitly clear any stale message so a successful transition doesn't
+    # carry over an error from a previous failed run.
+    attrs = %{status: status, error_message: error_message}
 
     case Items.update_item(item, attrs) do
       {:ok, updated} ->

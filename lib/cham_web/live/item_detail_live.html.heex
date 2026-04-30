@@ -350,29 +350,31 @@
           </div>
 
           <%!-- Reprocess All --%>
-          <div
-            :if={@stage_history != []}
-            class="flex items-start gap-4 p-4 bg-amber-50 rounded-lg border border-amber-200"
-          >
+          <div class="flex items-start gap-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
             <div class="flex-1">
-              <h3 class="text-sm font-semibold text-amber-800">Reprocess Everything</h3>
+              <h3 class="text-sm font-semibold text-amber-800">
+                {if @stage_history == [], do: "Re-kick Pipeline", else: "Reprocess Everything"}
+              </h3>
               <p class="text-xs text-amber-600 mt-1">
-                Invalidate all stages and reprocess from scratch.
+                {if @stage_history == [],
+                  do:
+                    "No stages have run yet for this item. Re-trigger the orchestrator to schedule them.",
+                  else: "Invalidate all stages and reprocess from scratch."}
               </p>
             </div>
             <button
               phx-click="reprocess_all"
-              data-confirm="This will invalidate all stages and reprocess the item from scratch. Continue?"
+              data-confirm={
+                if @stage_history == [],
+                  do: nil,
+                  else:
+                    "This will invalidate all stages and reprocess the item from scratch. Continue?"
+              }
               class="shrink-0 inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-500"
             >
-              <.icon name="hero-arrow-path-mini" class="h-4 w-4" /> Reprocess All
+              <.icon name="hero-arrow-path-mini" class="h-4 w-4" />
+              {if @stage_history == [], do: "Re-kick", else: "Reprocess All"}
             </button>
-          </div>
-
-          <%!-- Empty state --%>
-          <div :if={@stage_history == []} class="text-center py-8 text-gray-400">
-            <.icon name="hero-cog-6-tooth" class="h-8 w-8 mx-auto mb-2" />
-            <p>No pipeline stages to manage yet.</p>
           </div>
 
           <%!-- Delete Item --%>

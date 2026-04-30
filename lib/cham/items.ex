@@ -304,7 +304,24 @@ defmodule Cham.Items do
   is available. Providers are tried in the order configured under
   `display.thumbnail_provider_order`.
   """
-  def best_thumbnail_url(%Item{} = item) do
+  def best_thumbnail_url(%Item{} = item), do: display_cache(item).thumbnail
+  def best_thumbnail_url(_), do: nil
+
+  @doc """
+  Returns the preferred display title: consults title-override artifacts in
+  the order configured under `display.title_provider_order`, and falls back
+  to the item's own title if no override is present.
+  """
+  def best_title(%Item{} = item), do: display_cache(item).title
+  def best_title(_), do: nil
+
+  defp display_cache(%Item{} = item) do
+    Cham.Items.Cache.fetch(item.id, fn ->
+      %{title: compute_title(item), thumbnail: compute_thumbnail_url(item)}
+    end)
+  end
+
+  defp compute_thumbnail_url(%Item{} = item) do
     order = provider_order("thumbnail_provider_order", ["ffmpeg"])
     thumb_artifacts = item_id_thumbnail_artifacts(item.id)
 
@@ -315,8 +332,6 @@ defmodule Cham.Items do
         end)
       end)
 
-    # Fall back to any thumbnail artifact regardless of provider if none of
-    # the preferred ones matched (e.g. a provider not listed in the config).
     artifact = artifact || List.first(thumb_artifacts)
 
     if artifact do
@@ -325,14 +340,7 @@ defmodule Cham.Items do
     end
   end
 
-  def best_thumbnail_url(_), do: nil
-
-  @doc """
-  Returns the preferred display title: consults title-override artifacts in
-  the order configured under `display.title_provider_order`, and falls back
-  to the item's own title if no override is present.
-  """
-  def best_title(%Item{} = item) do
+  defp compute_title(%Item{} = item) do
     order = provider_order("title_provider_order", ["clean_title"])
     override_artifacts = item_id_title_override_artifacts(item.id)
 
@@ -354,8 +362,6 @@ defmodule Cham.Items do
         end
     end
   end
-
-  def best_title(_), do: nil
 
   defp item_id_thumbnail_artifacts(item_id) do
     Repo.all(

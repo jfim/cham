@@ -72,6 +72,49 @@ defmodule Cham.PipelineTest do
     end
   end
 
+  describe "reprocess/2 phase selection" do
+    test "reprocess returns to bootstrapping when no original artifact exists, even if archive_path is set",
+         %{root: root} do
+      {:ok, item} = Pipeline.submit_url("https://example.com/no-original", root: root)
+
+      # Simulate the inconsistent state: archive_path set, item marked complete,
+      # but only the synthetic input artifact exists (no origin:original output).
+      {:ok, _} =
+        Items.update_item(item, %{
+          status: "complete",
+          archive_path: Path.join(root, "archive/no-original"),
+          error_message: "original stage failed"
+        })
+
+      assert {:ok, updated} = Pipeline.reprocess(item.id)
+      assert updated.status == "bootstrapping"
+    end
+
+    test "reprocess returns to processing when an origin:original artifact exists",
+         %{root: root} do
+      {:ok, item} = Pipeline.submit_url("https://example.com/has-original", root: root)
+
+      {:ok, _} =
+        Items.create_artifact(%{
+          item_id: item.id,
+          stage: "generic_download_url",
+          labels: %{"origin" => "original", "type" => "initial_download"},
+          filenames: ["original.html"],
+          path: "archive/has-original/generic_download_url-x",
+          status: "produced"
+        })
+
+      {:ok, _} =
+        Items.update_item(item, %{
+          status: "complete",
+          archive_path: Path.join(root, "archive/has-original")
+        })
+
+      assert {:ok, updated} = Pipeline.reprocess(item.id)
+      assert updated.status == "processing"
+    end
+  end
+
   describe "reprocess/2 invalidate (per-item walker)" do
     # Regression: invalidating a stage used to cascade through the abstract
     # stage DAG, so a downloader with a match-all input_matcher (e.g.

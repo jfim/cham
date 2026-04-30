@@ -56,7 +56,14 @@ defmodule Cham.Pipeline do
         if retry_failed, do: clear_failed_executions(item_id)
         Enum.each(invalidate, &invalidate_stage(item_id, &1))
 
-        reprocess_status = if item.archive_path, do: "processing", else: "bootstrapping"
+        # Phase is "bootstrapping" until at least one origin:original artifact
+        # exists. archive_path being set is not sufficient — an item can have an
+        # archive_path but still be missing its original (e.g. the fetcher never
+        # produced output). Without this, the orchestrator's fallback-fetcher
+        # mechanism (maybe_add_fallback/4, which only runs in bootstrapping
+        # phase) is skipped and reprocess does nothing useful.
+        reprocess_status =
+          if has_original_artifact?(item_id), do: "processing", else: "bootstrapping"
 
         case Items.update_item(item, %{status: reprocess_status}) do
           {:ok, updated} ->
@@ -119,6 +126,13 @@ defmodule Cham.Pipeline do
       )
 
     Enum.each(job_ids, &Oban.cancel_job(&1))
+  end
+
+  defp has_original_artifact?(item_id) do
+    Items.list_artifacts(item_id)
+    |> Enum.any?(fn a ->
+      a.status == "produced" and Map.get(a.labels || %{}, "origin") == "original"
+    end)
   end
 
   defp clear_failed_executions(item_id) do

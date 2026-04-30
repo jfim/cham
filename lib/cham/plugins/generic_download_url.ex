@@ -28,6 +28,30 @@ defmodule Cham.Plugins.GenericDownloadUrl do
         description: "Maximum download size in bytes",
         required: false,
         options: nil
+      },
+      %{
+        key: :passepartout_fallback,
+        type: :boolean,
+        default: false,
+        description: "Fall back to passe-partout (headless browser proxy) on 4xx responses",
+        required: false,
+        options: nil
+      },
+      %{
+        key: :passepartout_host,
+        type: :url,
+        default: "",
+        description: "Passe-partout host URL (e.g. http://localhost:8000)",
+        required: false,
+        options: nil
+      },
+      %{
+        key: :passepartout_token,
+        type: :string,
+        default: "",
+        description: "Passe-partout bearer token (optional)",
+        required: false,
+        options: nil
       }
     ]
   end
@@ -88,18 +112,18 @@ defmodule Cham.Plugins.GenericDownloadUrl.DownloadStage do
     # HEAD check: enforce size limits if HEAD succeeds, skip if server doesn't support HEAD
     case head_check(url, timeout, max_body_size) do
       {:ok, content_type, content_length} ->
-        do_download(url, working_dir, content_type, content_length, timeout)
+        do_download(url, working_dir, content_type, content_length, timeout, config)
 
       {:error, :too_large, message} ->
         {:error, message}
 
       {:error, _reason} ->
         # HEAD failed (server doesn't support it, etc.) — proceed with GET
-        do_download(url, working_dir, nil, nil, timeout)
+        do_download(url, working_dir, nil, nil, timeout, config)
     end
   end
 
-  defp do_download(url, working_dir, content_type_hint, content_length, timeout) do
+  defp do_download(url, working_dir, content_type_hint, content_length, timeout, config) do
     ext = extension_from(content_type_hint || "application/octet-stream", url)
     filename = "original#{ext}"
     dest = Path.join(working_dir, filename)
@@ -107,28 +131,89 @@ defmodule Cham.Plugins.GenericDownloadUrl.DownloadStage do
     case stream_download(url, dest, timeout) do
       {:ok, response_content_type} ->
         content_type = content_type_hint || response_content_type || "application/octet-stream"
+        success(filename, content_type, content_length)
 
-        {:ok,
-         %{
-           artifacts: [
-             %{
-               labels: %{
-                 "origin" => "original",
-                 "type" => "initial_download",
-                 "content_type" => content_type
-               },
-               filenames: [filename]
-             }
-           ],
-           item_metadata: %{
-             "content_type" => content_type,
-             "content_length" => content_length
-           },
-           provenance: %{}
-         }}
+      {:error, {:http_status, status}} ->
+        if status in 400..499 and passepartout_enabled?(config) do
+          passepartout_fallback(url, working_dir, timeout, config)
+        else
+          {:error, "HTTP GET returned status #{status}"}
+        end
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  defp success(filename, content_type, content_length) do
+    {:ok,
+     %{
+       artifacts: [
+         %{
+           labels: %{
+             "origin" => "original",
+             "type" => "initial_download",
+             "content_type" => content_type
+           },
+           filenames: [filename]
+         }
+       ],
+       item_metadata: %{
+         "content_type" => content_type,
+         "content_length" => content_length
+       },
+       provenance: %{}
+     }}
+  end
+
+  defp passepartout_enabled?(config) do
+    Map.get(config, :passepartout_fallback, false) and
+      is_binary(Map.get(config, :passepartout_host, "")) and
+      Map.get(config, :passepartout_host, "") != ""
+  end
+
+  defp passepartout_fallback(url, working_dir, timeout, config) do
+    host = config |> Map.get(:passepartout_host, "") |> String.trim_trailing("/")
+    token = Map.get(config, :passepartout_token, "")
+
+    headers =
+      [{"content-type", "application/json"}] ++
+        if token != "", do: [{"authorization", "Bearer #{token}"}], else: []
+
+    case Req.post("#{host}/fetch",
+           json: %{url: url},
+           headers: headers,
+           receive_timeout: timeout,
+           connect_options: [timeout: timeout],
+           retry: false
+         ) do
+      {:ok, %{status: 200, body: %{"html" => html} = body}} when is_binary(html) ->
+        filename = "original.html"
+        dest = Path.join(working_dir, filename)
+        File.write!(dest, html)
+        upstream_status = Map.get(body, "status")
+        content_type = "text/html"
+
+        result = success(filename, content_type, byte_size(html))
+
+        case result do
+          {:ok, map} ->
+            {:ok,
+             put_in(map, [:provenance, :passepartout], %{
+               "fallback" => true,
+               "upstream_status" => upstream_status,
+               "final_url" => Map.get(body, "final_url")
+             })}
+
+          other ->
+            other
+        end
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "passe-partout fallback returned status #{status}: #{inspect(body)}"}
+
+      {:error, reason} ->
+        {:error, "passe-partout fallback failed: #{inspect(reason)}"}
     end
   end
 
@@ -170,7 +255,7 @@ defmodule Cham.Plugins.GenericDownloadUrl.DownloadStage do
 
       {:ok, %{status: status}} ->
         File.rm(dest)
-        {:error, "HTTP GET returned status #{status}"}
+        {:error, {:http_status, status}}
 
       {:error, reason} ->
         File.rm(dest)

@@ -13,9 +13,9 @@ defmodule Cham.Plugins.GenericDownloadUrlTest do
       assert GenericDownloadUrl.name() == "Generic URL Downloader"
     end
 
-    test "config_schema returns timeout and max_body_size fields" do
+    test "config_schema returns timeout, max_body_size, and passepartout fields" do
       schema = GenericDownloadUrl.config_schema()
-      assert length(schema) == 2
+      assert length(schema) == 5
 
       timeout_field = Enum.find(schema, &(&1.key == :timeout))
       assert timeout_field.type == :integer
@@ -24,6 +24,18 @@ defmodule Cham.Plugins.GenericDownloadUrlTest do
       max_body_field = Enum.find(schema, &(&1.key == :max_body_size))
       assert max_body_field.type == :integer
       assert max_body_field.default == 524_288_000
+
+      fallback = Enum.find(schema, &(&1.key == :passepartout_fallback))
+      assert fallback.type == :boolean
+      assert fallback.default == false
+
+      host = Enum.find(schema, &(&1.key == :passepartout_host))
+      assert host.type == :url
+      assert host.default == ""
+
+      token = Enum.find(schema, &(&1.key == :passepartout_token))
+      assert token.type == :string
+      assert token.default == ""
     end
 
     test "init returns ok" do
@@ -161,6 +173,142 @@ defmodule Cham.Plugins.GenericDownloadUrlTest do
 
       assert {:error, msg} = DownloadStage.perform([], working_dir, [], item.id, config)
       assert msg =~ "404"
+    end
+
+    test "falls back to passe-partout on 4xx when enabled", %{bypass: bypass, base_url: base_url} do
+      # Origin returns 4xx for both HEAD and GET
+      Bypass.expect(bypass, "HEAD", "/paywalled", fn conn ->
+        Plug.Conn.resp(conn, 403, "Forbidden")
+      end)
+
+      Bypass.expect(bypass, "GET", "/paywalled", fn conn ->
+        Plug.Conn.resp(conn, 403, "Forbidden")
+      end)
+
+      origin_url = "#{base_url}/paywalled"
+      html = "<!DOCTYPE html><html><body>rescued</body></html>"
+
+      # passe-partout service on a separate Bypass instance
+      pp = Bypass.open()
+      pp_url = "http://localhost:#{pp.port}"
+
+      Bypass.expect(pp, "POST", "/fetch", fn conn ->
+        assert ["Bearer secret-token"] = Plug.Conn.get_req_header(conn, "authorization")
+        {:ok, body, conn} = Plug.Conn.read_body(conn)
+        assert %{"url" => ^origin_url} = Jason.decode!(body)
+
+        conn
+        |> Plug.Conn.put_resp_header("content-type", "application/json")
+        |> Plug.Conn.resp(
+          200,
+          Jason.encode!(%{status: 200, final_url: origin_url, html: html})
+        )
+      end)
+
+      {:ok, item} = Cham.Items.create_item(%{url: origin_url, slug: "test-pp-fallback"})
+
+      working_dir =
+        Path.join(System.tmp_dir!(), "cham_test_#{:erlang.unique_integer([:positive])}")
+
+      File.mkdir_p!(working_dir)
+      on_exit(fn -> File.rm_rf!(working_dir) end)
+
+      config = %{
+        timeout: 30_000,
+        max_body_size: 524_288_000,
+        passepartout_fallback: true,
+        passepartout_host: pp_url,
+        passepartout_token: "secret-token"
+      }
+
+      assert {:ok, result} = DownloadStage.perform([], working_dir, [], item.id, config)
+      assert [artifact] = result.artifacts
+      assert artifact.labels["content_type"] == "text/html"
+      assert artifact.filenames == ["original.html"]
+      assert File.read!(Path.join(working_dir, "original.html")) == html
+      assert result.provenance.passepartout["fallback"] == true
+      assert result.provenance.passepartout["final_url"] == origin_url
+    end
+
+    test "does not fall back when passepartout_fallback is disabled", %{
+      bypass: bypass,
+      base_url: base_url
+    } do
+      Bypass.expect(bypass, "HEAD", "/forbidden", fn conn ->
+        Plug.Conn.resp(conn, 403, "Forbidden")
+      end)
+
+      Bypass.expect(bypass, "GET", "/forbidden", fn conn ->
+        Plug.Conn.resp(conn, 403, "Forbidden")
+      end)
+
+      url = "#{base_url}/forbidden"
+      {:ok, item} = Cham.Items.create_item(%{url: url, slug: "test-pp-disabled"})
+
+      working_dir =
+        Path.join(System.tmp_dir!(), "cham_test_#{:erlang.unique_integer([:positive])}")
+
+      File.mkdir_p!(working_dir)
+      on_exit(fn -> File.rm_rf!(working_dir) end)
+
+      config = %{
+        timeout: 30_000,
+        max_body_size: 524_288_000,
+        passepartout_fallback: false,
+        passepartout_host: "http://unused",
+        passepartout_token: ""
+      }
+
+      assert {:error, msg} = DownloadStage.perform([], working_dir, [], item.id, config)
+      assert msg =~ "403"
+    end
+
+    test "passe-partout fallback works without bearer token", %{
+      bypass: bypass,
+      base_url: base_url
+    } do
+      Bypass.expect(bypass, "HEAD", "/no-token", fn conn ->
+        Plug.Conn.resp(conn, 404, "")
+      end)
+
+      Bypass.expect(bypass, "GET", "/no-token", fn conn ->
+        Plug.Conn.resp(conn, 404, "")
+      end)
+
+      origin_url = "#{base_url}/no-token"
+      html = "<html>ok</html>"
+
+      pp = Bypass.open()
+      pp_url = "http://localhost:#{pp.port}"
+
+      Bypass.expect(pp, "POST", "/fetch", fn conn ->
+        assert [] == Plug.Conn.get_req_header(conn, "authorization")
+
+        conn
+        |> Plug.Conn.put_resp_header("content-type", "application/json")
+        |> Plug.Conn.resp(
+          200,
+          Jason.encode!(%{status: 200, final_url: origin_url, html: html})
+        )
+      end)
+
+      {:ok, item} = Cham.Items.create_item(%{url: origin_url, slug: "test-pp-no-token"})
+
+      working_dir =
+        Path.join(System.tmp_dir!(), "cham_test_#{:erlang.unique_integer([:positive])}")
+
+      File.mkdir_p!(working_dir)
+      on_exit(fn -> File.rm_rf!(working_dir) end)
+
+      config = %{
+        timeout: 30_000,
+        max_body_size: 524_288_000,
+        passepartout_fallback: true,
+        passepartout_host: pp_url,
+        passepartout_token: ""
+      }
+
+      assert {:ok, _result} = DownloadStage.perform([], working_dir, [], item.id, config)
     end
 
     test "uses extension from URL path when content type is octet-stream", %{

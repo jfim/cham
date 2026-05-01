@@ -175,45 +175,205 @@ defmodule Cham.Plugins.GenericDownloadUrl.DownloadStage do
   defp passepartout_fallback(url, working_dir, timeout, config) do
     host = config |> Map.get(:passepartout_host, "") |> String.trim_trailing("/")
     token = Map.get(config, :passepartout_token, "")
+    max_body_size = Map.get(config, :max_body_size, @default_max_body_size)
 
     headers =
       [{"content-type", "application/json"}] ++
         if token != "", do: [{"authorization", "Bearer #{token}"}], else: []
 
-    case Req.post("#{host}/fetch",
+    case Req.post("#{host}/tabs",
            json: %{url: url},
            headers: headers,
            receive_timeout: timeout,
            connect_options: [timeout: timeout],
            retry: false
          ) do
-      {:ok, %{status: 200, body: %{"html" => html} = body}} when is_binary(html) ->
-        filename = "original.html"
-        dest = Path.join(working_dir, filename)
-        File.write!(dest, html)
-        upstream_status = Map.get(body, "status")
-        content_type = "text/html"
-
-        result = success(filename, content_type, byte_size(html))
-
-        case result do
-          {:ok, map} ->
-            {:ok,
-             put_in(map, [:provenance, :passepartout], %{
-               "fallback" => true,
-               "upstream_status" => upstream_status,
-               "final_url" => Map.get(body, "final_url")
-             })}
-
-          other ->
-            other
+      {:ok, %{status: status, body: %{"id" => tab_id} = tab}} when status in 200..299 ->
+        try do
+          handle_passepartout_tab(host, headers, tab_id, tab, working_dir, timeout, max_body_size)
+        after
+          close_passepartout_tab(host, headers, tab_id, timeout)
         end
 
       {:ok, %{status: status, body: body}} ->
-        {:error, "passe-partout fallback returned status #{status}: #{inspect(body)}"}
+        {:error, "passe-partout tab create returned status #{status}: #{inspect(body)}"}
 
       {:error, reason} ->
-        {:error, "passe-partout fallback failed: #{inspect(reason)}"}
+        {:error, "passe-partout tab create failed: #{inspect(reason)}"}
+    end
+  end
+
+  defp handle_passepartout_tab(host, headers, tab_id, tab, working_dir, timeout, max_body_size) do
+    upstream_status = Map.get(tab, "status")
+    final_url = Map.get(tab, "final_url")
+
+    case Map.get(tab, "download") do
+      %{"id" => did} = download ->
+        size = Map.get(download, "size")
+
+        if is_integer(size) and size > max_body_size do
+          {:error, "Content too large: #{size} bytes exceeds limit of #{max_body_size} bytes"}
+        else
+          fetch_passepartout_download(
+            host,
+            headers,
+            tab_id,
+            did,
+            download,
+            working_dir,
+            timeout,
+            upstream_status,
+            final_url
+          )
+        end
+
+      _ ->
+        fetch_passepartout_html(
+          host,
+          headers,
+          tab_id,
+          working_dir,
+          timeout,
+          upstream_status,
+          final_url
+        )
+    end
+  end
+
+  defp fetch_passepartout_html(
+         host,
+         headers,
+         tab_id,
+         working_dir,
+         timeout,
+         upstream_status,
+         final_url
+       ) do
+    case Req.get("#{host}/tabs/#{tab_id}/html",
+           headers: headers,
+           receive_timeout: timeout,
+           connect_options: [timeout: timeout],
+           retry: false
+         ) do
+      {:ok, %{status: status, body: html}} when status in 200..299 and is_binary(html) ->
+        filename = "original.html"
+        dest = Path.join(working_dir, filename)
+        File.write!(dest, html)
+
+        with_provenance(
+          success(filename, "text/html", byte_size(html)),
+          upstream_status,
+          final_url
+        )
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "passe-partout html fetch returned status #{status}: #{inspect(body)}"}
+
+      {:error, reason} ->
+        {:error, "passe-partout html fetch failed: #{inspect(reason)}"}
+    end
+  end
+
+  @download_poll_interval_ms 500
+
+  defp fetch_passepartout_download(
+         host,
+         headers,
+         tab_id,
+         did,
+         download,
+         working_dir,
+         timeout,
+         upstream_status,
+         final_url
+       ) do
+    suggested = Map.get(download, "filename") || ""
+    ext = ext_from_filename(suggested) || ".bin"
+    filename = "original#{ext}"
+    dest = Path.join(working_dir, filename)
+
+    deadline = System.monotonic_time(:millisecond) + timeout
+
+    case stream_passepartout_download(host, headers, tab_id, did, dest, timeout, deadline) do
+      {:ok, content_type, byte_count} ->
+        with_provenance(
+          success(filename, content_type, byte_count),
+          upstream_status,
+          final_url
+        )
+
+      {:error, reason} ->
+        File.rm(dest)
+        {:error, reason}
+    end
+  end
+
+  defp stream_passepartout_download(host, headers, tab_id, did, dest, timeout, deadline) do
+    case Req.get("#{host}/tabs/#{tab_id}/downloads/#{did}",
+           headers: headers,
+           into: File.stream!(dest),
+           receive_timeout: timeout,
+           connect_options: [timeout: timeout],
+           retry: false
+         ) do
+      {:ok, %{status: status} = resp} when status in 200..299 ->
+        content_type =
+          parse_content_type(resp.headers["content-type"]) || "application/octet-stream"
+
+        byte_count =
+          case File.stat(dest) do
+            {:ok, %{size: size}} -> size
+            _ -> nil
+          end
+
+        {:ok, content_type, byte_count}
+
+      {:ok, %{status: 425}} ->
+        File.rm(dest)
+        now = System.monotonic_time(:millisecond)
+
+        if now >= deadline do
+          {:error, "passe-partout download did not complete within #{timeout}ms"}
+        else
+          Process.sleep(@download_poll_interval_ms)
+          stream_passepartout_download(host, headers, tab_id, did, dest, timeout, deadline)
+        end
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "passe-partout download returned status #{status}: #{inspect(body)}"}
+
+      {:error, reason} ->
+        {:error, "passe-partout download failed: #{inspect(reason)}"}
+    end
+  end
+
+  defp close_passepartout_tab(host, headers, tab_id, timeout) do
+    Req.delete("#{host}/tabs/#{tab_id}",
+      headers: headers,
+      receive_timeout: timeout,
+      connect_options: [timeout: timeout],
+      retry: false
+    )
+  end
+
+  defp with_provenance({:ok, map}, upstream_status, final_url) do
+    {:ok,
+     put_in(map, [:provenance, :passepartout], %{
+       "fallback" => true,
+       "upstream_status" => upstream_status,
+       "final_url" => final_url
+     })}
+  end
+
+  defp with_provenance(other, _upstream_status, _final_url), do: other
+
+  defp ext_from_filename(""), do: nil
+  defp ext_from_filename(nil), do: nil
+
+  defp ext_from_filename(name) when is_binary(name) do
+    case Path.extname(name) do
+      "" -> nil
+      ext -> ext
     end
   end
 

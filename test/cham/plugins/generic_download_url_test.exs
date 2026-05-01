@@ -192,7 +192,7 @@ defmodule Cham.Plugins.GenericDownloadUrlTest do
       pp = Bypass.open()
       pp_url = "http://localhost:#{pp.port}"
 
-      Bypass.expect(pp, "POST", "/fetch", fn conn ->
+      Bypass.expect(pp, "POST", "/tabs", fn conn ->
         assert ["Bearer secret-token"] = Plug.Conn.get_req_header(conn, "authorization")
         {:ok, body, conn} = Plug.Conn.read_body(conn)
         assert %{"url" => ^origin_url} = Jason.decode!(body)
@@ -201,8 +201,23 @@ defmodule Cham.Plugins.GenericDownloadUrlTest do
         |> Plug.Conn.put_resp_header("content-type", "application/json")
         |> Plug.Conn.resp(
           200,
-          Jason.encode!(%{status: 200, final_url: origin_url, html: html})
+          Jason.encode!(%{
+            id: "tab-1",
+            status: 200,
+            final_url: origin_url,
+            content_type: "text/html"
+          })
         )
+      end)
+
+      Bypass.expect(pp, "GET", "/tabs/tab-1/html", fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("content-type", "text/html")
+        |> Plug.Conn.resp(200, html)
+      end)
+
+      Bypass.expect(pp, "DELETE", "/tabs/tab-1", fn conn ->
+        Plug.Conn.resp(conn, 204, "")
       end)
 
       {:ok, item} = Cham.Items.create_item(%{url: origin_url, slug: "test-pp-fallback"})
@@ -281,15 +296,30 @@ defmodule Cham.Plugins.GenericDownloadUrlTest do
       pp = Bypass.open()
       pp_url = "http://localhost:#{pp.port}"
 
-      Bypass.expect(pp, "POST", "/fetch", fn conn ->
+      Bypass.expect(pp, "POST", "/tabs", fn conn ->
         assert [] == Plug.Conn.get_req_header(conn, "authorization")
 
         conn
         |> Plug.Conn.put_resp_header("content-type", "application/json")
         |> Plug.Conn.resp(
           200,
-          Jason.encode!(%{status: 200, final_url: origin_url, html: html})
+          Jason.encode!(%{
+            id: "tab-2",
+            status: 200,
+            final_url: origin_url,
+            content_type: "text/html"
+          })
         )
+      end)
+
+      Bypass.expect(pp, "GET", "/tabs/tab-2/html", fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("content-type", "text/html")
+        |> Plug.Conn.resp(200, html)
+      end)
+
+      Bypass.expect(pp, "DELETE", "/tabs/tab-2", fn conn ->
+        Plug.Conn.resp(conn, 204, "")
       end)
 
       {:ok, item} = Cham.Items.create_item(%{url: origin_url, slug: "test-pp-no-token"})
@@ -345,6 +375,130 @@ defmodule Cham.Plugins.GenericDownloadUrlTest do
       assert {:ok, result} = DownloadStage.perform([], working_dir, [], item.id, config)
       assert [artifact] = result.artifacts
       assert artifact.filenames == ["original.pdf"]
+    end
+
+    test "passe-partout fallback streams binary downloads via tab flow", %{
+      bypass: bypass,
+      base_url: base_url
+    } do
+      Bypass.expect(bypass, "HEAD", "/report.pdf", fn conn ->
+        Plug.Conn.resp(conn, 403, "")
+      end)
+
+      Bypass.expect(bypass, "GET", "/report.pdf", fn conn ->
+        Plug.Conn.resp(conn, 403, "")
+      end)
+
+      origin_url = "#{base_url}/report.pdf"
+      pdf_bytes = <<37, 80, 68, 70, 0, 1, 2, 3, 4, 5>>
+
+      pp = Bypass.open()
+      pp_url = "http://localhost:#{pp.port}"
+
+      Bypass.expect(pp, "POST", "/tabs", fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("content-type", "application/json")
+        |> Plug.Conn.resp(
+          200,
+          Jason.encode!(%{
+            id: "tab-bin",
+            status: 200,
+            final_url: origin_url,
+            content_type: "application/pdf",
+            download: %{id: "dl-1", filename: "report.pdf", size: byte_size(pdf_bytes)}
+          })
+        )
+      end)
+
+      Bypass.expect(pp, "GET", "/tabs/tab-bin/downloads/dl-1", fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("content-type", "application/pdf")
+        |> Plug.Conn.resp(200, pdf_bytes)
+      end)
+
+      Bypass.expect(pp, "DELETE", "/tabs/tab-bin", fn conn ->
+        Plug.Conn.resp(conn, 204, "")
+      end)
+
+      {:ok, item} = Cham.Items.create_item(%{url: origin_url, slug: "test-pp-binary"})
+
+      working_dir =
+        Path.join(System.tmp_dir!(), "cham_test_#{:erlang.unique_integer([:positive])}")
+
+      File.mkdir_p!(working_dir)
+      on_exit(fn -> File.rm_rf!(working_dir) end)
+
+      config = %{
+        timeout: 30_000,
+        max_body_size: 524_288_000,
+        passepartout_fallback: true,
+        passepartout_host: pp_url,
+        passepartout_token: ""
+      }
+
+      assert {:ok, result} = DownloadStage.perform([], working_dir, [], item.id, config)
+      assert [artifact] = result.artifacts
+      assert artifact.labels["content_type"] == "application/pdf"
+      assert artifact.filenames == ["original.pdf"]
+      assert File.read!(Path.join(working_dir, "original.pdf")) == pdf_bytes
+      assert result.provenance.passepartout["fallback"] == true
+      assert result.provenance.passepartout["final_url"] == origin_url
+    end
+
+    test "passe-partout fallback rejects oversized binary downloads", %{
+      bypass: bypass,
+      base_url: base_url
+    } do
+      Bypass.expect(bypass, "HEAD", "/huge.bin", fn conn ->
+        Plug.Conn.resp(conn, 403, "")
+      end)
+
+      Bypass.expect(bypass, "GET", "/huge.bin", fn conn ->
+        Plug.Conn.resp(conn, 403, "")
+      end)
+
+      origin_url = "#{base_url}/huge.bin"
+
+      pp = Bypass.open()
+      pp_url = "http://localhost:#{pp.port}"
+
+      Bypass.expect(pp, "POST", "/tabs", fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("content-type", "application/json")
+        |> Plug.Conn.resp(
+          200,
+          Jason.encode!(%{
+            id: "tab-huge",
+            status: 200,
+            final_url: origin_url,
+            content_type: "application/octet-stream",
+            download: %{id: "dl-9", filename: "huge.bin", size: 10_000_000}
+          })
+        )
+      end)
+
+      Bypass.expect(pp, "DELETE", "/tabs/tab-huge", fn conn ->
+        Plug.Conn.resp(conn, 204, "")
+      end)
+
+      {:ok, item} = Cham.Items.create_item(%{url: origin_url, slug: "test-pp-huge"})
+
+      working_dir =
+        Path.join(System.tmp_dir!(), "cham_test_#{:erlang.unique_integer([:positive])}")
+
+      File.mkdir_p!(working_dir)
+      on_exit(fn -> File.rm_rf!(working_dir) end)
+
+      config = %{
+        timeout: 30_000,
+        max_body_size: 1_000_000,
+        passepartout_fallback: true,
+        passepartout_host: pp_url,
+        passepartout_token: ""
+      }
+
+      assert {:error, msg} = DownloadStage.perform([], working_dir, [], item.id, config)
+      assert msg =~ "Content too large"
     end
   end
 end

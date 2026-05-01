@@ -11,27 +11,21 @@ defmodule Cham.Application do
   def start(_type, _args) do
     migrate()
 
-    children =
-      [
-        ChamWeb.Telemetry,
-        Cham.Repo,
-        {Oban, Application.fetch_env!(:cham, Oban)},
-        {DNSCluster, query: Application.get_env(:cham, :dns_cluster_query) || :ignore},
-        {Phoenix.PubSub, name: Cham.PubSub},
-        Cham.Items.Cache,
-        {Cham.Config.Manager,
-         toml_path: Application.get_env(:cham, :config_toml_path, "config/cham.toml"),
-         event_bus: Cham.PubSub},
-        {Cham.Plugin.Registry, name: Cham.Plugin.Registry, plugin_order: []},
-        {Cham.Subscriptions.BackendRegistry, []}
-      ] ++
-        orchestrator_children() ++
-        tracker_children() ++
-        queue_scaler_children() ++
-        [
-          # Start to serve requests, typically the last entry
-          ChamWeb.Endpoint
-        ]
+    children = [
+      ChamWeb.Telemetry,
+      Cham.Repo,
+      {DNSCluster, query: Application.get_env(:cham, :dns_cluster_query) || :ignore},
+      {Phoenix.PubSub, name: Cham.PubSub},
+      Cham.Items.Cache,
+      {Cham.Config.Manager,
+       toml_path: Application.get_env(:cham, :config_toml_path, "config/cham.toml"),
+       event_bus: Cham.PubSub},
+      {Cham.Plugin.Registry, name: Cham.Plugin.Registry, plugin_order: []},
+      Cham.Subscriptions.Supervisor,
+      Cham.Pipeline.Supervisor,
+      # Start to serve requests, typically the last entry
+      ChamWeb.Endpoint
+    ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
@@ -221,30 +215,6 @@ defmodule Cham.Application do
         {:error, reason} ->
           Logger.warning("Failed to register config for #{mod.plugin_id()}: #{inspect(reason)}")
       end
-    end
-  end
-
-  defp orchestrator_children do
-    if Application.get_env(:cham, :start_orchestrator, true) do
-      [Cham.Pipeline.Orchestrator]
-    else
-      []
-    end
-  end
-
-  defp tracker_children do
-    if Application.get_env(:cham, :start_tracker, true) do
-      [Cham.JobTracking.Tracker]
-    else
-      []
-    end
-  end
-
-  defp queue_scaler_children do
-    if Application.get_env(:cham, :start_queue_scaler, true) do
-      [Cham.Pipeline.QueueScaler]
-    else
-      []
     end
   end
 

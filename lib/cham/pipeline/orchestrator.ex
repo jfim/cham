@@ -237,8 +237,27 @@ defmodule Cham.Pipeline.Orchestrator do
       |> MapSet.new()
 
     # A stage that failed on one attempt and later completed on retry is a
-    # success — transient errors shouldn't latch an item into failed.
-    MapSet.difference(failed, completed_stage_ids(item_id))
+    # success — transient errors shouldn't latch an item into failed. Also
+    # subtract stages that have a produced artifact: artifact rows are written
+    # synchronously by the StageWorker before it notifies the orchestrator,
+    # whereas the StageExecution "completed" row is written asynchronously by
+    # the JobTracking.Tracker via PubSub, so there's a window where the
+    # completed row hasn't landed yet and we'd otherwise re-latch failed.
+    succeeded =
+      MapSet.union(completed_stage_ids(item_id), produced_stage_ids(item_id))
+
+    MapSet.difference(failed, succeeded)
+  end
+
+  defp produced_stage_ids(item_id) do
+    import Ecto.Query
+
+    Cham.Repo.all(
+      from a in Cham.Items.Artifact,
+        where: a.item_id == ^item_id and a.status == "produced",
+        select: a.stage
+    )
+    |> MapSet.new()
   end
 
   defp active_oban_stage_ids(item_id) do

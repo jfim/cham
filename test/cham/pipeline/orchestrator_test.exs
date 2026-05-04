@@ -245,6 +245,72 @@ defmodule Cham.Pipeline.OrchestratorTest do
       refute updated.status == "failed"
       refute updated.error_message == "original stage failed"
     end
+
+    test "does not mark item failed when artifact is produced before completed StageExecution row lands" do
+      registry_name = :"race_registry_#{System.unique_integer([:positive])}"
+
+      {:ok, _pid} =
+        Registry.start_link(name: registry_name, plugin_order: ["plugin_echo"])
+
+      :ok = Registry.register_plugin(registry_name, Cham.TestPlugins.PluginEcho, %{})
+
+      orchestrator_name = :"race_orchestrator_#{System.unique_integer([:positive])}"
+
+      {:ok, orchestrator_pid} =
+        Orchestrator.start_link(
+          name: orchestrator_name,
+          registry: registry_name,
+          recovery_interval: :infinity
+        )
+
+      Ecto.Adapters.SQL.Sandbox.allow(Cham.Repo, self(), orchestrator_pid)
+      :sys.get_state(orchestrator_name)
+
+      tmp_dir = Path.join(System.tmp_dir!(), "race_test_#{System.unique_integer([:positive])}")
+      File.mkdir_p!(tmp_dir)
+      on_exit(fn -> File.rm_rf!(tmp_dir) end)
+      Application.put_env(:cham, :archive_root, tmp_dir)
+      on_exit(fn -> Application.delete_env(:cham, :archive_root) end)
+
+      item =
+        create_bootstrapping_item_with_path(
+          "https://example.com/race-#{System.unique_integer([:positive])}",
+          title: "Race Test",
+          tmp_dir: tmp_dir
+        )
+
+      # Reproduces the production race: StageWorker writes the artifact row
+      # synchronously, but the StageExecution "completed" row is written by the
+      # async Tracker, which may not have processed the PubSub event by the
+      # time the orchestrator runs check_transitions. Only the failed attempt-1
+      # row exists in stage_executions; the artifact is already on disk.
+      Repo.insert!(%Cham.JobTracking.StageExecution{
+        item_id: item.id,
+        stage: "plugin_echo",
+        status: "failed",
+        attempt: 1,
+        started_at: now_truncated(),
+        ended_at: now_truncated(),
+        error: "transient"
+      })
+
+      {:ok, _artifact} =
+        Items.create_artifact(%{
+          item_id: item.id,
+          stage: "plugin_echo",
+          labels: %{"origin" => "original", "format" => "text"},
+          filenames: ["output.txt"],
+          path: "processing/plugin_echo-20260501",
+          status: "produced"
+        })
+
+      Orchestrator.stage_failed(orchestrator_name, item.id, "plugin_echo", "transient")
+      :sys.get_state(orchestrator_name)
+
+      updated = Items.get_item!(item.id)
+      refute updated.status == "failed"
+      refute updated.error_message == "original stage failed"
+    end
   end
 
   describe "stage_completed/3" do

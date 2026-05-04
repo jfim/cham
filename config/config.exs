@@ -54,6 +54,7 @@ config :phoenix, :json_library, Jason
 
 config :cham, Oban,
   repo: Cham.Repo,
+  peer: Oban.Peers.Global,
   queues: [
     general: [limit: 1, paused: true],
     network: [limit: 1, paused: true],
@@ -61,7 +62,7 @@ config :cham, Oban,
     subscriptions: [limit: 1, paused: true]
   ],
   plugins: [
-    Oban.Plugins.Pruner,
+    {Oban.Plugins.Pruner, interval: :timer.hours(1)},
     {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)},
     {Oban.Plugins.Cron,
      crontab: [

@@ -34,4 +34,56 @@ defmodule Cham.ChatTest do
       assert prompt =~ "discussing a document"
     end
   end
+
+  describe "load_history/1 and append_turn/3" do
+    setup do
+      tmp = System.tmp_dir!() |> Path.join("cham-chat-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(tmp)
+      on_exit(fn -> File.rm_rf!(tmp) end)
+      item = %Item{archive_path: tmp}
+      %{item: item, tmp: tmp}
+    end
+
+    test "load returns [] when no chat file exists", %{item: item} do
+      assert Chat.load_history(item) == []
+    end
+
+    test "append then load round-trips turns in order", %{item: item, tmp: tmp} do
+      :ok = Chat.append_turn(item, "user", "first")
+      :ok = Chat.append_turn(item, "assistant", "reply")
+      :ok = Chat.append_turn(item, "user", "second")
+
+      history = Chat.load_history(item)
+
+      assert [
+               %{role: "user", content: "first"},
+               %{role: "assistant", content: "reply"},
+               %{role: "user", content: "second"}
+             ] = history
+
+      assert File.exists?(Path.join([tmp, "chats", "0001.jsonl"]))
+    end
+
+    test "load skips malformed lines and keeps valid ones", %{item: item, tmp: tmp} do
+      path = Path.join([tmp, "chats", "0001.jsonl"])
+      File.mkdir_p!(Path.dirname(path))
+
+      File.write!(path, """
+      {"role":"user","content":"a","ts":"2026-05-05T00:00:00Z"}
+      not-json
+      {"role":"assistant","content":"b","ts":"2026-05-05T00:00:01Z"}
+      """)
+
+      history = Chat.load_history(item)
+      assert [%{role: "user", content: "a"}, %{role: "assistant", content: "b"}] = history
+    end
+
+    test "load returns [] when archive_path is nil" do
+      assert Chat.load_history(%Item{archive_path: nil}) == []
+    end
+
+    test "append returns error when archive_path is nil" do
+      assert {:error, :no_archive_path} = Chat.append_turn(%Item{archive_path: nil}, "user", "x")
+    end
+  end
 end

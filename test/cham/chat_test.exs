@@ -86,4 +86,79 @@ defmodule Cham.ChatTest do
       assert {:error, :no_archive_path} = Chat.append_turn(%Item{archive_path: nil}, "user", "x")
     end
   end
+
+  describe "resolve_content/2" do
+    setup do
+      tmp = System.tmp_dir!() |> Path.join("cham-resolve-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(tmp)
+      on_exit(fn -> File.rm_rf!(tmp) end)
+      %{tmp: tmp}
+    end
+
+    defp write_artifact!(tmp, subdir, file, body) do
+      dir = Path.join(tmp, subdir)
+      File.mkdir_p!(dir)
+      File.write!(Path.join(dir, file), body)
+
+      %Cham.Items.Artifact{
+        path: subdir,
+        filenames: [file],
+        status: "produced",
+        labels: %{}
+      }
+    end
+
+    test "prefers article content over summary", %{tmp: tmp} do
+      item = %Item{archive_path: tmp, content_type: "article"}
+
+      content =
+        %{
+          write_artifact!(tmp, "content", "content.md", "ARTICLE BODY")
+          | labels: %{"origin" => "derived", "type" => "content"}
+        }
+
+      summary =
+        %{
+          write_artifact!(tmp, "summary", "summary.md", "SUM")
+          | labels: %{"origin" => "derived", "type" => "summary"}
+        }
+
+      assert {"ARTICLE BODY", "article"} = Chat.resolve_content(item, [content, summary])
+    end
+
+    test "prefers transcript over summary for video items", %{tmp: tmp} do
+      item = %Item{archive_path: tmp, content_type: "video"}
+
+      transcript =
+        %{
+          write_artifact!(tmp, "transcript", "t.md", "TRANSCRIPT")
+          | labels: %{"origin" => "derived", "type" => "transcript"}
+        }
+
+      summary =
+        %{
+          write_artifact!(tmp, "summary", "summary.md", "SUM")
+          | labels: %{"origin" => "derived", "type" => "summary"}
+        }
+
+      assert {"TRANSCRIPT", "transcript"} = Chat.resolve_content(item, [transcript, summary])
+    end
+
+    test "falls back to summary when no primary content", %{tmp: tmp} do
+      item = %Item{archive_path: tmp, content_type: "article"}
+
+      summary =
+        %{
+          write_artifact!(tmp, "summary", "summary.md", "SUM")
+          | labels: %{"origin" => "derived", "type" => "summary"}
+        }
+
+      assert {"SUM", "summary"} = Chat.resolve_content(item, [summary])
+    end
+
+    test "returns {nil, nil} when nothing is available", %{tmp: tmp} do
+      item = %Item{archive_path: tmp, content_type: "article"}
+      assert {nil, nil} = Chat.resolve_content(item, [])
+    end
+  end
 end

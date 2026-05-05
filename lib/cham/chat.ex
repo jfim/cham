@@ -18,6 +18,8 @@ defmodule Cham.Chat do
 
   require Logger
 
+  alias Cham.Items
+  alias Cham.Items.Artifact
   alias Cham.Items.Item
 
   @chat_filename "0001.jsonl"
@@ -83,6 +85,43 @@ defmodule Cham.Chat do
     with :ok <- File.mkdir_p(Path.dirname(path)),
          :ok <- File.write(path, line, [:append]) do
       :ok
+    end
+  end
+
+  @spec resolve_content(Item.t(), [Artifact.t()]) :: {String.t() | nil, String.t() | nil}
+  def resolve_content(%Item{} = item, artifacts) when is_list(artifacts) do
+    primary_type =
+      case item.content_type do
+        ct when ct in ["video", "podcast"] -> "transcript"
+        _ -> "content"
+      end
+
+    primary_label = if primary_type == "transcript", do: "transcript", else: "article"
+
+    cond do
+      artifact = produced_derived(artifacts, primary_type) ->
+        read_with_label(item, artifact, primary_label)
+
+      artifact = produced_derived(artifacts, "summary") ->
+        read_with_label(item, artifact, "summary")
+
+      true ->
+        {nil, nil}
+    end
+  end
+
+  defp produced_derived(artifacts, type) do
+    Enum.find(artifacts, fn a ->
+      a.status == "produced" and
+        (a.labels || %{})["origin"] == "derived" and
+        (a.labels || %{})["type"] == type
+    end)
+  end
+
+  defp read_with_label(item, artifact, label) do
+    case Items.read_artifact_content(item, artifact) do
+      {:ok, body} -> {body, label}
+      _ -> {nil, nil}
     end
   end
 

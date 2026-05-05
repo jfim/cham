@@ -463,13 +463,11 @@
         <form
           :if={@chat_source_label}
           phx-submit="send_chat"
+          phx-change="update_chat_input"
           style="display: flex; gap: var(--cham-space-2);"
         >
           <textarea
             name="message"
-            phx-change="update_chat_input"
-            phx-value-value={@chat_input}
-            value={@chat_input}
             placeholder="Ask a question about this item…"
             rows="2"
             disabled={@chat_pending}

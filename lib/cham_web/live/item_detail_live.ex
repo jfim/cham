@@ -136,8 +136,8 @@ defmodule ChamWeb.ItemDetailLive do
     end
   end
 
-  def handle_event("update_chat_input", %{"value" => value}, socket) do
-    {:noreply, assign(socket, :chat_input, value)}
+  def handle_event("update_chat_input", %{"message" => message}, socket) do
+    {:noreply, assign(socket, :chat_input, message)}
   end
 
   def handle_event("send_chat", %{"message" => message}, socket) do

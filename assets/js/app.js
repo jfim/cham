@@ -22,10 +22,66 @@ import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
 
+const PANE_HEIGHT_KEY = "cham:pane-height"
+const PANE_HEIGHT_MIN = 120
+const PANE_HEIGHT_DEFAULT = 300
+
+const applyPaneHeight = (px) => {
+  const max = Math.floor(window.innerHeight * 0.85)
+  const clamped = Math.max(PANE_HEIGHT_MIN, Math.min(max, px))
+  document.documentElement.style.setProperty("--pane-height", `${clamped}px`)
+  return clamped
+}
+
+const stored = parseInt(localStorage.getItem(PANE_HEIGHT_KEY), 10)
+applyPaneHeight(Number.isFinite(stored) ? stored : PANE_HEIGHT_DEFAULT)
+
+const Hooks = {}
+Hooks.PaneResize = {
+  mounted() {
+    const handle = this.el.querySelector("[data-resize-handle]")
+    if (!handle) return
+
+    const onPointerDown = (e) => {
+      e.preventDefault()
+      handle.setPointerCapture(e.pointerId)
+      document.body.style.cursor = "ns-resize"
+      document.body.style.userSelect = "none"
+
+      if (!this.el.querySelector(".pane-body")) {
+        const firstTab = this.el.querySelector(".pane-tab")
+        if (firstTab) firstTab.click()
+      }
+
+      const onMove = (ev) => {
+        const fromBottom = window.innerHeight - ev.clientY
+        applyPaneHeight(fromBottom)
+      }
+      const onUp = () => {
+        handle.releasePointerCapture(e.pointerId)
+        document.body.style.cursor = ""
+        document.body.style.userSelect = ""
+        handle.removeEventListener("pointermove", onMove)
+        handle.removeEventListener("pointerup", onUp)
+        const current = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--pane-height"), 10)
+        if (Number.isFinite(current)) localStorage.setItem(PANE_HEIGHT_KEY, String(current))
+      }
+      handle.addEventListener("pointermove", onMove)
+      handle.addEventListener("pointerup", onUp)
+    }
+    handle.addEventListener("pointerdown", onPointerDown)
+    this._cleanup = () => handle.removeEventListener("pointerdown", onPointerDown)
+  },
+  destroyed() {
+    if (this._cleanup) this._cleanup()
+  }
+}
+
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 let liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
-  params: {_csrf_token: csrfToken}
+  params: {_csrf_token: csrfToken},
+  hooks: Hooks
 })
 
 // Show progress bar on live navigation and form submits

@@ -618,12 +618,34 @@ body {
 }
 .pane-toggle { margin-left: auto; padding: var(--cham-space-3) var(--cham-space-4); background: transparent; border: 0; color: var(--cham-fg-faint); cursor: pointer; font-family: var(--cham-font-mono); }
 
-.pane-body { max-height: 320px; overflow-y: auto; }
+.pane-body { height: var(--pane-height, 300px); overflow-y: auto; }
+.pane-resize-handle {
+  height: 6px;
+  cursor: ns-resize;
+  background: transparent;
+  border-top: 1px solid var(--cham-border);
+  position: relative;
+  touch-action: none;
+}
+.pane-resize-handle::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 36px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--cham-border);
+  transition: background 0.15s;
+}
+.pane-resize-handle:hover::after { background: var(--cham-accent); }
 .pane-body .summary {
-  padding: var(--cham-space-6) var(--cham-space-8);
-  font: var(--cham-fw-normal) var(--cham-text-sm)/1.65 var(--cham-font-prose);
+  padding: var(--cham-space-8) var(--cham-space-10);
+  font: var(--cham-fw-normal) var(--cham-prose-size)/var(--cham-prose-lh) var(--cham-font-prose);
   color: var(--cham-fg);
-  max-width: 64ch;
+  max-width: var(--cham-prose-measure);
+  margin: 0 auto;
 }
 .pane-body pre {
   margin: 0;

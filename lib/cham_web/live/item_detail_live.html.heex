@@ -177,7 +177,8 @@
   </div>
 
   <%!-- Bottom Pane (fixed in shell) --%>
-  <div class="pane">
+  <div class="pane" id="detail-pane" phx-hook="PaneResize">
+    <div class="pane-resize-handle" data-resize-handle aria-label="Resize pane" role="separator"></div>
     <div class="pane-tabs">
       <button
         :for={tab <- tabs_for(@item)}
@@ -190,7 +191,7 @@
       </button>
     </div>
 
-    <div :if={@active_tab} class="pane-body" style="height: 300px;">
+    <div :if={@active_tab} class="pane-body">
       <div :if={@active_tab == "summary"} class="summary">
         <.content_state state={@summary.state} error={@summary.error}>
           {raw(@summary.html || @summary.content)}

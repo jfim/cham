@@ -39,79 +39,114 @@ defmodule ChamWeb.SubscriptionIndexLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="min-h-screen bg-gray-50">
-      <div class="bg-white border-b border-gray-200 px-8 py-4">
-        <div class="flex items-center justify-between">
-          <.link
-            navigate={~p"/"}
-            class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
-          >
-            <ChamWeb.CoreComponents.icon name="hero-arrow-left-mini" class="h-4 w-4" />
-            Back to archive
-          </.link>
-        </div>
+    <div style="min-height: 100vh; background: var(--cham-surface-page);">
+      <div class="item-topbar">
+        <.link
+          navigate={~p"/"}
+          class="iconbtn"
+          style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 4px 8px; font-size: var(--cham-text-sm); color: var(--cham-fg-muted);"
+        >
+          <ChamWeb.CoreComponents.icon name="hero-arrow-left-mini" class="h-4 w-4" />
+          Back to archive
+        </.link>
       </div>
 
-      <main class="max-w-6xl mx-auto px-8 py-8 overflow-x-auto">
-        <h1 class="text-2xl font-bold mb-4">Subscriptions</h1>
+      <main style="max-width: 64rem; margin: 0 auto; padding: var(--cham-space-12) var(--cham-space-8) var(--cham-space-8); overflow-x: auto;">
+        <h1 style="font: var(--cham-fw-normal) var(--cham-text-3xl)/1.2 var(--cham-font-display); color: var(--cham-fg-strong); letter-spacing: var(--cham-track-tight); margin: 0 0 var(--cham-space-6);">
+          Subscriptions
+        </h1>
 
-        <table class="w-full text-left">
+        <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: var(--cham-text-sm); color: var(--cham-fg);">
           <thead>
-            <tr class="border-b">
-              <th class="py-2 pr-4">Title</th>
-              <th class="py-2 pr-4">Source</th>
-              <th class="py-2 pr-4">Backend</th>
-              <th class="py-2 pr-4">Last poll</th>
-              <th class="py-2 pr-4">Interval</th>
-              <th class="py-2 pr-4">Status</th>
-              <th class="py-2"></th>
+            <tr style="border-bottom: 1px solid var(--cham-border-subtle);">
+              <th style="padding: var(--cham-space-2) var(--cham-space-3) var(--cham-space-2) 0; font: var(--cham-fw-semibold) 11px/1 var(--cham-font-ui); color: var(--cham-fg-faint); text-transform: uppercase; letter-spacing: var(--cham-track-wider);">
+                Title
+              </th>
+              <th style="padding: var(--cham-space-2) var(--cham-space-3) var(--cham-space-2) 0; font: var(--cham-fw-semibold) 11px/1 var(--cham-font-ui); color: var(--cham-fg-faint); text-transform: uppercase; letter-spacing: var(--cham-track-wider);">
+                Source
+              </th>
+              <th style="padding: var(--cham-space-2) var(--cham-space-3) var(--cham-space-2) 0; font: var(--cham-fw-semibold) 11px/1 var(--cham-font-ui); color: var(--cham-fg-faint); text-transform: uppercase; letter-spacing: var(--cham-track-wider);">
+                Backend
+              </th>
+              <th style="padding: var(--cham-space-2) var(--cham-space-3) var(--cham-space-2) 0; font: var(--cham-fw-semibold) 11px/1 var(--cham-font-ui); color: var(--cham-fg-faint); text-transform: uppercase; letter-spacing: var(--cham-track-wider);">
+                Last poll
+              </th>
+              <th style="padding: var(--cham-space-2) var(--cham-space-3) var(--cham-space-2) 0; font: var(--cham-fw-semibold) 11px/1 var(--cham-font-ui); color: var(--cham-fg-faint); text-transform: uppercase; letter-spacing: var(--cham-track-wider);">
+                Interval
+              </th>
+              <th style="padding: var(--cham-space-2) var(--cham-space-3) var(--cham-space-2) 0; font: var(--cham-fw-semibold) 11px/1 var(--cham-font-ui); color: var(--cham-fg-faint); text-transform: uppercase; letter-spacing: var(--cham-track-wider);">
+                Status
+              </th>
+              <th style="padding: var(--cham-space-2) 0;"></th>
             </tr>
           </thead>
           <tbody>
             <%= for sub <- @subscriptions do %>
-              <tr id={"sub-#{sub.id}"} class="border-b align-top">
-                <td class="py-2 pr-4">
-                  <.link navigate={~p"/subscriptions/#{sub.id}"}>{sub.title}</.link>
+              <tr
+                id={"sub-#{sub.id}"}
+                style="border-bottom: 1px solid var(--cham-border-subtle); vertical-align: top;"
+              >
+                <td style="padding: var(--cham-space-3) var(--cham-space-3) var(--cham-space-3) 0;">
+                  <.link
+                    navigate={~p"/subscriptions/#{sub.id}"}
+                    style="font: var(--cham-fw-semibold) var(--cham-text-base)/1.3 var(--cham-font-display); color: var(--cham-fg-strong); letter-spacing: var(--cham-track-tight); text-decoration: none;"
+                  >
+                    {sub.title}
+                  </.link>
                 </td>
-                <td class="py-2 pr-4 text-sm">{sub.source_url}</td>
-                <td class="py-2 pr-4">{sub.backend}</td>
-                <td class="py-2 pr-4 text-sm">{format_ts(sub.last_polled_at)}</td>
-                <td class="py-2 pr-4">{format_interval(sub.poll_interval_seconds)}</td>
-                <td class="py-2 pr-4 max-w-md">
+                <td style="padding: var(--cham-space-3) var(--cham-space-3) var(--cham-space-3) 0; font-family: var(--cham-font-mono); font-size: var(--cham-text-xs); color: var(--cham-fg-soft); word-break: break-all;">
+                  {sub.source_url}
+                </td>
+                <td style="padding: var(--cham-space-3) var(--cham-space-3) var(--cham-space-3) 0; font-family: var(--cham-font-mono); font-size: var(--cham-text-xs); color: var(--cham-fg-muted);">
+                  {sub.backend}
+                </td>
+                <td style="padding: var(--cham-space-3) var(--cham-space-3) var(--cham-space-3) 0; font-family: var(--cham-font-mono); font-size: var(--cham-text-xs); color: var(--cham-fg-soft); font-variant-numeric: tabular-nums;">
+                  {format_ts(sub.last_polled_at)}
+                </td>
+                <td style="padding: var(--cham-space-3) var(--cham-space-3) var(--cham-space-3) 0; font-family: var(--cham-font-mono); font-size: var(--cham-text-xs); color: var(--cham-fg-muted); font-variant-numeric: tabular-nums;">
+                  {format_interval(sub.poll_interval_seconds)}
+                </td>
+                <td style="padding: var(--cham-space-3) var(--cham-space-3) var(--cham-space-3) 0; max-width: 28rem;">
                   <%= cond do %>
                     <% not sub.active -> %>
-                      <span class="text-gray-500">paused</span>
+                      <span class="stage-badge is-info">paused</span>
                     <% sub.consecutive_failures > @failure_threshold -> %>
-                      <div class="text-red-600">
-                        <div class="font-medium">
+                      <div>
+                        <span class="stage-badge is-fail">
                           Last {sub.consecutive_failures} polls failed
-                        </div>
-                        <div :if={sub.last_error} class="text-xs text-red-700 mt-0.5 break-words">
+                        </span>
+                        <div
+                          :if={sub.last_error}
+                          style="margin-top: 4px; font-size: var(--cham-text-xs); color: var(--cham-stage-fail-fg); font-family: var(--cham-font-mono); word-break: break-word;"
+                        >
                           {sub.last_error}
                         </div>
                       </div>
                     <% sub.consecutive_failures > 0 -> %>
-                      <div class="text-amber-600">
-                        <div class="font-medium">
+                      <div>
+                        <span class="stage-badge is-active">
                           {sub.consecutive_failures} recent {failure_noun(sub.consecutive_failures)}
-                        </div>
-                        <div :if={sub.last_error} class="text-xs text-amber-700 mt-0.5 break-words">
+                        </span>
+                        <div
+                          :if={sub.last_error}
+                          style="margin-top: 4px; font-size: var(--cham-text-xs); color: var(--cham-stage-active-fg); font-family: var(--cham-font-mono); word-break: break-word;"
+                        >
                           {sub.last_error}
                         </div>
                       </div>
                     <% true -> %>
-                      <span class="text-green-600">ok</span>
+                      <span class="stage-badge is-done">ok</span>
                   <% end %>
                 </td>
-                <td class="py-2">
-                  <div class="flex items-center gap-1">
+                <td style="padding: var(--cham-space-3) 0;">
+                  <div style="display: flex; align-items: center; gap: 2px;">
                     <button
                       type="button"
                       phx-click="poll_now"
                       phx-value-id={sub.id}
                       title="Poll now"
                       aria-label="Poll now"
-                      class="p-1.5 rounded hover:bg-gray-200 text-gray-700"
+                      class="iconbtn"
                     >
                       <ChamWeb.CoreComponents.icon name="hero-arrow-path" class="h-4 w-4" />
                     </button>
@@ -121,7 +156,7 @@ defmodule ChamWeb.SubscriptionIndexLive do
                       phx-value-id={sub.id}
                       title={if sub.active, do: "Pause", else: "Resume"}
                       aria-label={if sub.active, do: "Pause", else: "Resume"}
-                      class="p-1.5 rounded hover:bg-gray-200 text-gray-700"
+                      class="iconbtn"
                     >
                       <ChamWeb.CoreComponents.icon
                         name={if sub.active, do: "hero-pause", else: "hero-play"}
@@ -135,7 +170,8 @@ defmodule ChamWeb.SubscriptionIndexLive do
                       data-confirm="Delete this subscription?"
                       title="Delete"
                       aria-label="Delete"
-                      class="p-1.5 rounded hover:bg-red-100 text-red-600"
+                      class="iconbtn"
+                      style="color: var(--cham-stage-fail-fg);"
                     >
                       <ChamWeb.CoreComponents.icon name="hero-trash" class="h-4 w-4" />
                     </button>
@@ -145,7 +181,10 @@ defmodule ChamWeb.SubscriptionIndexLive do
             <% end %>
             <%= if @subscriptions == [] do %>
               <tr>
-                <td colspan="7" class="py-4 text-gray-500 text-center">
+                <td
+                  colspan="7"
+                  style="padding: var(--cham-space-12) 0; text-align: center; color: var(--cham-fg-soft); font-size: var(--cham-text-sm);"
+                >
                   No subscriptions yet.
                 </td>
               </tr>

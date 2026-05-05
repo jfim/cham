@@ -22,7 +22,9 @@ OpenAI-compatible LLM. Replaces the existing "Chat coming soon" placeholder in
 
 ## Storage
 
-- File: `<item.archive_path>/chat.jsonl`.
+- File: `<item.archive_path>/chats/0001.jsonl`.
+- The directory + numbered filename structure leaves room for additional
+  conversations later without a migration; for now only `0001.jsonl` is used.
 - One JSON object per line, one line per turn.
 - Schema: `{"role": "user" | "assistant", "content": "...", "ts": "<ISO8601>"}`.
 - The **system prompt is never persisted**. On every load and every new turn,
@@ -149,7 +151,7 @@ during pending so the UI feels responsive.
 | LLM non-200                      | Same as above; surface status text in the error.             |
 | File write fails on append       | `chat_error` set; do not update UI history.                  |
 | JSONL line fails to decode       | Log a warning, skip the line, continue loading history.      |
-| Item missing `archive_path`      | Treat as empty history; first append creates the file once `archive_path` exists. |
+| Item missing `archive_path`      | Treat as empty history; first append creates `chats/` and the file once `archive_path` exists. |
 
 ## Tests
 

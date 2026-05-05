@@ -136,6 +136,86 @@ defmodule Cham.Pipeline.OrchestratorTest do
     end
   end
 
+  describe "fallback bootstrap selection" do
+    setup do
+      registry_name = :"fallback_registry_#{System.unique_integer([:positive])}"
+
+      {:ok, _pid} =
+        Registry.start_link(
+          name: registry_name,
+          plugin_order: ["old_fallback", "new_fallback"]
+        )
+
+      :ok = Registry.register_plugin(registry_name, Cham.TestPlugins.OldFallbackPlugin, %{})
+      :ok = Registry.register_plugin(registry_name, Cham.TestPlugins.NewFallbackPlugin, %{})
+
+      orchestrator_name = :"fallback_orchestrator_#{System.unique_integer([:positive])}"
+
+      {:ok, orchestrator_pid} =
+        Orchestrator.start_link(
+          name: orchestrator_name,
+          registry: registry_name,
+          recovery_interval: :infinity
+        )
+
+      Ecto.Adapters.SQL.Sandbox.allow(Cham.Repo, self(), orchestrator_pid)
+      :sys.get_state(orchestrator_name)
+
+      # Point the pipeline config at the new fallback for the duration of the test.
+      previous =
+        case Cham.Config.Manager.read_raw("pipeline") do
+          {:ok, raw} -> raw
+          _ -> %{}
+        end
+
+      :ok = Cham.Config.Manager.write_all("pipeline", %{fallback_bootstrap_stage: "new_fallback"})
+      on_exit(fn -> Cham.Config.Manager.write_all("pipeline", previous) end)
+
+      %{orchestrator: orchestrator_name}
+    end
+
+    test "uses configured fallback even when prior fallback has stale executions",
+         %{orchestrator: orchestrator} do
+      {:ok, item} =
+        Items.create_item(%{
+          url: "https://example.com/swap-#{System.unique_integer([:positive])}",
+          status: "bootstrapping"
+        })
+
+      {:ok, _} =
+        Items.create_artifact(%{
+          item_id: item.id,
+          stage: "input",
+          labels: %{"domain" => "example.com", "url" => item.url},
+          filenames: [],
+          path: "processing/input-stale",
+          status: "produced"
+        })
+
+      # Simulate a leftover StageExecution row from when old_fallback was the
+      # configured fallback. Without the fix, the orchestrator treats this as
+      # "the item already bootstrapped" and skips the new fallback.
+      Repo.insert!(%Cham.JobTracking.StageExecution{
+        item_id: item.id,
+        stage: "old_fallback",
+        status: "completed",
+        started_at: now_truncated(),
+        ended_at: now_truncated()
+      })
+
+      Orchestrator.kick_off(orchestrator, item.id)
+      :sys.get_state(orchestrator)
+
+      jobs = oban_jobs_for_item(item.id)
+      plugin_ids = Enum.map(jobs, & &1.args["plugin_id"])
+
+      assert "new_fallback" in plugin_ids,
+             "expected new_fallback to be enqueued, got #{inspect(plugin_ids)}"
+
+      refute "old_fallback" in plugin_ids
+    end
+  end
+
   describe "stage_failed/4" do
     test "marks bootstrapping item as failed when original-producing stage fails" do
       # Need a registry with an original-producing stage (EchoStage via PluginEcho)

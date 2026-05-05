@@ -91,6 +91,84 @@ defmodule Cham.TestPlugins.StageB do
     do: {:ok, %{artifacts: [], item_metadata: %{}, provenance: %{}}}
 end
 
+defmodule Cham.TestPlugins.OldFallbackPlugin do
+  @behaviour Cham.Plugin
+
+  @impl true
+  def plugin_id, do: "old_fallback"
+  @impl true
+  def name, do: "Old Fallback"
+  @impl true
+  def description, do: "Test fallback-style downloader (formerly configured fallback)"
+  @impl true
+  def config_schema, do: []
+  @impl true
+  def init(_context), do: {:ok, %{}}
+  @impl true
+  def stages(_state), do: [Cham.TestPlugins.OldFallbackStage]
+end
+
+defmodule Cham.TestPlugins.OldFallbackStage do
+  @behaviour Cham.Stage
+
+  @impl true
+  def name, do: "Old Fallback Stage"
+  @impl true
+  def description, do: "Fallback-style stage with not_applicable can_process?"
+  @impl true
+  def input_matchers, do: [%{}]
+  @impl true
+  def output_labels, do: [%{"origin" => "original", "type" => "initial_download"}]
+  @impl true
+  def queue, do: :network
+  @impl true
+  def max_attempts, do: 3
+  @impl true
+  def can_process?(_artifact_labels), do: :not_applicable
+  @impl true
+  def perform(_inputs, _dir, _desired, _item_id),
+    do: {:ok, %{artifacts: [], item_metadata: %{}, provenance: %{}}}
+end
+
+defmodule Cham.TestPlugins.NewFallbackPlugin do
+  @behaviour Cham.Plugin
+
+  @impl true
+  def plugin_id, do: "new_fallback"
+  @impl true
+  def name, do: "New Fallback"
+  @impl true
+  def description, do: "Test fallback-style downloader (newly configured fallback)"
+  @impl true
+  def config_schema, do: []
+  @impl true
+  def init(_context), do: {:ok, %{}}
+  @impl true
+  def stages(_state), do: [Cham.TestPlugins.NewFallbackStage]
+end
+
+defmodule Cham.TestPlugins.NewFallbackStage do
+  @behaviour Cham.Stage
+
+  @impl true
+  def name, do: "New Fallback Stage"
+  @impl true
+  def description, do: "Fallback-style stage with not_applicable can_process?"
+  @impl true
+  def input_matchers, do: [%{}]
+  @impl true
+  def output_labels, do: [%{"origin" => "original", "type" => "initial_download"}]
+  @impl true
+  def queue, do: :network
+  @impl true
+  def max_attempts, do: 3
+  @impl true
+  def can_process?(_artifact_labels), do: :not_applicable
+  @impl true
+  def perform(_inputs, _dir, _desired, _item_id),
+    do: {:ok, %{artifacts: [], item_metadata: %{}, provenance: %{}}}
+end
+
 defmodule Cham.TestPlugins.RaisingStage do
   @behaviour Cham.Stage
 

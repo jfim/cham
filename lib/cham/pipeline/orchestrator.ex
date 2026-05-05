@@ -119,7 +119,7 @@ defmodule Cham.Pipeline.Orchestrator do
         dag_ready
         |> filter_by_phase(item.status)
         |> DesiredStages.filter_stages(item.content_type, stages)
-        |> maybe_add_fallback(item, stages, excluded_ids)
+        |> maybe_add_fallback(item, stages, artifacts, excluded_ids)
 
       Enum.each(ready, fn stage ->
         changeset =
@@ -154,18 +154,26 @@ defmodule Cham.Pipeline.Orchestrator do
 
   defp filter_by_phase(stages, _status), do: stages
 
-  defp maybe_add_fallback(ready_stages, item, all_stages, excluded_ids) do
+  defp maybe_add_fallback(ready_stages, item, all_stages, artifacts, excluded_ids) do
     if item.status != "bootstrapping" do
       ready_stages
     else
-      # Check if any bootstrap stage (producing initial_download) is either
-      # ready to run or already active/completed/failed (in the exclusion set)
+      # Check if any specialized bootstrap stage (producing initial_download)
+      # is either ready to run or already active/completed/failed.
+      #
+      # "Specialized" excludes fallback-style stages whose can_process?/1
+      # returns :not_applicable for this item's artifacts — those only ever
+      # run via the configured fallback path. Otherwise a previously-configured
+      # fallback (with leftover StageExecution rows, produced artifacts, or a
+      # pending Oban job) would suppress the new fallback.
       fallback_id = get_fallback_stage_id()
+      artifact_labels = Enum.map(artifacts, & &1.labels)
 
       bootstrap_stages =
         Enum.filter(all_stages, fn stage ->
           stage.plugin_id != fallback_id and
-            Enum.any?(stage.output_labels, &(Map.get(&1, "type") == "initial_download"))
+            Enum.any?(stage.output_labels, &(Map.get(&1, "type") == "initial_download")) and
+            specialized_for?(stage, artifact_labels)
         end)
 
       has_bootstrap_stage =
@@ -189,9 +197,22 @@ defmodule Cham.Pipeline.Orchestrator do
     end
   end
 
+  defp specialized_for?(stage, artifact_labels) do
+    if function_exported?(stage.module, :can_process?, 1) do
+      stage.module.can_process?(artifact_labels) != :not_applicable
+    else
+      true
+    end
+  end
+
   defp get_fallback_stage_id do
-    config = Cham.Plugin.Config.read("pipeline")
-    Map.get(config, :fallback_bootstrap_stage, "generic_download_url")
+    case Cham.Config.Manager.read_all("pipeline") do
+      {:ok, values} ->
+        Map.get(values, :fallback_bootstrap_stage, "generic_download_url")
+
+      {:error, _} ->
+        "generic_download_url"
+    end
   end
 
   defp build_exclusion_set(item_id, artifacts) do

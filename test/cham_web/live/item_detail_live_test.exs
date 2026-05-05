@@ -96,4 +96,12 @@ defmodule ChamWeb.ItemDetailLiveTest do
       assert html =~ "summarize"
     end
   end
+
+  describe "chat tab" do
+    test "shows no-content empty state when item has no artifacts", %{conn: conn, item: item} do
+      {:ok, view, _html} = live(conn, ~p"/items/#{item.id}")
+      html = view |> element("[data-tab=\"chat\"]") |> render_click()
+      assert html =~ "Chat is unavailable"
+    end
+  end
 end

@@ -407,10 +407,76 @@
 
       <div
         :if={@active_tab == "chat"}
-        style="text-align: center; padding: var(--cham-space-8); color: var(--cham-fg-faint);"
+        class="chat-pane"
+        style="display: flex; flex-direction: column; gap: var(--cham-space-4);"
       >
-        <.icon name="hero-chat-bubble-left-right" class="h-8 w-8" />
-        <p>Chat coming soon</p>
+        <div
+          :if={@chat_source_label}
+          style="font-size: var(--cham-text-xs); color: var(--cham-fg-muted);"
+        >
+          Chatting against the <strong>{@chat_source_label}</strong>.
+        </div>
+
+        <div
+          :if={!@chat_source_label && @chat_loaded?}
+          style="text-align: center; padding: var(--cham-space-8); color: var(--cham-fg-faint);"
+        >
+          <.icon name="hero-chat-bubble-left-right" class="h-8 w-8" />
+          <p>Chat is unavailable until content has been processed for this item.</p>
+        </div>
+
+        <div
+          :if={@chat_source_label}
+          class="chat-messages"
+          style="display: flex; flex-direction: column; gap: var(--cham-space-3); max-height: 480px; overflow-y: auto;"
+        >
+          <div
+            :for={turn <- @chat_history}
+            style={
+              "max-width: 80%; padding: var(--cham-space-3); border-radius: var(--cham-radius-md); " <>
+                if(turn.role == "user",
+                  do: "align-self: flex-end; background: var(--cham-bg-soft);",
+                  else: "align-self: flex-start; background: var(--cham-bg-muted);")
+            }
+          >
+            <div :if={turn.role == "assistant"} class="prose">
+              {raw(md_to_html(turn.content))}
+            </div>
+            <div :if={turn.role == "user"} style="white-space: pre-wrap;">{turn.content}</div>
+          </div>
+
+          <div
+            :if={@chat_pending}
+            style="align-self: flex-start; color: var(--cham-fg-faint); font-style: italic;"
+          >
+            Thinking…
+          </div>
+        </div>
+
+        <div
+          :if={@chat_error}
+          style="color: var(--cham-stage-fail-fg); font-size: var(--cham-text-xs);"
+        >
+          {@chat_error}
+        </div>
+
+        <form
+          :if={@chat_source_label}
+          phx-submit="send_chat"
+          style="display: flex; gap: var(--cham-space-2);"
+        >
+          <textarea
+            name="message"
+            phx-change="update_chat_input"
+            phx-value-value={@chat_input}
+            value={@chat_input}
+            placeholder="Ask a question about this item…"
+            rows="2"
+            disabled={@chat_pending}
+            style="flex: 1; resize: vertical;"
+          >{@chat_input}</textarea>
+          <button type="submit" class="btn" disabled={@chat_pending}>Send</button>
+        </form>
       </div>
 
       <div :if={@active_tab == "actions"} class="actions">

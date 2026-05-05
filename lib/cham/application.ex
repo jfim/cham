@@ -38,6 +38,7 @@ defmodule Cham.Application do
         register_desired_artifacts_config()
         register_enabled_plugins_config()
         register_display_config()
+        register_chat_config()
         Cham.Subscriptions.BackendRegistry.register(Cham.Subscriptions.Backends.RSS)
         register_subscription_backend_config(Cham.Subscriptions.Backends.RSS)
         {:ok, pid}
@@ -179,6 +180,54 @@ defmodule Cham.Application do
       {:error, :already_registered} -> :ok
       {:error, reason} -> Logger.warning("Failed to register display config: #{inspect(reason)}")
     end
+  end
+
+  defp register_chat_config do
+    schema = [
+      %{
+        key: :model,
+        type: :string,
+        default: "llama3.1:8b",
+        description: "LLM model name for item chat",
+        required: false,
+        options: nil
+      },
+      %{
+        key: :url,
+        type: :string,
+        default: "http://localhost:11434",
+        description: "OpenAI-compatible base URL for item chat",
+        required: false,
+        options: nil
+      },
+      %{
+        key: :api_key,
+        type: :string,
+        default: nil,
+        description: "Optional bearer token for item chat",
+        required: false,
+        options: nil
+      },
+      %{
+        key: :max_input_tokens,
+        type: :integer,
+        default: 32_000,
+        description: "Maximum input token estimate (chars / 4) for item chat content",
+        required: false,
+        options: nil
+      },
+      %{
+        key: :system_prompt,
+        type: :string,
+        default: Cham.Chat.default_system_prompt(),
+        description:
+          "System prompt template. Use {{content_type}}, {{title}}, {{content}} as placeholders.",
+        required: false,
+        options: nil
+      }
+    ]
+
+    Cham.Config.Manager.register("chat", schema)
   end
 
   defp register_subscription_backend_config(mod) do

@@ -161,4 +161,101 @@ defmodule Cham.ChatTest do
       assert {nil, nil} = Chat.resolve_content(item, [])
     end
   end
+
+  describe "send_message/3" do
+    setup do
+      bypass = Bypass.open()
+
+      tmp = System.tmp_dir!() |> Path.join("cham-send-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(tmp)
+      on_exit(fn -> File.rm_rf!(tmp) end)
+
+      content_artifact = %Cham.Items.Artifact{
+        path: "content",
+        filenames: ["content.md"],
+        status: "produced",
+        labels: %{"origin" => "derived", "type" => "content"}
+      }
+
+      File.mkdir_p!(Path.join(tmp, "content"))
+      File.write!(Path.join([tmp, "content", "content.md"]), "BODY")
+
+      item = %Cham.Items.Item{
+        archive_path: tmp,
+        content_type: "article",
+        title: "T",
+        url: "https://x"
+      }
+
+      %{bypass: bypass, item: item, artifacts: [content_artifact]}
+    end
+
+    test "calls LLM with system + history + user, persists both turns",
+         %{bypass: bypass, item: item, artifacts: artifacts} do
+      previous_seed = """
+      {"role":"user","content":"earlier","ts":"2026-05-04T00:00:00Z"}
+      {"role":"assistant","content":"earlier reply","ts":"2026-05-04T00:00:01Z"}
+      """
+
+      File.mkdir_p!(Path.join(item.archive_path, "chats"))
+      File.write!(Path.join([item.archive_path, "chats", "0001.jsonl"]), previous_seed)
+
+      Bypass.expect_once(bypass, "POST", "/v1/chat/completions", fn conn ->
+        {:ok, body, conn} = Plug.Conn.read_body(conn)
+        decoded = Jason.decode!(body)
+
+        roles = Enum.map(decoded["messages"], & &1["role"])
+        assert roles == ["system", "user", "assistant", "user"]
+
+        system_msg = hd(decoded["messages"])["content"]
+        assert system_msg =~ ~s|titled "T"|
+        assert system_msg =~ "BODY"
+
+        last = List.last(decoded["messages"])
+        assert last["content"] == "new question"
+
+        resp = %{"choices" => [%{"message" => %{"content" => "the answer"}}]}
+
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.resp(200, Jason.encode!(resp))
+      end)
+
+      assert {:ok, history} =
+               Chat.send_message(item, artifacts, "new question",
+                 url: "http://localhost:#{bypass.port}",
+                 model: "test-model"
+               )
+
+      assert Enum.map(history, & &1.role) == ["user", "assistant", "user", "assistant"]
+      assert List.last(history).content == "the answer"
+
+      # Persisted on disk too
+      reloaded = Chat.load_history(item)
+      assert Enum.map(reloaded, & &1.role) == ["user", "assistant", "user", "assistant"]
+      assert List.last(reloaded).content == "the answer"
+    end
+
+    test "returns :no_content when item has neither content nor summary",
+         %{bypass: _bypass, item: item} do
+      assert {:error, :no_content} = Chat.send_message(item, [], "question", url: "http://unused")
+    end
+
+    test "returns LLM error and does not persist assistant turn",
+         %{bypass: bypass, item: item, artifacts: artifacts} do
+      Bypass.expect_once(bypass, "POST", "/v1/chat/completions", fn conn ->
+        Plug.Conn.resp(conn, 500, "boom")
+      end)
+
+      assert {:error, _} =
+               Chat.send_message(item, artifacts, "q",
+                 url: "http://localhost:#{bypass.port}",
+                 model: "m"
+               )
+
+      history = Chat.load_history(item)
+      # User turn was persisted optimistically; assistant turn was not.
+      assert Enum.map(history, & &1.role) == ["user"]
+    end
+  end
 end

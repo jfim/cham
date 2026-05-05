@@ -138,6 +138,51 @@ defmodule Cham.Chat do
     end
   end
 
+  @spec send_message(Item.t(), [Artifact.t()], String.t(), keyword()) ::
+          {:ok, [turn]} | {:error, term()}
+  def send_message(%Item{} = item, artifacts, user_text, opts \\ [])
+      when is_binary(user_text) do
+    cfg = Map.merge(config(), Map.new(opts))
+
+    case resolve_content(item, artifacts) do
+      {nil, nil} ->
+        {:error, :no_content}
+
+      {content, _label} ->
+        truncated = truncate_content(content, cfg[:max_input_tokens] || 32_000)
+        system_prompt = build_system_prompt(item, truncated)
+
+        history = load_history(item)
+
+        with :ok <- append_turn(item, "user", user_text) do
+          messages =
+            [%{"role" => "system", "content" => system_prompt}] ++
+              Enum.map(history, &%{"role" => &1.role, "content" => &1.content}) ++
+              [%{"role" => "user", "content" => user_text}]
+
+          llm_opts = [
+            model: cfg[:model],
+            url: cfg[:url],
+            api_key: cfg[:api_key]
+          ]
+
+          case Cham.LLM.Providers.OpenAI.chat(messages, llm_opts) do
+            {:ok, reply} ->
+              with :ok <- append_turn(item, "assistant", reply) do
+                {:ok, load_history(item)}
+              end
+
+            {:error, reason} ->
+              {:error, reason}
+          end
+        end
+    end
+  end
+
+  defp truncate_content(content, max_input_tokens) do
+    String.slice(content, 0, max_input_tokens * 4)
+  end
+
   defp default_config do
     %{
       model: "llama3.1:8b",

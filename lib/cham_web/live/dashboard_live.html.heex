@@ -87,17 +87,40 @@
 
     <%!-- Tags --%>
     <div class="px-4 py-3 flex-1 overflow-y-auto">
-      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Tags</p>
-      <div :if={map_size(@tag_counts) == 0} class="text-xs text-gray-400">No tags yet</div>
-      <div class="flex flex-wrap gap-1.5">
-        <.tag_pill
-          :for={{tag, count} <- Enum.sort_by(@tag_counts, fn {t, c} -> {-c, t} end)}
-          tag={tag}
-          count={count}
-          active={@active_tag == tag}
-          phx-click="filter_tag"
-          phx-value-tag={tag}
+      <button
+        phx-click="toggle_tags"
+        class="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-400 hover:text-gray-600 mb-2"
+      >
+        <span>
+          Tags
+          <span :if={map_size(@tag_counts) > 0} class="ml-1 normal-case text-gray-400">
+            ({map_size(@tag_counts)})
+          </span>
+        </span>
+        <.icon
+          name={if @show_tags, do: "hero-chevron-down", else: "hero-chevron-right"}
+          class="h-4 w-4 text-gray-400"
         />
+      </button>
+      <div :if={@show_tags}>
+        <div :if={map_size(@tag_counts) == 0} class="text-xs text-gray-400">No tags yet</div>
+        <div class="flex flex-col gap-0.5">
+          <button
+            :for={{tag, count} <- Enum.sort_by(@tag_counts, fn {t, c} -> {-c, t} end)}
+            phx-click="filter_tag"
+            phx-value-tag={tag}
+            class={[
+              "w-full flex items-center justify-between px-2 py-1 rounded text-sm text-left truncate",
+              if(@active_tag == tag,
+                do: "bg-indigo-50 text-indigo-700 font-medium",
+                else: "text-gray-600 hover:bg-gray-50"
+              )
+            ]}
+          >
+            <span class="truncate">{tag}</span>
+            <span class="text-xs text-gray-400 ml-2 shrink-0">{count}</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -199,38 +222,45 @@
       <%!-- Filtered empty state for search --%>
       <%!-- (shared empty-match block above already covers this) --%>
 
-      <%!-- List rows for articles/other --%>
+      <%!-- List rows for articles/other, grouped by day --%>
       <div
         :if={not Enum.empty?(@items) && @active_type not in ["video", "document"]}
-        class="space-y-2"
+        class="space-y-6"
       >
-        <.link
-          :for={item <- @items}
-          navigate={~p"/items/#{item.id}?#{return_params(assigns)}"}
-          class="flex items-start gap-4 bg-white rounded-lg border border-gray-200 px-4 py-3 hover:shadow-sm transition-shadow"
-        >
-          <div class="flex-shrink-0 pt-0.5">
-            <.content_type_badge type={item.content_type} />
-          </div>
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-900 truncate">
-              {Cham.Items.best_title(item) || item.title || truncate_url(item.url)}
-            </p>
-            <p
-              :if={excerpt = item.metadata["excerpt"]}
-              class="text-sm text-gray-600 truncate"
+        <section :for={{label, group_items} <- group_items_by_day(@items)}>
+          <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2 px-1">
+            {label}
+          </h2>
+          <div class="space-y-2">
+            <.link
+              :for={item <- group_items}
+              navigate={~p"/items/#{item.id}?#{return_params(assigns)}"}
+              class="flex items-start gap-4 bg-white rounded-lg border border-gray-200 px-4 py-3 hover:shadow-sm transition-shadow"
             >
-              {excerpt}
-            </p>
-            <p class="text-xs text-gray-400 truncate">
-              {meta_line(item)}
-            </p>
+              <div class="flex-shrink-0 pt-0.5">
+                <.content_type_badge type={item.content_type} />
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-900 truncate">
+                  {Cham.Items.best_title(item) || item.title || truncate_url(item.url)}
+                </p>
+                <p
+                  :if={excerpt = item.metadata["excerpt"]}
+                  class="text-sm text-gray-600 truncate"
+                >
+                  {excerpt}
+                </p>
+                <p class="text-xs text-gray-400 truncate">
+                  {meta_line(item)}
+                </p>
+              </div>
+              <div class="flex items-center gap-3 flex-shrink-0 pt-0.5">
+                <.status_badge status={item.status} />
+                <.relative_time at={item.inserted_at} />
+              </div>
+            </.link>
           </div>
-          <div class="flex items-center gap-3 flex-shrink-0 pt-0.5">
-            <.status_badge status={item.status} />
-            <.relative_time at={item.inserted_at} />
-          </div>
-        </.link>
+        </section>
       </div>
 
       <%!-- Pagination --%>

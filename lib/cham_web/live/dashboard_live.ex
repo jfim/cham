@@ -17,6 +17,7 @@ defmodule ChamWeb.DashboardLive do
       socket
       |> assign(:page_title, "Dashboard")
       |> assign(:show_in_progress, false)
+      |> assign(:show_tags, false)
       |> assign(:show_submit_modal, false)
       |> assign(:submit_error, nil)
       |> assign(:page_size, @page_size)
@@ -67,6 +68,10 @@ defmodule ChamWeb.DashboardLive do
   @impl true
   def handle_event("toggle_in_progress", _params, socket) do
     {:noreply, assign(socket, :show_in_progress, !socket.assigns.show_in_progress)}
+  end
+
+  def handle_event("toggle_tags", _params, socket) do
+    {:noreply, assign(socket, :show_tags, !socket.assigns.show_tags)}
   end
 
   def handle_event("filter_type", %{"type" => type}, socket) do
@@ -353,6 +358,76 @@ defmodule ChamWeb.DashboardLive do
 
     if count == 1, do: singular, else: plural
   end
+
+  @doc false
+  def group_items_by_day(items, today \\ Date.utc_today()) do
+    items
+    |> Enum.group_by(&day_bucket(&1, today))
+    |> Enum.sort_by(fn {bucket, _} -> bucket_sort_key(bucket, today) end)
+    |> Enum.map(fn {bucket, items} ->
+      {bucket_label(bucket, today), items}
+    end)
+  end
+
+  defp item_date(%{inserted_at: %DateTime{} = dt}), do: DateTime.to_date(dt)
+  defp item_date(%{inserted_at: %NaiveDateTime{} = dt}), do: NaiveDateTime.to_date(dt)
+  defp item_date(_), do: nil
+
+  defp day_bucket(item, today) do
+    case item_date(item) do
+      nil ->
+        {:older, nil}
+
+      date ->
+        days = Date.diff(today, date)
+
+        cond do
+          days <= 0 -> :today
+          days == 1 -> :yesterday
+          days <= 6 -> {:weekday, date}
+          days <= 13 -> :last_week
+          date.year == today.year and date.month == today.month -> :this_month
+          true -> {:month, date.year, date.month}
+        end
+    end
+  end
+
+  defp bucket_sort_key(:today, _), do: 0
+  defp bucket_sort_key(:yesterday, _), do: 1
+  defp bucket_sort_key({:weekday, date}, today), do: 2 + Date.diff(today, date)
+  defp bucket_sort_key(:last_week, _), do: 100
+  defp bucket_sort_key(:this_month, _), do: 200
+  defp bucket_sort_key({:month, y, m}, _), do: 1_000_000 - (y * 12 + m)
+  defp bucket_sort_key({:older, _}, _), do: 9_999_999
+
+  defp bucket_label(:today, _), do: "Today"
+  defp bucket_label(:yesterday, _), do: "Yesterday"
+  defp bucket_label({:weekday, date}, _), do: weekday_name(Date.day_of_week(date))
+  defp bucket_label(:last_week, _), do: "Last week"
+  defp bucket_label(:this_month, _), do: "Earlier this month"
+  defp bucket_label({:month, y, m}, _), do: "#{month_name(m)} #{y}"
+  defp bucket_label({:older, _}, _), do: "Undated"
+
+  defp weekday_name(1), do: "Monday"
+  defp weekday_name(2), do: "Tuesday"
+  defp weekday_name(3), do: "Wednesday"
+  defp weekday_name(4), do: "Thursday"
+  defp weekday_name(5), do: "Friday"
+  defp weekday_name(6), do: "Saturday"
+  defp weekday_name(7), do: "Sunday"
+
+  defp month_name(1), do: "January"
+  defp month_name(2), do: "February"
+  defp month_name(3), do: "March"
+  defp month_name(4), do: "April"
+  defp month_name(5), do: "May"
+  defp month_name(6), do: "June"
+  defp month_name(7), do: "July"
+  defp month_name(8), do: "August"
+  defp month_name(9), do: "September"
+  defp month_name(10), do: "October"
+  defp month_name(11), do: "November"
+  defp month_name(12), do: "December"
 
   defp content_type_icon(type) do
     case type do

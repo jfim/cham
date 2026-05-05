@@ -37,6 +37,13 @@ defmodule ChamWeb.ItemDetailLive do
      |> assign(:active_tab, nil)
      |> assign(:feed_metadata, feed_metadata)
      |> assign(:existing_subscription, existing_subscription)
+     |> assign(:chat_loaded?, false)
+     |> assign(:chat_history, [])
+     |> assign(:chat_input, "")
+     |> assign(:chat_pending, false)
+     |> assign(:chat_error, nil)
+     |> assign(:chat_source_label, nil)
+     |> assign(:chat_task_ref, nil)
      |> assign_content(item, artifacts, stage_history)}
   end
 
@@ -48,6 +55,7 @@ defmodule ChamWeb.ItemDetailLive do
       socket
       |> assign(:active_tab, new_tab)
       |> maybe_load_transcript(new_tab)
+      |> maybe_load_chat(new_tab)
 
     {:noreply, socket}
   end
@@ -172,6 +180,23 @@ defmodule ChamWeb.ItemDetailLive do
   end
 
   defp maybe_load_transcript(socket, _tab), do: socket
+
+  defp maybe_load_chat(socket, "chat") do
+    if socket.assigns.chat_loaded? do
+      socket
+    else
+      item = socket.assigns.item
+      artifacts = socket.assigns.artifacts
+      {content, label} = Cham.Chat.resolve_content(item, artifacts)
+
+      socket
+      |> assign(:chat_loaded?, true)
+      |> assign(:chat_history, Cham.Chat.load_history(item))
+      |> assign(:chat_source_label, if(content, do: label))
+    end
+  end
+
+  defp maybe_load_chat(socket, _tab), do: socket
 
   defp parse_backfill_params(%{"mode" => "none"}), do: :none
 

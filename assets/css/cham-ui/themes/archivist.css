@@ -1,0 +1,73 @@
+/* ============================================================================
+   Theme: Archivist — paper, ink, library red, serif prose
+   ============================================================================ */
+
+:root[data-theme="archivist"] {
+  /* Surfaces — Notebook's cream stack, kept here for Archivist */
+  --cham-surface:        #fbf8f1;   /* sidebar, cards, modals */
+  --cham-surface-page:   #f5f1e6;   /* main scroll area */
+  --cham-surface-raised: #ffffff;   /* reading column "paper" */
+  --cham-surface-sunken: #ede7d4;
+  --cham-surface-dark:   #181410;
+  --cham-overlay:        rgba(40, 25, 15, 0.55);
+
+  /* Foreground — black ink */
+  --cham-fg-strong:  #1a1612;
+  --cham-fg:         #2a221c;
+  --cham-fg-muted:   #4a3c30;
+  --cham-fg-soft:    #6b5b48;
+  --cham-fg-faint:   #968570;
+  --cham-fg-on-dark: #efe9dd;
+  --cham-fg-on-accent: #fbf8f1;
+
+  /* Accent — library stamp red */
+  --cham-accent:        #a8351c;
+  --cham-accent-hover:  #8a2b16;
+  --cham-accent-active: #6f2211;
+  --cham-accent-tint:   #f0d8d0;
+  --cham-accent-tint-2: #e3bcaf;
+  --cham-accent-fg:     #a8351c;
+
+  /* Borders — hairline */
+  --cham-border-subtle: #e0d5bc;
+  --cham-border:        #c8b89a;
+  --cham-border-strong: #6b5b48;
+  --cham-border-input:  #b8a684;
+  --cham-border-hover:  #6b5b48;   /* neutral, not red */
+  --cham-border-focus:  #a8351c;   /* red focus stays */
+
+  /* Type — Source Serif 4 for titles + prose only; Inter Tight for chrome; mono for data */
+  --cham-font-ui:      "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+  --cham-font-prose:   "Source Serif 4", ui-serif, Georgia, serif;
+  --cham-font-display: "Source Serif 4", ui-serif, Georgia, serif;
+  --cham-font-mono:    "JetBrains Mono", ui-monospace, monospace;
+
+  /* Radii — sharper, more printed feel */
+  --cham-radius-sm: 0px;
+  --cham-radius-md: 2px;
+  --cham-radius-lg: 3px;
+  --cham-radius-xl: 4px;
+  --cham-radius-2xl: 6px;
+  --cham-radius-full: 9999px;
+
+  /* Shadows — almost none; rely on hairline rules */
+  --cham-shadow-sm: 0 1px 0 rgba(60, 40, 20, 0.06);
+  --cham-shadow-md: 0 1px 0 rgba(60, 40, 20, 0.08);
+  --cham-shadow-lg: 0 2px 4px rgba(60, 40, 20, 0.08), 0 8px 24px rgba(60, 40, 20, 0.05);
+  --cham-shadow-xl: 0 4px 8px rgba(60, 40, 20, 0.12), 0 16px 48px rgba(60, 40, 20, 0.10);
+
+  /* Categorical — ink labels, restrained dots; red is reserved, NOT a category color */
+  --cham-cat-article-bg: transparent; --cham-cat-article-fg: #2a221c; --cham-cat-article-dot: #1e3a5f;
+  --cham-cat-video-bg:   transparent; --cham-cat-video-fg:   #2a221c; --cham-cat-video-dot:   #6b5b48;
+  --cham-cat-pdf-bg:     transparent; --cham-cat-pdf-fg:     #2a221c; --cham-cat-pdf-dot:     #4a6b3a;
+  --cham-cat-audio-bg:   transparent; --cham-cat-audio-fg:   #2a221c; --cham-cat-audio-dot:   #8b5a2b;
+
+  --cham-stage-active-bg: #f0e2c4; --cham-stage-active-fg: #6b4f1d;
+  --cham-stage-done-bg:   #d8d8c0; --cham-stage-done-fg:   #3d4f2d;
+  --cham-stage-fail-bg:   #ecc8be; --cham-stage-fail-fg:   #6f2211;
+  --cham-stage-info-bg:   #d4dde4; --cham-stage-info-fg:   #1e3a5f;
+
+  /* No texture; the warm paper does the work */
+  --cham-texture-dots: none;
+  --cham-texture-dots-size: 0;
+}

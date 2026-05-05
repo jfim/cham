@@ -18,21 +18,22 @@ defmodule ChamWeb.UIComponents do
   attr :type, :string, required: true
 
   def content_type_badge(assigns) do
-    {label, color} =
+    {label, variant} =
       case assigns.type do
-        "article" -> {"Article", "bg-blue-100 text-blue-800"}
-        "video" -> {"Video", "bg-pink-100 text-pink-800"}
-        "document" -> {"Document", "bg-green-100 text-green-800"}
-        "podcast" -> {"Podcast", "bg-purple-100 text-purple-800"}
-        "feed" -> {"Feed", "bg-orange-100 text-orange-800"}
-        nil -> {"Unknown", "bg-gray-100 text-gray-800"}
-        _ -> {"Unknown", "bg-gray-100 text-gray-800"}
+        "article" -> {"article", "is-article"}
+        "video" -> {"video", "is-video"}
+        "document" -> {"pdf", "is-pdf"}
+        "podcast" -> {"podcast", "is-audio"}
+        "feed" -> {"feed", "is-article"}
+        nil -> {"unknown", "is-article"}
+        _ -> {"unknown", "is-article"}
       end
 
-    assigns = assign(assigns, label: label, color: color)
+    assigns = assign(assigns, label: label, variant: variant)
 
     ~H"""
-    <span class={"inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium #{@color}"}>
+    <span class={"type-badge #{@variant}"}>
+      <span class="dot"></span>
       {@label}
     </span>
     """

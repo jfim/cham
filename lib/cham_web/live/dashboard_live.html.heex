@@ -1,262 +1,226 @@
-<div class="flex min-h-screen">
+<div class="app">
   <%!-- Sidebar --%>
-  <aside class="w-64 bg-white border-r border-gray-200 flex flex-col sticky top-0 h-screen">
-    <%!-- Logo --%>
-    <div class="px-4 py-5 border-b border-gray-100">
-      <.link navigate={~p"/"} class="text-xl font-bold text-indigo-600 hover:text-indigo-500">
-        Cham
-      </.link>
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <.link navigate={~p"/"} class="wordmark" style="text-decoration: none;">Cham</.link>
+      <span class="khmer">ចាំ</span>
     </div>
 
-    <%!-- Add URL button --%>
-    <div class="px-4 py-3 border-b border-gray-100">
-      <button
-        phx-click={show_modal("submit-modal")}
-        class="w-full flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
-      >
-        <.icon name="hero-plus" class="h-4 w-4" /> Add URL
-      </button>
-    </div>
+    <button
+      class="btn btn-tint"
+      style="justify-content: flex-start;"
+      phx-click={show_modal("submit-modal")}
+    >
+      <.icon name="hero-plus" class="h-4 w-4" /> Add URL
+    </button>
 
-    <%!-- In Progress section --%>
-    <div class="px-4 py-3 border-b border-gray-100">
+    <%!-- In Progress --%>
+    <div class="sidebar-section">
       <button
+        class="disclosure-btn"
+        aria-expanded={if @show_in_progress, do: "true", else: "false"}
         phx-click="toggle_in_progress"
-        class="w-full flex items-center justify-between text-sm font-medium text-gray-700 hover:text-gray-900"
       >
-        <span class="flex items-center gap-2">
-          <.icon name="hero-arrow-path" class="h-4 w-4 text-amber-500" /> In Progress
-          <span
-            :if={@active_count > 0}
-            class="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800"
-          >
-            {@active_count}
-          </span>
+        <span>
+          <span class="caret">▶</span> In Progress
+          <span :if={@active_count > 0} style="opacity: 0.6;">({@active_count})</span>
         </span>
-        <.icon
-          name={if @show_in_progress, do: "hero-chevron-down", else: "hero-chevron-right"}
-          class="h-4 w-4 text-gray-400"
-        />
       </button>
-
-      <div :if={@show_in_progress} class="mt-2 space-y-1">
-        <div :if={Enum.empty?(@in_progress)} class="text-xs text-gray-400 px-2">
+      <div :if={@show_in_progress} style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px;">
+        <div :if={Enum.empty?(@in_progress)} style="font-size: var(--cham-text-xs); color: var(--cham-fg-faint); padding: 0 var(--cham-space-2);">
           Nothing in progress
         </div>
         <.link
           :for={item <- @in_progress}
           navigate={~p"/items/#{item.id}"}
-          class="block px-2 py-1.5 rounded text-xs text-gray-600 hover:bg-gray-50 truncate"
+          class="ingest-row"
+          style="text-decoration: none;"
         >
-          <span class="flex items-center gap-1.5">
-            <.status_badge status={item.status} />
-            <span class="truncate">{item.title || truncate_url(item.url)}</span>
-          </span>
+          <.status_badge status={item.status} />
+          <span class="url">{item.title || truncate_url(item.url)}</span>
         </.link>
       </div>
     </div>
 
-    <%!-- Content type facets --%>
-    <div class="px-4 py-3 border-b border-gray-100">
-      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Content Type</p>
-      <div class="space-y-0.5">
-        <button
-          :for={{type, count} <- Enum.sort(@type_counts)}
-          phx-click="filter_type"
-          phx-value-type={type}
-          data-filter-type={type}
-          class={[
-            "w-full flex items-center justify-between px-2 py-1.5 rounded text-sm text-left",
-            if(@active_type == type,
-              do: "bg-indigo-50 text-indigo-700 font-medium",
-              else: "text-gray-600 hover:bg-gray-50"
-            )
-          ]}
-        >
-          <span class="flex items-center gap-2">
-            <.icon
-              name={content_type_icon(type)}
-              class={"h-4 w-4 #{if @active_type == type, do: "text-indigo-500", else: "text-gray-400"}"}
-            />
-            {content_type_label(type)}
-          </span>
-          <span class="text-xs text-gray-400">{count}</span>
-        </button>
-      </div>
+    <%!-- Content type facets (with icons) --%>
+    <div class="sidebar-section">
+      <div class="sidebar-eyebrow">Content</div>
+      <button
+        :for={{type, count} <- Enum.sort(@type_counts)}
+        phx-click="filter_type"
+        phx-value-type={type}
+        data-filter-type={type}
+        class={["facet", @active_type == type && "is-active"]}
+      >
+        <span style="display: inline-flex; align-items: center; gap: 8px;">
+          <.icon name={content_type_icon(type)} class="h-4 w-4" />
+          {content_type_label(type)}
+        </span>
+        <span class="count">{count}</span>
+      </button>
     </div>
 
-    <%!-- Tags --%>
-    <div class="px-4 py-3 flex-1 overflow-y-auto">
+    <%!-- Tags (collapsed panel, one per row, button rows — no pills) --%>
+    <div class="sidebar-section" style="flex: 1; min-height: 0;">
       <button
+        class="disclosure-btn"
+        aria-expanded={if @show_tags, do: "true", else: "false"}
         phx-click="toggle_tags"
-        class="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-400 hover:text-gray-600 mb-2"
       >
         <span>
-          Tags
-          <span :if={map_size(@tag_counts) > 0} class="ml-1 normal-case text-gray-400">
-            ({map_size(@tag_counts)})
-          </span>
+          <span class="caret">▶</span> Tags
+          <span :if={map_size(@tag_counts) > 0} style="opacity: 0.6;">({map_size(@tag_counts)})</span>
         </span>
-        <.icon
-          name={if @show_tags, do: "hero-chevron-down", else: "hero-chevron-right"}
-          class="h-4 w-4 text-gray-400"
-        />
       </button>
-      <div :if={@show_tags}>
-        <div :if={map_size(@tag_counts) == 0} class="text-xs text-gray-400">No tags yet</div>
-        <div class="flex flex-col gap-0.5">
+      <div :if={@show_tags} style="margin-top: 6px; overflow-y: auto;">
+        <div :if={map_size(@tag_counts) == 0} style="font-size: var(--cham-text-xs); color: var(--cham-fg-faint);">
+          No tags yet
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
           <button
             :for={{tag, count} <- Enum.sort_by(@tag_counts, fn {t, c} -> {-c, t} end)}
             phx-click="filter_tag"
             phx-value-tag={tag}
-            class={[
-              "w-full flex items-center justify-between px-2 py-1 rounded text-sm text-left truncate",
-              if(@active_tag == tag,
-                do: "bg-indigo-50 text-indigo-700 font-medium",
-                else: "text-gray-600 hover:bg-gray-50"
-              )
-            ]}
+            class={["facet", @active_tag == tag && "is-active"]}
           >
-            <span class="truncate">{tag}</span>
-            <span class="text-xs text-gray-400 ml-2 shrink-0">{count}</span>
+            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{tag}</span>
+            <span class="count">{count}</span>
           </button>
         </div>
       </div>
     </div>
 
-    <%!-- Subscriptions & Settings links --%>
-    <div class="px-4 py-3 border-t border-gray-100 space-y-1">
+    <%!-- Footer links --%>
+    <div class="sidebar-section">
       <.link
         navigate={~p"/subscriptions"}
-        class="flex items-center gap-2 px-2 py-1.5 rounded text-sm text-gray-600 hover:bg-gray-50"
+        class="facet"
+        style="text-decoration: none;"
       >
-        <.icon name="hero-rss" class="h-4 w-4 text-gray-400" /> Subscriptions
+        <span style="display: inline-flex; align-items: center; gap: 8px;">
+          <.icon name="hero-rss" class="h-4 w-4" /> Subscriptions
+        </span>
       </.link>
       <.link
         navigate={~p"/config"}
-        class="flex items-center gap-2 px-2 py-1.5 rounded text-sm text-gray-600 hover:bg-gray-50"
+        class="facet"
+        style="text-decoration: none;"
       >
-        <.icon name="hero-cog-6-tooth" class="h-4 w-4 text-gray-400" /> Settings
+        <span style="display: inline-flex; align-items: center; gap: 8px;">
+          <.icon name="hero-cog-6-tooth" class="h-4 w-4" /> Settings
+        </span>
       </.link>
     </div>
   </aside>
 
-  <%!-- Main content area --%>
-  <div class="flex-1 bg-gray-50 flex flex-col">
-    <%!-- Header --%>
-    <header class="bg-white border-b border-gray-200 px-6 py-4">
-      <div class="flex items-center gap-4">
-        <h1 class="text-xl font-semibold text-gray-900 flex-1">
-          {hero_text(assigns)}
-        </h1>
-        <%!-- Search --%>
-        <form phx-change="search" phx-submit="search" class="relative">
-          <.icon
-            name="hero-magnifying-glass"
-            class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
-          />
-          <input
-            type="text"
-            name="q"
-            value={@search_query}
-            phx-debounce="300"
-            placeholder="Search..."
-            class="pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-md bg-white text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 w-56"
-          />
-        </form>
-      </div>
-    </header>
+  <%!-- Main column --%>
+  <div class="main">
+    <div class="dashboard">
+      <h1 class="hero">{raw(hero_text(assigns))}</h1>
+      <p class="hero-sub">A pocket for the entire web.</p>
 
-    <%!-- Item list --%>
-    <main class="flex-1 px-6 py-6">
+      <form phx-change="search" phx-submit="search" class="search-wrap">
+        <span class="search-icon">
+          <.icon name="hero-magnifying-glass" class="h-4 w-4" />
+        </span>
+        <input
+          type="text"
+          name="q"
+          value={@search_query}
+          phx-debounce="300"
+          placeholder="Search your archive..."
+          class="search-input"
+        />
+      </form>
+
       <%!-- Empty state --%>
-      <div :if={Enum.empty?(@items) && @total_count == 0} class="text-center py-16">
-        <.icon name="hero-inbox" class="mx-auto h-12 w-12 text-gray-300" />
-        <h3 class="mt-4 text-lg font-semibold text-gray-900">Nothing archived yet</h3>
-        <p class="mt-1 text-sm text-gray-500">Submit your first URL to get started.</p>
-        <button
-          phx-click={show_modal("submit-modal")}
-          class="mt-4 inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
-        >
+      <div :if={Enum.empty?(@items) && @total_count == 0} class="empty">
+        <p style="margin: 0 0 var(--cham-space-4);">Nothing archived yet. Submit your first URL to get started.</p>
+        <button class="btn btn-primary" phx-click={show_modal("submit-modal")}>
           <.icon name="hero-plus" class="h-4 w-4" /> Submit your first URL
         </button>
       </div>
 
       <%!-- Filtered empty state --%>
-      <div :if={Enum.empty?(@items) && @total_count > 0} class="text-center py-16">
-        <.icon name="hero-funnel" class="mx-auto h-10 w-10 text-gray-300" />
-        <h3 class="mt-4 text-base font-semibold text-gray-900">No items match this filter</h3>
-        <p class="mt-1 text-sm text-gray-500">Try removing the filter to see all items.</p>
+      <div :if={Enum.empty?(@items) && @total_count > 0} class="empty">
+        No items match this filter. Try removing the filter to see all items.
       </div>
 
-      <%!-- Card grid for video/document --%>
-      <div
-        :if={
-          not Enum.empty?(@items) &&
-            @active_type in ["video", "document"]
-        }
-        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-      >
+      <%!-- Card grid for video --%>
+      <div :if={not Enum.empty?(@items) && @active_type == "video"} class="video-grid">
         <.link
           :for={item <- @items}
           navigate={~p"/items/#{item.id}?#{return_params(assigns)}"}
-          class="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow flex flex-col"
+          class="video-card"
         >
           <% thumb = Cham.Items.best_thumbnail_url(item) %>
-          <div :if={thumb} class="aspect-video bg-gray-100 overflow-hidden">
-            <img src={thumb} alt="" class="w-full h-full object-cover" loading="lazy" />
+          <div class="video-thumb">
+            <img
+              :if={thumb}
+              src={thumb}
+              alt=""
+              loading="lazy"
+              style="width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0;"
+            />
           </div>
-          <div class="p-4 flex-1 flex flex-col">
-            <div class="flex items-start justify-between mb-2">
-              <.content_type_badge type={item.content_type} />
-              <.relative_time at={item.inserted_at} />
-            </div>
-            <h3 class="text-sm font-medium text-gray-900 line-clamp-2 mb-1">
+          <div class="video-meta">
+            <h3 class="video-title">
               {Cham.Items.best_title(item) || truncate_url(item.url)}
             </h3>
-            <p class="text-xs text-gray-400 truncate">{video_meta_line(item)}</p>
+            <div class="video-sub">{video_meta_line(item)}</div>
           </div>
         </.link>
       </div>
 
-      <%!-- Filtered empty state for search --%>
-      <%!-- (shared empty-match block above already covers this) --%>
+      <%!-- Card grid for documents --%>
+      <div :if={not Enum.empty?(@items) && @active_type == "document"} class="doc-grid">
+        <.link
+          :for={item <- @items}
+          navigate={~p"/items/#{item.id}?#{return_params(assigns)}"}
+          class="doc-card"
+        >
+          <div class="doc-thumb">
+            <div class="doc-page">
+              <div class="l h"></div>
+              <div :for={w <- [80, 60, 75, 90, 65, 80, 70, 85]} class="l" style={"width: #{w}%;"}></div>
+            </div>
+          </div>
+          <div class="doc-meta">
+            <h3 class="doc-title">{Cham.Items.best_title(item) || truncate_url(item.url)}</h3>
+            <div class="doc-sub">{meta_line(item)}</div>
+          </div>
+        </.link>
+      </div>
 
       <%!-- List rows for articles/other, grouped by day --%>
-      <div
-        :if={not Enum.empty?(@items) && @active_type not in ["video", "document"]}
-        class="space-y-6"
-      >
-        <section :for={{label, group_items} <- group_items_by_day(@items)}>
-          <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2 px-1">
-            {label}
-          </h2>
-          <div class="space-y-2">
+      <div :if={not Enum.empty?(@items) && @active_type not in ["video", "document"]}>
+        <section :for={{label, group_items} <- group_items_by_day(@items)} style="margin-bottom: var(--cham-space-6);">
+          <h2 class="sidebar-eyebrow" style="margin-bottom: var(--cham-space-2);">{label}</h2>
+          <div>
             <.link
               :for={item <- group_items}
               navigate={~p"/items/#{item.id}?#{return_params(assigns)}"}
-              class="flex items-start gap-4 bg-white rounded-lg border border-gray-200 px-4 py-3 hover:shadow-sm transition-shadow"
+              class="row"
             >
-              <div class="flex-shrink-0 pt-0.5">
-                <.content_type_badge type={item.content_type} />
-              </div>
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-gray-900 truncate">
+              <div class="row-body">
+                <h3 class="row-title">
                   {Cham.Items.best_title(item) || item.title || truncate_url(item.url)}
-                </p>
+                </h3>
                 <p
                   :if={excerpt = item.metadata["excerpt"]}
-                  class="text-sm text-gray-600 truncate"
+                  class="row-excerpt"
                 >
                   {excerpt}
                 </p>
-                <p class="text-xs text-gray-400 truncate">
-                  {meta_line(item)}
-                </p>
+                <div class="row-meta">
+                  <.content_type_badge type={item.content_type} />
+                  <span>{meta_line(item)}</span>
+                  <span class="sep">·</span>
+                  <.relative_time at={item.inserted_at} />
+                </div>
               </div>
-              <div class="flex items-center gap-3 flex-shrink-0 pt-0.5">
+              <div style="display: flex; align-items: center; flex-shrink: 0;">
                 <.status_badge status={item.status} />
-                <.relative_time at={item.inserted_at} />
               </div>
             </.link>
           </div>
@@ -266,64 +230,52 @@
       <%!-- Pagination --%>
       <nav
         :if={@total_pages > 1}
-        class="mt-6 flex items-center justify-between border-t border-gray-200 pt-4"
         aria-label="Pagination"
+        style="margin-top: var(--cham-space-6); display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--cham-border-subtle); padding-top: var(--cham-space-4);"
       >
-        <div class="text-sm text-gray-500">
-          Page {@page} of {@total_pages} &middot; {@filtered_count} total
+        <div style="font-size: var(--cham-text-sm); color: var(--cham-fg-soft); font-family: var(--cham-font-mono);">
+          Page {@page} of {@total_pages} · {@filtered_count} total
         </div>
-        <div class="flex items-center gap-2">
+        <div style="display: flex; gap: var(--cham-space-2);">
           <%= if @page > 1 do %>
-            <.link
-              patch={~p"/?#{page_params(assigns, @page - 1)}"}
-              class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-            >
+            <.link patch={~p"/?#{page_params(assigns, @page - 1)}"} class="btn btn-ghost">
               Previous
             </.link>
           <% else %>
-            <span class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-400 bg-gray-50 border border-gray-200 rounded-md cursor-not-allowed">
-              Previous
-            </span>
+            <span class="btn btn-ghost" style="opacity: 0.4; cursor: not-allowed;">Previous</span>
           <% end %>
           <%= if @page < @total_pages do %>
-            <.link
-              patch={~p"/?#{page_params(assigns, @page + 1)}"}
-              class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-            >
+            <.link patch={~p"/?#{page_params(assigns, @page + 1)}"} class="btn btn-ghost">
               Next
             </.link>
           <% else %>
-            <span class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-400 bg-gray-50 border border-gray-200 rounded-md cursor-not-allowed">
-              Next
-            </span>
+            <span class="btn btn-ghost" style="opacity: 0.4; cursor: not-allowed;">Next</span>
           <% end %>
         </div>
       </nav>
-    </main>
+    </div>
   </div>
 </div>
 
 <.modal id="submit-modal">
-  <div class="text-lg font-semibold mb-4">Add URL</div>
-  <form id="submit-form" phx-submit="submit_url" class="space-y-4">
+  <div style="font: var(--cham-fw-semibold) var(--cham-text-xl)/1.2 var(--cham-font-display); color: var(--cham-fg-strong); margin-bottom: var(--cham-space-4);">
+    Add URL
+  </div>
+  <form id="submit-form" phx-submit="submit_url" style="display: flex; flex-direction: column; gap: var(--cham-space-4);">
     <div>
       <input
         type="url"
         name="url"
         placeholder="https://..."
         required
-        class="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-indigo-500 focus:ring-indigo-500"
+        class="search-input"
+        style="padding: 10px 14px;"
         phx-mounted={JS.focus()}
       />
-      <p :if={@submit_error} class="mt-1 text-sm text-red-600">{@submit_error}</p>
+      <p :if={@submit_error} style="margin-top: 4px; font-size: var(--cham-text-sm); color: var(--cham-stage-fail-fg);">{@submit_error}</p>
     </div>
-    <div class="flex justify-end">
-      <button
-        type="submit"
-        class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
-      >
-        Submit
-      </button>
+    <div style="display: flex; justify-content: flex-end; gap: var(--cham-space-2);">
+      <button type="submit" class="btn btn-primary">Submit</button>
     </div>
   </form>
 </.modal>

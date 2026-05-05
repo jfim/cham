@@ -194,24 +194,27 @@ defmodule ChamWeb.DashboardLive do
   end
 
   defp hero_text(assigns) do
+    n = fn count -> "<strong>#{count}</strong>" end
+    q = fn s -> "&ldquo;#{Phoenix.HTML.html_escape(s) |> Phoenix.HTML.safe_to_string()}&rdquo;" end
+
     cond do
       assigns.search_query && assigns.search_query != "" ->
-        "Cham found #{assigns.filtered_count} #{pluralize("result", assigns.filtered_count)} for \"#{assigns.search_query}\""
+        "Cham found #{n.(assigns.filtered_count)} #{pluralize("result", assigns.filtered_count)} for #{q.(assigns.search_query)}"
 
       assigns.active_type && assigns.active_tag ->
-        "Cham knows about #{assigns.filtered_count} #{content_type_noun(assigns.active_type, assigns.filtered_count)} tagged \"#{assigns.active_tag}\""
+        "Cham knows about #{n.(assigns.filtered_count)} #{content_type_noun(assigns.active_type, assigns.filtered_count)} tagged #{q.(assigns.active_tag)}"
 
       assigns.active_type ->
-        "Cham knows about #{assigns.filtered_count} #{content_type_noun(assigns.active_type, assigns.filtered_count)}"
+        "Cham knows about #{n.(assigns.filtered_count)} #{content_type_noun(assigns.active_type, assigns.filtered_count)}"
 
       assigns.active_tag ->
-        "Cham knows about #{assigns.filtered_count} #{pluralize("item", assigns.filtered_count)} tagged \"#{assigns.active_tag}\""
+        "Cham knows about #{n.(assigns.filtered_count)} #{pluralize("item", assigns.filtered_count)} tagged #{q.(assigns.active_tag)}"
 
       assigns.total_count == 0 ->
         "Cham is empty"
 
       true ->
-        "Cham knows about #{assigns.total_count} pieces of information"
+        "Cham knows about #{n.(assigns.total_count)} pieces of information"
     end
   end
 

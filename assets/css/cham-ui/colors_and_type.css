@@ -1,0 +1,202 @@
+/* ============================================================================
+   Cham Design Tokens — theme-aware
+   ============================================================================
+   The base tokens here are SEMANTIC and theme-agnostic. Themes live in
+   `themes/{notebook,archivist,terminal}.css` and override these via
+   `[data-theme="..."]` selectors on <html>.
+
+   Default theme is Notebook (cream paper, ink-blue, humanist sans + Newsreader).
+   The UI kit and preview cards reference only --cham-* semantic vars below;
+   never reach into a specific theme's palette directly.
+
+   Webfonts are loaded once in the host HTML (Google Fonts):
+     - Inter Tight        (UI sans, all themes)
+     - Newsreader         (Notebook prose + titles)
+     - Source Serif 4     (Archivist prose + titles)
+     - JetBrains Mono     (Terminal everything; metadata in light themes)
+   ============================================================================ */
+
+:root {
+  /* --- Type families (set per theme; fallbacks are reasonable defaults) --- */
+  --cham-font-ui:    "Inter Tight", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --cham-font-prose: "Newsreader", ui-serif, Georgia, serif;
+  --cham-font-mono:  "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --cham-font-display: var(--cham-font-prose); /* item titles, hero */
+
+  /* --- Type scale (px; identical across themes) --- */
+  --cham-text-xxs:  10px;
+  --cham-text-xs:   12px;
+  --cham-text-sm:   14px;
+  --cham-text-base: 16px;
+  --cham-text-lg:   18px;
+  --cham-text-xl:   20px;
+  --cham-text-2xl:  24px;
+  --cham-text-3xl:  30px;
+  --cham-text-4xl:  36px;
+
+  /* Reading prose (article view) — generous, fixed across themes */
+  --cham-prose-size:  17px;
+  --cham-prose-lh:    1.65;
+  --cham-prose-measure: 68ch;
+
+  --cham-fw-normal: 400;
+  --cham-fw-medium: 500;
+  --cham-fw-semibold: 600;
+  --cham-fw-bold: 700;
+
+  --cham-lh-tight:   1.2;
+  --cham-lh-snug:    1.3;
+  --cham-lh-normal:  1.5;
+  --cham-lh-relaxed: 1.6;
+
+  --cham-track-tight: -0.01em;
+  --cham-track-wider: 0.08em;
+
+  /* --- Spacing (4px base) --- */
+  --cham-space-1: 4px;
+  --cham-space-2: 8px;
+  --cham-space-3: 12px;
+  --cham-space-4: 16px;
+  --cham-space-5: 20px;
+  --cham-space-6: 24px;
+  --cham-space-8: 32px;
+  --cham-space-10: 40px;
+  --cham-space-12: 48px;
+  --cham-sidebar-w: 224px;
+  --cham-content-max: 56rem;
+
+  /* --- Categorical channel "ramp slots" — themes pick the actual hues --- */
+  /* Each channel has bg + fg + a "dot" color for monochrome treatments. */
+  --cham-cat-article-bg: #dbeafe; --cham-cat-article-fg: #1e40af; --cham-cat-article-dot: #3b82f6;
+  --cham-cat-video-bg:   #fce7f3; --cham-cat-video-fg:   #9d174d; --cham-cat-video-dot:   #ec4899;
+  --cham-cat-pdf-bg:     #d1fae5; --cham-cat-pdf-fg:     #065f46; --cham-cat-pdf-dot:     #10b981;
+  --cham-cat-audio-bg:   #ede9fe; --cham-cat-audio-fg:   #5b21b6; --cham-cat-audio-dot:   #8b5cf6;
+
+  /* Stage badge ramps — same idea, themed via override */
+  --cham-stage-active-bg: #fef3c7; --cham-stage-active-fg: #92400e;
+  --cham-stage-done-bg:   #d1fae5; --cham-stage-done-fg:   #065f46;
+  --cham-stage-fail-bg:   #fee2e2; --cham-stage-fail-fg:   #991b1b;
+  --cham-stage-info-bg:   #dbeafe; --cham-stage-info-fg:   #1e40af;
+}
+
+/* ============================================================================
+   Default theme = Notebook  (cream + ink-blue + humanist sans + serif prose)
+   ============================================================================ */
+
+:root,
+:root[data-theme="notebook"] {
+  /* Surfaces */
+  --cham-surface:        #fbf8f1;   /* sidebar, modals, cards */
+  --cham-surface-page:   #f5f1e6;   /* main scroll area — warm cream */
+  --cham-surface-raised: #ffffff;   /* article reading column "paper" */
+  --cham-surface-sunken: #ede7d4;   /* media wells, document gutters */
+  --cham-surface-dark:   #1a1a1a;   /* video player area */
+  --cham-overlay:        rgba(40, 30, 20, 0.45);
+
+  /* Foreground (warm ink, not pure black) */
+  --cham-fg-strong:  #1a1f2e;
+  --cham-fg:         #2a3142;
+  --cham-fg-muted:   #4a5468;
+  --cham-fg-soft:    #6c7588;
+  --cham-fg-faint:   #98a0b0;
+  --cham-fg-on-dark: #f5f1e6;
+  --cham-fg-on-accent: #ffffff;
+
+  /* Accent — ink-blue, like a fountain pen */
+  --cham-accent:        #1e3a5f;
+  --cham-accent-hover:  #15294a;
+  --cham-accent-active: #0e1d36;
+  --cham-accent-tint:   #e6ecf3;
+  --cham-accent-tint-2: #cdd9e7;
+  --cham-accent-fg:     #2c5183;
+
+  /* Borders & rules */
+  --cham-border-subtle: #e8e1cf;
+  --cham-border:        #d8d0bb;    /* warmer than gray */
+  --cham-border-strong: #b8ad93;
+  --cham-border-input:  #c8be9f;
+  --cham-border-hover:  #1e3a5f;
+  --cham-border-focus:  #1e3a5f;
+
+  /* Type — Newsreader for titles + prose, Inter Tight for UI */
+  --cham-font-ui:      "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+  --cham-font-prose:   "Newsreader", ui-serif, Georgia, serif;
+  --cham-font-display: "Newsreader", ui-serif, Georgia, serif;
+  --cham-font-mono:    "JetBrains Mono", ui-monospace, monospace;
+
+  /* Radii — slightly softer */
+  --cham-radius-sm: 3px;
+  --cham-radius-md: 5px;
+  --cham-radius-lg: 7px;
+  --cham-radius-xl: 10px;
+  --cham-radius-2xl: 14px;
+  --cham-radius-full: 9999px;
+
+  /* Shadows — minimal, warm */
+  --cham-shadow-sm: 0 1px 0 rgba(80, 60, 30, 0.04);
+  --cham-shadow-md: 0 1px 2px rgba(80, 60, 30, 0.06), 0 2px 6px rgba(80, 60, 30, 0.04);
+  --cham-shadow-lg: 0 4px 8px rgba(80, 60, 30, 0.08), 0 8px 24px rgba(80, 60, 30, 0.06);
+  --cham-shadow-xl: 0 8px 16px rgba(80, 60, 30, 0.10), 0 16px 40px rgba(80, 60, 30, 0.10);
+
+  /* Categorical badges — soft, monochrome dots + ink labels */
+  --cham-cat-article-bg: transparent; --cham-cat-article-fg: #2a3142; --cham-cat-article-dot: #2c5183;
+  --cham-cat-video-bg:   transparent; --cham-cat-video-fg:   #2a3142; --cham-cat-video-dot:   #a8443a;
+  --cham-cat-pdf-bg:     transparent; --cham-cat-pdf-fg:     #2a3142; --cham-cat-pdf-dot:     #4a6b3a;
+  --cham-cat-audio-bg:   transparent; --cham-cat-audio-fg:   #2a3142; --cham-cat-audio-dot:   #8b5a2b;
+
+  --cham-stage-active-bg: #f4ecd6; --cham-stage-active-fg: #6b4f1d;
+  --cham-stage-done-bg:   #e0e6d6; --cham-stage-done-fg:   #3d4f2d;
+  --cham-stage-fail-bg:   #f0d8d4; --cham-stage-fail-fg:   #6b2820;
+  --cham-stage-info-bg:   #d8e0ec; --cham-stage-info-fg:   #1e3a5f;
+
+  /* Texture — faint dotted grid for empty states */
+  --cham-texture-dots: radial-gradient(circle, rgba(46, 56, 78, 0.18) 0.5px, transparent 0.5px);
+  --cham-texture-dots-size: 14px 14px;
+}
+
+/* ============================================================================
+   Semantic type roles — work across themes via the var indirection
+   ============================================================================ */
+
+.cham-h1 {
+  font: var(--cham-fw-bold) var(--cham-text-3xl)/var(--cham-lh-tight) var(--cham-font-display);
+  color: var(--cham-fg-strong);
+  letter-spacing: var(--cham-track-tight);
+}
+.cham-h2 {
+  font: var(--cham-fw-semibold) var(--cham-text-xl)/var(--cham-lh-snug) var(--cham-font-display);
+  color: var(--cham-fg-strong);
+}
+.cham-h3 {
+  font: var(--cham-fw-semibold) var(--cham-text-base)/var(--cham-lh-snug) var(--cham-font-ui);
+  color: var(--cham-fg-strong);
+}
+.cham-body {
+  font: var(--cham-fw-normal) var(--cham-text-sm)/var(--cham-lh-normal) var(--cham-font-ui);
+  color: var(--cham-fg);
+}
+.cham-meta {
+  font: var(--cham-fw-normal) var(--cham-text-xs)/1.4 var(--cham-font-mono);
+  color: var(--cham-fg-faint);
+  font-feature-settings: "tnum";
+}
+.cham-eyebrow {
+  font: var(--cham-fw-semibold) 11px/1.4 var(--cham-font-ui);
+  color: var(--cham-fg-faint);
+  text-transform: uppercase;
+  letter-spacing: var(--cham-track-wider);
+}
+.cham-logo {
+  font: var(--cham-fw-bold) var(--cham-text-xl)/1 var(--cham-font-display);
+  color: var(--cham-fg-strong);
+  letter-spacing: var(--cham-track-tight);
+}
+.cham-mono {
+  font: var(--cham-fw-normal) var(--cham-text-sm)/1.5 var(--cham-font-mono);
+  color: var(--cham-fg);
+}
+.cham-prose {
+  font: var(--cham-fw-normal) var(--cham-prose-size)/var(--cham-prose-lh) var(--cham-font-prose);
+  color: var(--cham-fg);
+  max-width: var(--cham-prose-measure);
+}

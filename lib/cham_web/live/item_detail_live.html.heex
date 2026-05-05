@@ -1,400 +1,326 @@
-<div class="min-h-screen bg-gray-50 pb-14">
+<div class="item-detail-shell">
   <%!-- Top Bar --%>
-  <div class="bg-white border-b border-gray-200 px-8 py-4">
-    <div class="flex items-center justify-between">
-      <.link
-        navigate={@return_path}
-        class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
-      >
-        <.icon name="hero-arrow-left-mini" class="h-4 w-4" /> Back to archive
-      </.link>
-      <div class="flex items-center gap-2">
-        <.status_badge :if={is_processing?(@item)} status={@item.status} />
-      </div>
+  <div class="item-topbar">
+    <.link navigate={@return_path} class="iconbtn" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 4px 8px; font-size: var(--cham-text-sm); color: var(--cham-fg-muted);">
+      <.icon name="hero-arrow-left-mini" class="h-4 w-4" /> Back to archive
+    </.link>
+    <.content_type_badge :if={@item.content_type} type={@item.content_type} />
+    <a :if={@item.url} href={@item.url} target="_blank" rel="noopener" class="domain">
+      {domain_from_url(@item.url)} ↗
+    </a>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: var(--cham-space-2);">
+      <.status_badge :if={is_processing?(@item)} status={@item.status} />
     </div>
   </div>
 
-  <%!-- Primary Content --%>
-  <div class="max-w-4xl mx-auto px-8 py-8">
-    <%!-- Header --%>
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-900 mb-2">{@item.title || "Untitled"}</h1>
-      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
-        <.content_type_badge :if={@item.content_type} type={@item.content_type} />
-        <a href={@item.url} target="_blank" rel="noopener" class="hover:text-indigo-600">
-          {domain_from_url(@item.url)} ↗
-        </a>
+  <%!-- Reader column --%>
+  <div class="reader">
+    <article class="reader-paper">
+      <h1>{@item.title || "Untitled"}</h1>
+      <div class="reader-byline">
+        <a :if={@item.url} href={@item.url} target="_blank" rel="noopener">{domain_from_url(@item.url)}</a>
+        <span :if={@item.url} class="sep">·</span>
         <.relative_time at={@item.inserted_at} />
-      </div>
-      <div :if={(@item.tags || []) != []} class="mt-2 flex flex-wrap gap-1.5">
-        <span
-          :for={tag <- @item.tags || []}
-          class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600"
-        >
-          {tag}
-        </span>
-      </div>
-      <%= if @subscription do %>
-        <p class="provenance text-sm text-gray-600 mt-1">
-          from
-          <.link navigate={~p"/subscriptions/#{@subscription.id}"}>{@subscription.title}</.link>
-        </p>
-      <% end %>
-    </div>
-
-    <%!-- Feed Subscribe Section --%>
-    <%= if @item.content_type == "feed" and (not is_nil(@feed_metadata) or not is_nil(@existing_subscription)) do %>
-      <section class="mt-6 border-t pt-4">
-        <%= if @existing_subscription do %>
-          <p>
-            <.link
-              navigate={~p"/subscriptions/#{@existing_subscription.id}"}
-              class="underline text-blue-600"
-            >
-              View existing subscription
-            </.link>
-          </p>
-        <% else %>
-          <h2 class="text-xl font-semibold mb-2">Subscribe to {@feed_metadata["title"]}</h2>
-          <%= if @feed_metadata["description"] do %>
-            <p class="text-sm text-gray-600 mb-4">{@feed_metadata["description"]}</p>
-          <% end %>
-
-          <h3 class="font-medium text-sm mb-1">Recent entries</h3>
-          <ul class="text-sm mb-4">
-            <%= for entry <- Enum.take(@feed_metadata["entries"] || [], 10) do %>
-              <li class="py-0.5">
-                {entry["title"]}
-                <%= if entry["timestamp"] do %>
-                  <span class="text-gray-500">— {entry["timestamp"]}</span>
-                <% end %>
-              </li>
-            <% end %>
-          </ul>
-
-          <%!-- TODO: "Display as feed" toggle to show archived raw XML is not yet implemented
-               because the archived XML is not easily accessible via the current artifact API.
-               The feed_metadata artifact stores parsed JSON, not the raw XML. --%>
-
-          <.form for={%{}} phx-submit="subscribe" class="space-y-3 max-w-md">
-            <div>
-              <label class="block text-sm font-medium">Title</label>
-              <input
-                name="title"
-                value={@feed_metadata["title"]}
-                class="border px-2 py-1 w-full"
-              />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium">Poll interval</label>
-              <select name="poll_interval_seconds" class="border px-2 py-1">
-                <option value="3600">1 hour</option>
-                <option value="21600">6 hours</option>
-                <option value="86400" selected>24 hours</option>
-              </select>
-            </div>
-
-            <fieldset class="border p-2">
-              <legend class="text-sm font-medium px-1">Backfill</legend>
-              <label class="block">
-                <input type="radio" name="backfill[mode]" value="none" checked />
-                None (ingest new items only)
-              </label>
-              <label class="block">
-                <input type="radio" name="backfill[mode]" value="last_n" /> Last
-                <input
-                  type="number"
-                  name="backfill[n]"
-                  value="10"
-                  class="border px-1 w-16"
-                  min="1"
-                /> items
-              </label>
-              <label class="block">
-                <input type="radio" name="backfill[mode]" value="since" /> Since
-                <input type="date" name="backfill[date]" class="border px-1" />
-              </label>
-            </fieldset>
-
-            <button type="submit" class="bg-blue-600 text-white px-3 py-1 rounded">
-              Subscribe
-            </button>
-          </.form>
+        <%= if (@item.tags || []) != [] do %>
+          <span class="sep">·</span>
+          <span :for={tag <- @item.tags || []} style="font-family: var(--cham-font-mono);">#{tag}</span>
         <% end %>
-      </section>
-    <% end %>
-    <%!-- Processing View --%>
-    <div :if={is_processing?(@item)} class="mb-8 rounded-lg border border-gray-200 bg-white p-6">
-      <h2 class="text-sm font-semibold text-gray-700 mb-4">Processing Pipeline</h2>
-      <div :if={@stage_history == []} class="text-sm text-gray-400">
-        Waiting for pipeline to start...
-      </div>
-      <div :if={@stage_history != []} class="space-y-3">
-        <div :for={stage <- @stage_history} class="flex items-center gap-3 text-sm">
-          <.status_badge status={stage.status} />
-          <span class="font-medium text-gray-700">{stage.stage}</span>
-          <span :if={stage.duration_ms} class="text-gray-400">{stage.duration_ms}ms</span>
-          <span :if={stage.error} class="text-red-500 text-xs">{stage.error}</span>
-        </div>
-      </div>
-      <%!-- Progress bars for active stages --%>
-      <div :for={{stage_id, prog} <- @progress} class="mt-2">
-        <div class="text-xs font-medium text-gray-600 mb-1">{stage_id}</div>
-        <.progress_bar progress={prog.progress} message={prog.message} />
-      </div>
-    </div>
-
-    <%!-- Primary Content Area --%>
-    <div :if={@item.content_type == "article"} class="mb-8">
-      <.content_state state={@primary_content.state} error={@primary_content.error}>
-        <div class="prose prose-gray max-w-none bg-white rounded-lg border border-gray-200 p-8">
-          {raw(@primary_content.html || @primary_content.content)}
-        </div>
-      </.content_state>
-    </div>
-
-    <div :if={@item.content_type == "video"} class="mb-8">
-      <div :if={@original_file_url} class="rounded-lg overflow-hidden border border-gray-200">
-        <video controls class="w-full" preload="metadata">
-          <source src={@original_file_url} /> Your browser does not support the video tag.
-        </video>
-      </div>
-      <div
-        :if={!@original_file_url}
-        class="aspect-video bg-gray-100 rounded-lg flex items-center justify-center"
-      >
-        <div class="text-center text-gray-400">
-          <.icon name="hero-play-circle" class="h-12 w-12 mx-auto mb-2" />
-          <p>Video file not available</p>
-          <a
-            href={@item.url}
-            target="_blank"
-            rel="noopener"
-            class="text-sm text-indigo-600 hover:text-indigo-500"
-          >
-            Watch on original site ↗
-          </a>
-        </div>
-      </div>
-    </div>
-
-    <div :if={@item.content_type == "document"} class="mb-8">
-      <div :if={@original_file_url} class="rounded-lg overflow-hidden border border-gray-200">
-        <iframe src={@original_file_url} class="w-full" style="height: 70vh;"></iframe>
-      </div>
-      <div
-        :if={!@original_file_url}
-        class="aspect-[3/4] max-h-96 bg-gray-100 rounded-lg flex items-center justify-center"
-      >
-        <div class="text-center text-gray-400">
-          <.icon name="hero-document-text" class="h-12 w-12 mx-auto mb-2" />
-          <p>PDF file not available</p>
-          <a
-            href={@item.url}
-            target="_blank"
-            rel="noopener"
-            class="text-sm text-indigo-600 hover:text-indigo-500"
-          >
-            View original ↗
-          </a>
-        </div>
-      </div>
-    </div>
-
-    <div :if={@item.content_type not in ["article", "video", "document"]} class="mb-8">
-      <div class="bg-white rounded-lg border border-gray-200 p-6">
-        <p class="text-sm text-gray-500 mb-4">Available artifacts:</p>
-        <div :if={@artifacts == []} class="text-sm text-gray-400">No artifacts yet</div>
-        <div :for={artifact <- @artifacts} class="text-sm text-gray-600 mb-1">
-          <span class="font-mono text-xs bg-gray-100 px-1 rounded">{artifact.stage}</span>
-          <span :for={{k, v} <- artifact.labels} class="ml-2 text-gray-400">{k}:{v}</span>
-        </div>
-      </div>
-    </div>
-
-    <%!-- Bottom Pane (floating) --%>
-    <div class="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-lg">
-      <%!-- Tab Bar --%>
-      <div class="flex border-b border-gray-200 overflow-x-auto">
-        <button
-          :for={tab <- tabs_for(@item)}
-          phx-click="select_tab"
-          phx-value-tab={tab}
-          data-tab={tab}
-          class={[
-            "px-4 py-3 text-sm font-medium border-b-2 -mb-px whitespace-nowrap shrink-0",
-            if(@active_tab == tab,
-              do: "border-indigo-500 text-indigo-600",
-              else: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-            )
-          ]}
-        >
-          {tab_label(tab)}
-        </button>
+        <%= if @subscription do %>
+          <span class="sep">·</span>
+          <span>from
+            <.link navigate={~p"/subscriptions/#{@subscription.id}"} style="color: var(--cham-accent); text-decoration: none;">{@subscription.title}</.link>
+          </span>
+        <% end %>
       </div>
 
-      <%!-- Tab Content --%>
-      <div :if={@active_tab} class="p-6 h-[300px] overflow-y-auto">
-        <div :if={@active_tab == "summary"}>
-          <.content_state state={@summary.state} error={@summary.error}>
-            <div class="prose prose-gray max-w-none">
-              {raw(@summary.html || @summary.content)}
-            </div>
-          </.content_state>
-        </div>
-
-        <div :if={@active_tab == "transcript"}>
-          <.content_state state={@transcript.state} error={@transcript.error}>
-            <div class="prose prose-gray max-w-none max-h-96 overflow-y-auto">
-              <pre class="whitespace-pre-wrap font-sans text-sm">{@transcript.content}</pre>
-            </div>
-          </.content_state>
-        </div>
-
-        <div :if={@active_tab == "pipeline"}>
-          <div :if={@stage_history == []} class="text-sm text-gray-400 py-4">
-            No pipeline stages have run yet.
-          </div>
-          <table :if={@stage_history != []} class="w-full text-sm">
-            <thead>
-              <tr class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
-                <th class="pb-2 pr-4">Stage</th>
-                <th class="pb-2 pr-4">Status</th>
-                <th class="pb-2 pr-4">Duration</th>
-                <th class="pb-2 pr-4">Started</th>
-                <th class="pb-2">Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr :for={stage <- @stage_history} class="border-b border-gray-100">
-                <td class="py-2 pr-4 font-medium text-gray-700">{stage.stage}</td>
-                <td class="py-2 pr-4">
-                  <.status_badge status={stage.status} />
-                </td>
-                <td class="py-2 pr-4 text-gray-500">
-                  {format_duration(stage.duration_ms)}
-                </td>
-                <td class="py-2 pr-4 text-gray-500">
-                  <.relative_time :if={stage.started_at} at={stage.started_at} />
-                </td>
-                <td class="py-2 text-gray-500">
-                  <span :if={stage.error} class="text-red-500 text-xs break-all">
-                    {String.slice(stage.error || "", 0, 200)}
-                  </span>
-                  <span :if={stage.snooze_reason} class="text-amber-500 text-xs">
-                    Snoozed: {stage.snooze_reason}
-                  </span>
-                  <span :if={stage.attempt && stage.attempt > 1} class="text-gray-400 text-xs">
-                    Attempt {stage.attempt}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <%!-- Progress bars for active stages --%>
-          <div :for={{stage_id, prog} <- @progress} class="mt-4">
-            <div class="text-xs font-medium text-gray-600 mb-1">{stage_id}</div>
-            <.progress_bar progress={prog.progress} message={prog.message} />
-          </div>
-        </div>
-
-        <div :if={@active_tab == "metadata"}>
-          <pre class="text-sm font-mono bg-gray-50 rounded p-4 overflow-x-auto">{@metadata_json}</pre>
-        </div>
-
-        <div :if={@active_tab == "chat"} class="text-center py-8 text-gray-400">
-          <.icon name="hero-chat-bubble-left-right" class="h-8 w-8 mx-auto mb-2" />
-          <p>Chat coming soon</p>
-        </div>
-
-        <div :if={@active_tab == "actions"} class="space-y-6">
-          <%!-- Retry Failed --%>
-          <div
-            :if={has_failed_stages?(@stage_history)}
-            class="flex items-start gap-4 p-4 bg-red-50 rounded-lg border border-red-200"
-          >
-            <div class="flex-1">
-              <h3 class="text-sm font-semibold text-red-800">Retry Failed Stages</h3>
-              <p class="text-xs text-red-600 mt-1">
-                Clear failed stage executions and retry them.
-              </p>
-            </div>
-            <button
-              phx-click="retry_failed"
-              class="shrink-0 inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500"
-            >
-              <.icon name="hero-arrow-path-mini" class="h-4 w-4" /> Retry Failed
-            </button>
-          </div>
-
-          <%!-- Per-stage Rerun --%>
-          <div :if={@stage_history != []}>
-            <h3 class="text-sm font-semibold text-gray-700 mb-3">Rerun Individual Stages</h3>
-            <p class="text-xs text-gray-500 mb-3">
-              Invalidate a stage and its downstream dependencies, then reprocess.
-            </p>
-            <div class="space-y-2">
-              <div
-                :for={stage_id <- unique_stages(@stage_history)}
-                class="flex items-center justify-between py-2 px-3 rounded-md bg-gray-50 border border-gray-200"
+      <%!-- Feed Subscribe Section --%>
+      <%= if @item.content_type == "feed" and (not is_nil(@feed_metadata) or not is_nil(@existing_subscription)) do %>
+        <section style="margin-top: var(--cham-space-6); padding-top: var(--cham-space-4); border-top: 1px solid var(--cham-border-subtle);">
+          <%= if @existing_subscription do %>
+            <p>
+              <.link
+                navigate={~p"/subscriptions/#{@existing_subscription.id}"}
+                style="color: var(--cham-accent); text-decoration: underline;"
               >
-                <span class="text-sm font-medium text-gray-700">{stage_id}</span>
-                <button
-                  phx-click="invalidate_stage"
-                  phx-value-stage={stage_id}
-                  class="inline-flex items-center gap-1 rounded-md bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-50"
-                >
-                  <.icon name="hero-arrow-path-mini" class="h-3.5 w-3.5" /> Rerun
-                </button>
+                View existing subscription
+              </.link>
+            </p>
+          <% else %>
+            <h2 style="font: var(--cham-fw-semibold) var(--cham-text-xl)/1.2 var(--cham-font-display); color: var(--cham-fg-strong); margin: 0 0 var(--cham-space-2);">
+              Subscribe to {@feed_metadata["title"]}
+            </h2>
+            <%= if @feed_metadata["description"] do %>
+              <p style="font-size: var(--cham-text-sm); color: var(--cham-fg-muted); margin: 0 0 var(--cham-space-4);">{@feed_metadata["description"]}</p>
+            <% end %>
+
+            <h3 class="sidebar-eyebrow" style="margin-bottom: var(--cham-space-2);">Recent entries</h3>
+            <ul style="font-size: var(--cham-text-sm); margin: 0 0 var(--cham-space-4); padding-left: var(--cham-space-5);">
+              <%= for entry <- Enum.take(@feed_metadata["entries"] || [], 10) do %>
+                <li style="padding: 2px 0;">
+                  {entry["title"]}
+                  <%= if entry["timestamp"] do %>
+                    <span style="color: var(--cham-fg-faint);">— {entry["timestamp"]}</span>
+                  <% end %>
+                </li>
+              <% end %>
+            </ul>
+
+            <.form for={%{}} phx-submit="subscribe" style="display: flex; flex-direction: column; gap: var(--cham-space-3); max-width: 28rem;">
+              <div>
+                <label style="display: block; font-size: var(--cham-text-sm); font-weight: var(--cham-fw-medium); margin-bottom: 4px;">Title</label>
+                <input name="title" value={@feed_metadata["title"]} class="search-input" style="padding: 8px 12px;" />
               </div>
-            </div>
-          </div>
 
-          <%!-- Reprocess All --%>
-          <div class="flex items-start gap-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
-            <div class="flex-1">
-              <h3 class="text-sm font-semibold text-amber-800">
-                {if @stage_history == [], do: "Re-kick Pipeline", else: "Reprocess Everything"}
-              </h3>
-              <p class="text-xs text-amber-600 mt-1">
-                {if @stage_history == [],
-                  do:
-                    "No stages have run yet for this item. Re-trigger the orchestrator to schedule them.",
-                  else: "Invalidate all stages and reprocess from scratch."}
-              </p>
-            </div>
-            <button
-              phx-click="reprocess_all"
-              data-confirm={
-                if @stage_history == [],
-                  do: nil,
-                  else:
-                    "This will invalidate all stages and reprocess the item from scratch. Continue?"
-              }
-              class="shrink-0 inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-500"
-            >
-              <.icon name="hero-arrow-path-mini" class="h-4 w-4" />
-              {if @stage_history == [], do: "Re-kick", else: "Reprocess All"}
-            </button>
-          </div>
+              <div>
+                <label style="display: block; font-size: var(--cham-text-sm); font-weight: var(--cham-fw-medium); margin-bottom: 4px;">Poll interval</label>
+                <select name="poll_interval_seconds" class="search-input" style="padding: 8px 12px;">
+                  <option value="3600">1 hour</option>
+                  <option value="21600">6 hours</option>
+                  <option value="86400" selected>24 hours</option>
+                </select>
+              </div>
 
-          <%!-- Delete Item --%>
-          <div class="flex items-start gap-4 p-4 bg-red-50 rounded-lg border border-red-200">
-            <div class="flex-1">
-              <h3 class="text-sm font-semibold text-red-800">Delete Item</h3>
-              <p class="text-xs text-red-600 mt-1">
-                Permanently delete this item and its archive files. This cannot be undone.
-              </p>
-            </div>
-            <button
-              phx-click="delete_item"
-              data-confirm="Permanently delete this item and all archive files? This cannot be undone."
-              class="shrink-0 inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500"
-            >
-              <.icon name="hero-trash" class="h-4 w-4" /> Delete Item
-            </button>
+              <fieldset style="border: 1px solid var(--cham-border-subtle); border-radius: var(--cham-radius-md); padding: var(--cham-space-3);">
+                <legend style="font-size: var(--cham-text-sm); font-weight: var(--cham-fw-medium); padding: 0 4px;">Backfill</legend>
+                <label style="display: block; font-size: var(--cham-text-sm); margin-bottom: 4px;">
+                  <input type="radio" name="backfill[mode]" value="none" checked /> None (ingest new items only)
+                </label>
+                <label style="display: block; font-size: var(--cham-text-sm); margin-bottom: 4px;">
+                  <input type="radio" name="backfill[mode]" value="last_n" /> Last
+                  <input type="number" name="backfill[n]" value="10" min="1" style="width: 4rem; padding: 2px 6px; border: 1px solid var(--cham-border-input); border-radius: var(--cham-radius-sm);" /> items
+                </label>
+                <label style="display: block; font-size: var(--cham-text-sm);">
+                  <input type="radio" name="backfill[mode]" value="since" /> Since
+                  <input type="date" name="backfill[date]" style="padding: 2px 6px; border: 1px solid var(--cham-border-input); border-radius: var(--cham-radius-sm);" />
+                </label>
+              </fieldset>
+
+              <div>
+                <button type="submit" class="btn btn-primary">Subscribe</button>
+              </div>
+            </.form>
+          <% end %>
+        </section>
+      <% end %>
+
+      <%!-- Processing View --%>
+      <div :if={is_processing?(@item)} style="margin-top: var(--cham-space-6); padding: var(--cham-space-5); border: 1px solid var(--cham-border-subtle); border-radius: var(--cham-radius-md); background: var(--cham-surface);">
+        <h2 class="sidebar-eyebrow" style="margin: 0 0 var(--cham-space-3);">Processing pipeline</h2>
+        <div :if={@stage_history == []} style="font-size: var(--cham-text-sm); color: var(--cham-fg-faint);">
+          Waiting for pipeline to start...
+        </div>
+        <div :if={@stage_history != []} style="display: flex; flex-direction: column; gap: var(--cham-space-2);">
+          <div :for={stage <- @stage_history} style="display: flex; align-items: center; gap: var(--cham-space-3); font-size: var(--cham-text-sm);">
+            <.status_badge status={stage.status} />
+            <span style="font-weight: var(--cham-fw-medium); color: var(--cham-fg-muted); font-family: var(--cham-font-mono);">{stage.stage}</span>
+            <span :if={stage.duration_ms} style="color: var(--cham-fg-faint); font-family: var(--cham-font-mono);">{stage.duration_ms}ms</span>
+            <span :if={stage.error} style="color: var(--cham-stage-fail-fg); font-size: var(--cham-text-xs);">{stage.error}</span>
           </div>
+        </div>
+        <div :for={{stage_id, prog} <- @progress} style="margin-top: var(--cham-space-2);">
+          <div style="font-size: var(--cham-text-xs); font-weight: var(--cham-fw-medium); color: var(--cham-fg-muted); margin-bottom: 4px;">{stage_id}</div>
+          <.progress_bar progress={prog.progress} message={prog.message} />
+        </div>
+      </div>
+
+      <%!-- Article body --%>
+      <div :if={@item.content_type == "article"} class="reader-prose" style="margin-top: var(--cham-space-6);">
+        <.content_state state={@primary_content.state} error={@primary_content.error}>
+          {raw(@primary_content.html || @primary_content.content)}
+        </.content_state>
+      </div>
+
+      <%!-- Video --%>
+      <div :if={@item.content_type == "video"} style="margin-top: var(--cham-space-6);">
+        <div :if={@original_file_url} style="border: 1px solid var(--cham-border-subtle); border-radius: var(--cham-radius-md); overflow: hidden;">
+          <video controls style="width: 100%; display: block;" preload="metadata">
+            <source src={@original_file_url} /> Your browser does not support the video tag.
+          </video>
+        </div>
+        <div :if={!@original_file_url} style="aspect-ratio: 16/9; background: var(--cham-surface-sunken); border-radius: var(--cham-radius-md); display: flex; align-items: center; justify-content: center;">
+          <div style="text-align: center; color: var(--cham-fg-faint);">
+            <.icon name="hero-play-circle" class="h-12 w-12" />
+            <p>Video file not available</p>
+            <a href={@item.url} target="_blank" rel="noopener" style="color: var(--cham-accent); font-size: var(--cham-text-sm);">
+              Watch on original site ↗
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Document --%>
+      <div :if={@item.content_type == "document"} style="margin-top: var(--cham-space-6);">
+        <div :if={@original_file_url} style="border: 1px solid var(--cham-border-subtle); border-radius: var(--cham-radius-md); overflow: hidden;">
+          <iframe src={@original_file_url} style="width: 100%; height: 70vh; border: 0;"></iframe>
+        </div>
+        <div :if={!@original_file_url} style="aspect-ratio: 3/4; max-height: 24rem; background: var(--cham-surface-sunken); border-radius: var(--cham-radius-md); display: flex; align-items: center; justify-content: center;">
+          <div style="text-align: center; color: var(--cham-fg-faint);">
+            <.icon name="hero-document-text" class="h-12 w-12" />
+            <p>PDF file not available</p>
+            <a href={@item.url} target="_blank" rel="noopener" style="color: var(--cham-accent); font-size: var(--cham-text-sm);">
+              View original ↗
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Other artifacts --%>
+      <div :if={@item.content_type not in ["article", "video", "document", "feed"]} style="margin-top: var(--cham-space-6); padding: var(--cham-space-5); border: 1px solid var(--cham-border-subtle); border-radius: var(--cham-radius-md); background: var(--cham-surface);">
+        <p style="font-size: var(--cham-text-sm); color: var(--cham-fg-soft); margin: 0 0 var(--cham-space-3);">Available artifacts:</p>
+        <div :if={@artifacts == []} style="font-size: var(--cham-text-sm); color: var(--cham-fg-faint);">No artifacts yet</div>
+        <div :for={artifact <- @artifacts} style="font-size: var(--cham-text-sm); color: var(--cham-fg-muted); margin-bottom: 4px;">
+          <span style="font-family: var(--cham-font-mono); font-size: var(--cham-text-xs); background: var(--cham-surface-sunken); padding: 1px 4px; border-radius: var(--cham-radius-sm);">{artifact.stage}</span>
+          <span :for={{k, v} <- artifact.labels} style="margin-left: 8px; color: var(--cham-fg-faint); font-family: var(--cham-font-mono);">{k}:{v}</span>
+        </div>
+      </div>
+    </article>
+  </div>
+
+  <%!-- Bottom Pane (fixed in shell) --%>
+  <div class="pane">
+    <div class="pane-tabs">
+      <button
+        :for={tab <- tabs_for(@item)}
+        phx-click="select_tab"
+        phx-value-tab={tab}
+        data-tab={tab}
+        class={["pane-tab", @active_tab == tab && "is-active"]}
+      >
+        {tab_label(tab)}
+      </button>
+    </div>
+
+    <div :if={@active_tab} class="pane-body" style="height: 300px;">
+      <div :if={@active_tab == "summary"} class="summary">
+        <.content_state state={@summary.state} error={@summary.error}>
+          {raw(@summary.html || @summary.content)}
+        </.content_state>
+      </div>
+
+      <div :if={@active_tab == "transcript"} class="summary">
+        <.content_state state={@transcript.state} error={@transcript.error}>
+          <pre style="white-space: pre-wrap; font-family: var(--cham-font-prose); font-size: var(--cham-text-sm); margin: 0;">{@transcript.content}</pre>
+        </.content_state>
+      </div>
+
+      <div :if={@active_tab == "pipeline"} style="padding: var(--cham-space-5);">
+        <div :if={@stage_history == []} style="font-size: var(--cham-text-sm); color: var(--cham-fg-faint); padding: var(--cham-space-4) 0;">
+          No pipeline stages have run yet.
+        </div>
+        <table :if={@stage_history != []} style="width: 100%; font-size: var(--cham-text-sm); border-collapse: collapse;">
+          <thead>
+            <tr style="text-align: left; font-size: var(--cham-text-xs); font-weight: var(--cham-fw-semibold); color: var(--cham-fg-faint); text-transform: uppercase; letter-spacing: var(--cham-track-wider); border-bottom: 1px solid var(--cham-border-subtle);">
+              <th style="padding-bottom: 8px; padding-right: 16px;">Stage</th>
+              <th style="padding-bottom: 8px; padding-right: 16px;">Status</th>
+              <th style="padding-bottom: 8px; padding-right: 16px;">Duration</th>
+              <th style="padding-bottom: 8px; padding-right: 16px;">Started</th>
+              <th style="padding-bottom: 8px;">Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr :for={stage <- @stage_history} style="border-bottom: 1px solid var(--cham-border-subtle);">
+              <td style="padding: 8px 16px 8px 0; font-weight: var(--cham-fw-medium); color: var(--cham-fg-muted); font-family: var(--cham-font-mono);">{stage.stage}</td>
+              <td style="padding: 8px 16px 8px 0;"><.status_badge status={stage.status} /></td>
+              <td style="padding: 8px 16px 8px 0; color: var(--cham-fg-soft); font-family: var(--cham-font-mono);">{format_duration(stage.duration_ms)}</td>
+              <td style="padding: 8px 16px 8px 0; color: var(--cham-fg-soft);">
+                <.relative_time :if={stage.started_at} at={stage.started_at} />
+              </td>
+              <td style="padding: 8px 0; color: var(--cham-fg-soft);">
+                <span :if={stage.error} style="color: var(--cham-stage-fail-fg); font-size: var(--cham-text-xs); word-break: break-all;">{String.slice(stage.error || "", 0, 200)}</span>
+                <span :if={stage.snooze_reason} style="color: var(--cham-stage-active-fg); font-size: var(--cham-text-xs);">Snoozed: {stage.snooze_reason}</span>
+                <span :if={stage.attempt && stage.attempt > 1} style="color: var(--cham-fg-faint); font-size: var(--cham-text-xs);">Attempt {stage.attempt}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div :for={{stage_id, prog} <- @progress} style="margin-top: var(--cham-space-4);">
+          <div style="font-size: var(--cham-text-xs); font-weight: var(--cham-fw-medium); color: var(--cham-fg-muted); margin-bottom: 4px;">{stage_id}</div>
+          <.progress_bar progress={prog.progress} message={prog.message} />
+        </div>
+      </div>
+
+      <div :if={@active_tab == "metadata"}>
+        <pre>{@metadata_json}</pre>
+      </div>
+
+      <div :if={@active_tab == "chat"} style="text-align: center; padding: var(--cham-space-8); color: var(--cham-fg-faint);">
+        <.icon name="hero-chat-bubble-left-right" class="h-8 w-8" />
+        <p>Chat coming soon</p>
+      </div>
+
+      <div :if={@active_tab == "actions"} class="actions">
+        <%!-- Retry Failed --%>
+        <div
+          :if={has_failed_stages?(@stage_history)}
+          style="display: flex; align-items: flex-start; justify-content: space-between; gap: var(--cham-space-4); padding: var(--cham-space-4); background: var(--cham-stage-fail-bg); border: 1px solid var(--cham-stage-fail-fg); border-radius: var(--cham-radius-md);"
+        >
+          <div>
+            <h4 style="color: var(--cham-stage-fail-fg); margin: 0 0 4px;">Retry failed stages</h4>
+            <p style="font-size: var(--cham-text-xs); color: var(--cham-fg-muted); margin: 0;">Clear failed stage executions and retry them.</p>
+          </div>
+          <button phx-click="retry_failed" class="btn btn-danger" style="flex-shrink: 0;">
+            <.icon name="hero-arrow-path-mini" class="h-4 w-4" /> Retry failed
+          </button>
+        </div>
+
+        <%!-- Per-stage Rerun --%>
+        <div :if={@stage_history != []}>
+          <h4>Rerun individual stages</h4>
+          <p style="font-size: var(--cham-text-xs); color: var(--cham-fg-soft); margin: 0 0 var(--cham-space-3);">
+            Invalidate a stage and its downstream dependencies, then reprocess.
+          </p>
+          <div style="display: flex; flex-direction: column; gap: var(--cham-space-2);">
+            <div
+              :for={stage_id <- unique_stages(@stage_history)}
+              style="display: flex; align-items: center; justify-content: space-between; padding: 8px var(--cham-space-3); border: 1px solid var(--cham-border-subtle); border-radius: var(--cham-radius-md); background: var(--cham-surface);"
+            >
+              <span style="font-size: var(--cham-text-sm); font-family: var(--cham-font-mono); color: var(--cham-fg-muted);">{stage_id}</span>
+              <button phx-click="invalidate_stage" phx-value-stage={stage_id} class="btn btn-ghost" style="padding: 4px 10px; font-size: var(--cham-text-xs);">
+                <.icon name="hero-arrow-path-mini" class="h-3 w-3" /> Rerun
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Reprocess All --%>
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: var(--cham-space-4); padding: var(--cham-space-4); background: var(--cham-stage-active-bg); border: 1px solid var(--cham-stage-active-fg); border-radius: var(--cham-radius-md);">
+          <div>
+            <h4 style="color: var(--cham-stage-active-fg); margin: 0 0 4px;">
+              {if @stage_history == [], do: "Re-kick pipeline", else: "Reprocess everything"}
+            </h4>
+            <p style="font-size: var(--cham-text-xs); color: var(--cham-fg-muted); margin: 0;">
+              {if @stage_history == [],
+                do: "No stages have run yet for this item. Re-trigger the orchestrator to schedule them.",
+                else: "Invalidate all stages and reprocess from scratch."}
+            </p>
+          </div>
+          <button
+            phx-click="reprocess_all"
+            data-confirm={if @stage_history == [], do: nil, else: "This will invalidate all stages and reprocess the item from scratch. Continue?"}
+            class="btn"
+            style={"flex-shrink: 0; background: var(--cham-stage-active-fg); color: var(--cham-fg-on-accent);"}
+          >
+            <.icon name="hero-arrow-path-mini" class="h-4 w-4" />
+            {if @stage_history == [], do: "Re-kick", else: "Reprocess all"}
+          </button>
+        </div>
+
+        <%!-- Delete Item --%>
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: var(--cham-space-4); padding: var(--cham-space-4); background: var(--cham-stage-fail-bg); border: 1px solid var(--cham-stage-fail-fg); border-radius: var(--cham-radius-md);">
+          <div>
+            <h4 style="color: var(--cham-stage-fail-fg); margin: 0 0 4px;">Delete item</h4>
+            <p style="font-size: var(--cham-text-xs); color: var(--cham-fg-muted); margin: 0;">
+              Permanently delete this item and its archive files. This cannot be undone.
+            </p>
+          </div>
+          <button
+            phx-click="delete_item"
+            data-confirm="Permanently delete this item and all archive files? This cannot be undone."
+            class="btn btn-danger"
+            style="flex-shrink: 0;"
+          >
+            <.icon name="hero-trash" class="h-4 w-4" /> Delete item
+          </button>
         </div>
       </div>
     </div>

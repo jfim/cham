@@ -1,0 +1,143 @@
+/* Cham app overrides on top of the design system. */
+
+:root {
+  --cham-prose-measure: 100ch;
+}
+
+.reader-paper {
+  max-width: 100ch;
+}
+
+/* Item detail: fixed header + fixed bottom pane, middle scrolls. */
+.item-detail-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--cham-surface-page);
+}
+.item-detail-shell > .item-topbar { flex-shrink: 0; }
+.item-detail-shell > .reader {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-top: var(--cham-space-8);
+  padding-bottom: var(--cham-space-8);
+}
+.item-detail-shell > .pane {
+  position: static;
+  flex-shrink: 0;
+}
+
+/* <button>-flavored facets (sidebar filters) — strip user-agent chrome
+   so .facet.is-active's red background can win. */
+button.facet {
+  background: transparent;
+  border: 0;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* Article prose: lists, code, blockquotes, inline links */
+.reader-prose ul,
+.reader-prose ol {
+  font: var(--cham-fw-normal) var(--cham-prose-size)/var(--cham-prose-lh) var(--cham-font-prose);
+  color: var(--cham-fg);
+  margin: 0 0 1.1em;
+  padding-left: 1.5em;
+}
+.reader-prose ul { list-style: disc; }
+.reader-prose ol { list-style: decimal; }
+.reader-prose li { margin-bottom: 0.4em; }
+.reader-prose li > ul,
+.reader-prose li > ol { margin: 0.4em 0 0.4em; }
+
+.reader-prose a {
+  color: var(--cham-accent);
+  text-decoration: underline;
+  text-decoration-color: var(--cham-accent-tint-2);
+  text-underline-offset: 2px;
+}
+.reader-prose a:hover {
+  text-decoration-color: var(--cham-accent);
+}
+
+.reader-prose h2,
+.reader-prose h3,
+.reader-prose h4 {
+  font-family: var(--cham-font-display);
+  color: var(--cham-fg-strong);
+  letter-spacing: var(--cham-track-tight);
+  margin: 1.6em 0 0.5em;
+  line-height: 1.25;
+}
+.reader-prose h2 { font-size: var(--cham-text-2xl); font-weight: var(--cham-fw-bold); }
+.reader-prose h3 { font-size: var(--cham-text-xl); font-weight: var(--cham-fw-semibold); }
+.reader-prose h4 { font-size: var(--cham-text-lg); font-weight: var(--cham-fw-semibold); }
+
+.reader-prose blockquote {
+  margin: 0 0 1.1em;
+  padding: 0.2em 0 0.2em 1em;
+  border-left: 3px solid var(--cham-border);
+  color: var(--cham-fg-muted);
+  font-style: italic;
+}
+
+.reader-prose pre {
+  margin: 0 0 1.1em;
+  padding: var(--cham-space-3) var(--cham-space-4);
+  background: var(--cham-surface-sunken);
+  border: 1px solid var(--cham-border-subtle);
+  border-radius: var(--cham-radius-md);
+  font-family: var(--cham-font-mono);
+  font-size: var(--cham-text-sm);
+  line-height: 1.5;
+  color: var(--cham-fg);
+  overflow-x: auto;
+  white-space: pre;
+}
+.reader-prose pre code {
+  background: transparent;
+  padding: 0;
+  border: 0;
+  font-size: inherit;
+}
+.reader-prose code {
+  font-family: var(--cham-font-mono);
+  font-size: 0.9em;
+  background: var(--cham-surface-sunken);
+  padding: 1px 5px;
+  border-radius: var(--cham-radius-sm);
+  color: var(--cham-fg-strong);
+}
+
+.reader-prose img,
+.reader-prose video {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1.2em auto;
+  border-radius: var(--cham-radius-sm);
+}
+
+.reader-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 1.1em;
+  font-family: var(--cham-font-ui);
+  font-size: var(--cham-text-sm);
+}
+.reader-prose th,
+.reader-prose td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--cham-border-subtle);
+}
+.reader-prose th { font-weight: var(--cham-fw-semibold); color: var(--cham-fg-strong); }
+
+.reader-prose hr {
+  border: 0;
+  border-top: 1px solid var(--cham-border);
+  margin: 1.8em 0;
+}

@@ -136,7 +136,83 @@ defmodule ChamWeb.ItemDetailLive do
     end
   end
 
+  def handle_event("update_chat_input", %{"value" => value}, socket) do
+    {:noreply, assign(socket, :chat_input, value)}
+  end
+
+  def handle_event("send_chat", %{"message" => message}, socket) do
+    trimmed = String.trim(message || "")
+
+    cond do
+      trimmed == "" ->
+        {:noreply, socket}
+
+      socket.assigns.chat_pending ->
+        {:noreply, socket}
+
+      true ->
+        item = socket.assigns.item
+        artifacts = socket.assigns.artifacts
+
+        optimistic_user_turn = %{
+          role: "user",
+          content: trimmed,
+          ts: DateTime.utc_now() |> DateTime.to_iso8601()
+        }
+
+        task =
+          Task.async(fn ->
+            Cham.Chat.send_message(item, artifacts, trimmed)
+          end)
+
+        {:noreply,
+         socket
+         |> assign(:chat_history, socket.assigns.chat_history ++ [optimistic_user_turn])
+         |> assign(:chat_input, "")
+         |> assign(:chat_pending, true)
+         |> assign(:chat_error, nil)
+         |> assign(:chat_task_ref, task.ref)}
+    end
+  end
+
   @impl true
+  def handle_info({ref, result}, socket) when ref == socket.assigns.chat_task_ref do
+    Process.demonitor(ref, [:flush])
+
+    socket =
+      case result do
+        {:ok, history} ->
+          socket
+          |> assign(:chat_history, history)
+          |> assign(:chat_pending, false)
+          |> assign(:chat_task_ref, nil)
+          |> assign(:chat_error, nil)
+
+        {:error, :no_content} ->
+          socket
+          |> assign(:chat_pending, false)
+          |> assign(:chat_task_ref, nil)
+          |> assign(:chat_error, "No content available to chat about yet.")
+
+        {:error, reason} ->
+          socket
+          |> assign(:chat_pending, false)
+          |> assign(:chat_task_ref, nil)
+          |> assign(:chat_error, "Chat failed: #{inspect(reason)}")
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:DOWN, ref, :process, _pid, _reason}, socket)
+      when ref == socket.assigns.chat_task_ref do
+    {:noreply,
+     socket
+     |> assign(:chat_pending, false)
+     |> assign(:chat_task_ref, nil)
+     |> assign(:chat_error, "Chat task crashed")}
+  end
+
   def handle_info(event, socket) do
     item_id = socket.assigns.item.id
 

@@ -15,6 +15,10 @@ When dispatching parallel agents for this project, always pass `isolation: "work
 
 Never use `git update-ref` or `git branch -f` to move `master` — both skip the fast-forward check and can clobber commits, and `update-ref` with `HEAD` from `git -C <main-repo>` resolves against the main repo's checked-out branch (not your worktree). To advance master from a worktree: rebase your branch onto master, then `git push . HEAD:master`, which enforces a fast-forward and refuses if master is checked out elsewhere.
 
+## Implementation
+
+When executing an implementation plan from `docs/superpowers/plans/`, always use subagent-driven execution (one fresh subagent per task) via the `superpowers:subagent-driven-development` skill. Do not execute plans inline.
+
 ## Improvements / TODOs
 
 Track future improvements, ideas, and TODOs in `/home/jfim/sync/Obsidian Personal/Personal/Projects/Active/Cham/Improvements.md`. When you discover something worth doing later (missing smoke test coverage, deferred UI polish, known tech debt, etc.), append it there rather than leaving scattered TODOs in code.

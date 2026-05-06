@@ -21,6 +21,7 @@ defmodule ChamWeb.SubscriptionShowLive do
 
     {:ok,
      socket
+     |> assign(:page_title, sub.title || "Subscription")
      |> assign(:subscription, sub)
      |> assign(:items, items)}
   end

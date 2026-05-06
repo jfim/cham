@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="referrer" content="no-referrer" />
     <meta name="csrf-token" content={get_csrf_token()} />
-    <.live_title default="Cham" suffix=" · Phoenix Framework">
+    <link rel="icon" type="image/svg+xml" href={~p"/favicon.svg"} />
+    <link rel="alternate icon" href={~p"/favicon.ico"} />
+    <link rel="apple-touch-icon" href={~p"/apple-touch-icon.png"} />
+    <.live_title default="Cham" suffix=" · Cham">
       {assigns[:page_title]}
     </.live_title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />

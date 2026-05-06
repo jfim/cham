@@ -9,6 +9,7 @@ defmodule ChamWeb.SubscriptionIndexLive do
   def mount(_params, _session, socket) do
     {:ok,
      socket
+     |> assign(:page_title, "Subscriptions")
      |> assign(:subscriptions, Subscriptions.list_subscriptions())
      |> assign(:failure_threshold, @failure_threshold)}
   end

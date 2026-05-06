@@ -1,161 +1,146 @@
-<div class="min-h-screen bg-gray-50">
-  <div class="bg-white border-b border-gray-200 px-8 py-4">
-    <div class="flex items-center justify-between">
-      <.link
-        navigate={~p"/"}
-        class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
-      >
-        <.icon name="hero-arrow-left-mini" class="h-4 w-4" /> Back to archive
-      </.link>
-    </div>
+<div style="min-height: 100vh; background: var(--cham-surface-page);">
+  <div class="item-topbar">
+    <.link
+      navigate={~p"/"}
+      class="iconbtn"
+      style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 4px 8px; font-size: var(--cham-text-sm); color: var(--cham-fg-muted);"
+    >
+      <.icon name="hero-arrow-left-mini" class="h-4 w-4" /> Back to archive
+    </.link>
   </div>
 
-  <div class="max-w-4xl mx-auto px-8 py-8">
-    <h1 class="text-2xl font-bold text-gray-900 mb-6">Configuration</h1>
+  <main style="max-width: 64rem; margin: 0 auto; padding: var(--cham-space-12) var(--cham-space-8) var(--cham-space-8);">
+    <h1 style="font: var(--cham-fw-normal) var(--cham-text-3xl)/1.2 var(--cham-font-display); color: var(--cham-fg-strong); letter-spacing: var(--cham-track-tight); margin: 0 0 var(--cham-space-6);">
+      Configuration
+    </h1>
 
-    <div class="flex gap-8">
+    <div style="display: flex; gap: var(--cham-space-8); align-items: flex-start;">
       <%!-- Section list --%>
-      <div class="w-64 flex-shrink-0">
-        <div :if={@system_sections != []}>
-          <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
-            System
-          </h2>
-          <div class="space-y-1 mb-6">
+      <div style="width: 16rem; flex-shrink: 0;">
+        <div :if={@system_sections != []} style="margin-bottom: var(--cham-space-6);">
+          <h2 class="sidebar-eyebrow" style="margin: 0 0 var(--cham-space-3);">System</h2>
+          <div style="display: flex; flex-direction: column; gap: 2px;">
             <button
               :for={section <- @system_sections}
               phx-click="select_section"
               phx-value-namespace={section.namespace}
               phx-value-name={section.name}
-              class={[
-                "w-full text-left px-3 py-2 rounded-md text-sm",
-                if(@active_section && @active_section.namespace == section.namespace,
-                  do: "bg-indigo-50 text-indigo-700 font-medium",
-                  else: "text-gray-700 hover:bg-gray-100"
-                )
-              ]}
+              class={["facet", @active_section && @active_section.namespace == section.namespace && "is-active"]}
+              style="flex-direction: column; align-items: flex-start; gap: 2px; padding: var(--cham-space-2) var(--cham-space-3); height: auto;"
             >
-              <div class="font-medium">{section.name}</div>
-              <div class="text-xs text-gray-400 mt-0.5">
+              <span style="font-weight: var(--cham-fw-medium); font-size: var(--cham-text-sm); color: var(--cham-fg);">
+                {section.name}
+              </span>
+              <span style="font-size: var(--cham-text-xs); color: var(--cham-fg-faint);">
                 {length(section.schema)} settings
-              </div>
+              </span>
             </button>
           </div>
         </div>
 
-        <div :if={@subscription_backends != []}>
-          <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
-            Subscriptions
-          </h2>
-          <div class="space-y-1 mb-6">
+        <div :if={@subscription_backends != []} style="margin-bottom: var(--cham-space-6);">
+          <h2 class="sidebar-eyebrow" style="margin: 0 0 var(--cham-space-3);">Subscriptions</h2>
+          <div style="display: flex; flex-direction: column; gap: 2px;">
             <button
               :for={backend <- @subscription_backends}
               phx-click="select_section"
               phx-value-namespace={backend.namespace}
               phx-value-name={backend.name}
               disabled={backend.schema == []}
-              class={[
-                "w-full text-left px-3 py-2 rounded-md text-sm",
-                cond do
-                  @active_section && @active_section.namespace == backend.namespace ->
-                    "bg-indigo-50 text-indigo-700 font-medium"
-
-                  backend.schema != [] ->
-                    "text-gray-700 hover:bg-gray-100"
-
-                  true ->
-                    "text-gray-400 cursor-not-allowed"
-                end
+              class={["facet", @active_section && @active_section.namespace == backend.namespace && "is-active"]}
+              style={[
+                "flex-direction: column; align-items: flex-start; gap: 2px; padding: var(--cham-space-2) var(--cham-space-3); height: auto;",
+                backend.schema == [] && " opacity: 0.5; cursor: not-allowed;"
               ]}
             >
-              <div class="font-medium">{backend.name}</div>
-              <div class="text-xs text-gray-400 mt-0.5">
-                {if backend.schema != [],
-                  do: "#{length(backend.schema)} settings",
-                  else: "No settings"}
-              </div>
+              <span style="font-weight: var(--cham-fw-medium); font-size: var(--cham-text-sm); color: var(--cham-fg);">
+                {backend.name}
+              </span>
+              <span style="font-size: var(--cham-text-xs); color: var(--cham-fg-faint);">
+                {if backend.schema != [], do: "#{length(backend.schema)} settings", else: "No settings"}
+              </span>
             </button>
           </div>
         </div>
 
-        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Plugins</h2>
-        <div class="space-y-1">
+        <h2 class="sidebar-eyebrow" style="margin: 0 0 var(--cham-space-3);">Plugins</h2>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
           <button
             :for={plugin <- @plugins}
             phx-click="select_section"
             phx-value-namespace={plugin.namespace}
             phx-value-name={plugin.name}
             disabled={!has_config?(plugin)}
-            class={[
-              "w-full text-left px-3 py-2 rounded-md text-sm",
-              cond do
-                @active_section && @active_section.namespace == plugin.namespace ->
-                  "bg-indigo-50 text-indigo-700 font-medium"
-
-                has_config?(plugin) ->
-                  "text-gray-700 hover:bg-gray-100"
-
-                true ->
-                  "text-gray-400 cursor-not-allowed"
-              end
+            class={["facet", @active_section && @active_section.namespace == plugin.namespace && "is-active"]}
+            style={[
+              "flex-direction: column; align-items: flex-start; gap: 2px; padding: var(--cham-space-2) var(--cham-space-3); height: auto;",
+              !has_config?(plugin) && " opacity: 0.5; cursor: not-allowed;"
             ]}
           >
-            <div class="font-medium">{plugin.name}</div>
-            <div class="text-xs text-gray-400 mt-0.5">
-              {if has_config?(plugin),
-                do: "#{length(plugin.schema)} settings",
-                else: "No settings"}
-            </div>
+            <span style="font-weight: var(--cham-fw-medium); font-size: var(--cham-text-sm); color: var(--cham-fg);">
+              {plugin.name}
+            </span>
+            <span style="font-size: var(--cham-text-xs); color: var(--cham-fg-faint);">
+              {if has_config?(plugin), do: "#{length(plugin.schema)} settings", else: "No settings"}
+            </span>
           </button>
         </div>
       </div>
 
       <%!-- Config form --%>
-      <div class="flex-1">
-        <div :if={!@active_section} class="text-center py-16 text-gray-400">
+      <div style="flex: 1; min-width: 0;">
+        <div
+          :if={!@active_section}
+          style="text-align: center; padding: var(--cham-space-12) 0; color: var(--cham-fg-faint);"
+        >
           <.icon name="hero-cog-6-tooth" class="h-12 w-12 mx-auto mb-4" />
-          <p>Select a section to configure</p>
+          <p style="margin: 0; font-size: var(--cham-text-sm);">Select a section to configure</p>
         </div>
 
         <div :if={@active_section}>
-          <div class="mb-6">
-            <h2 class="text-lg font-semibold text-gray-900">{@active_section.name}</h2>
-            <p :if={@active_section.description != ""} class="text-sm text-gray-500 mt-1">
+          <div style="margin-bottom: var(--cham-space-6);">
+            <h2 style="font: var(--cham-fw-semibold) var(--cham-text-lg)/1.3 var(--cham-font-display); color: var(--cham-fg-strong); letter-spacing: var(--cham-track-tight); margin: 0;">
+              {@active_section.name}
+            </h2>
+            <p
+              :if={@active_section.description != ""}
+              style="margin: 4px 0 0; font-size: var(--cham-text-sm); color: var(--cham-fg-soft);"
+            >
               {@active_section.description}
             </p>
           </div>
 
           <div
             :if={@save_result == :ok}
-            class="mb-4 rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700"
+            style="margin-bottom: var(--cham-space-4); border-radius: var(--cham-radius-md); background: var(--cham-stage-done-bg); border: 1px solid var(--cham-stage-done-fg); padding: var(--cham-space-3) var(--cham-space-4); font-size: var(--cham-text-sm); color: var(--cham-stage-done-fg);"
           >
             Configuration saved successfully.
           </div>
 
           <div
             :if={match?({:error, _}, @save_result)}
-            class="mb-4 rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
+            style="margin-bottom: var(--cham-space-4); border-radius: var(--cham-radius-md); background: var(--cham-stage-fail-bg); border: 1px solid var(--cham-stage-fail-fg); padding: var(--cham-space-3) var(--cham-space-4); font-size: var(--cham-text-sm); color: var(--cham-stage-fail-fg);"
           >
             Failed to save: {inspect(elem(@save_result, 1))}
           </div>
 
-          <form phx-submit="save_config" class="space-y-5">
-            <div :for={field <- @active_section.schema} class="space-y-1">
-              <div class="flex items-center justify-between">
+          <form
+            phx-submit="save_config"
+            style="display: flex; flex-direction: column; gap: var(--cham-space-5); padding: var(--cham-space-5); border: 1px solid var(--cham-border-subtle); border-radius: var(--cham-radius-md); background: var(--cham-surface);"
+          >
+            <div :for={field <- @active_section.schema} style="display: flex; flex-direction: column; gap: 4px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: var(--cham-space-2);">
                 <label
                   for={"config-#{field.key}"}
-                  class="block text-sm font-medium text-gray-700"
+                  style="display: flex; align-items: center; gap: var(--cham-space-2); font-size: var(--cham-text-sm); font-weight: var(--cham-fw-medium); color: var(--cham-fg-muted);"
                   title={Atom.to_string(field.key)}
                   data-raw-key={Atom.to_string(field.key)}
                 >
-                  {humanize_key(field.key)}
+                  <span>{humanize_key(field.key)}</span>
                   <%= if Map.get(@overridden, Atom.to_string(field.key)) do %>
-                    <span class="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                      overridden
-                    </span>
+                    <span class="stage-badge is-active">overridden</span>
                   <% else %>
-                    <span class="ml-2 inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
-                      default
-                    </span>
+                    <span class="stage-badge is-info" style="opacity: 0.6;">default</span>
                   <% end %>
                 </label>
                 <button
@@ -163,15 +148,20 @@
                   type="button"
                   phx-click="reset_key"
                   phx-value-key={Atom.to_string(field.key)}
-                  class="text-xs text-indigo-600 hover:text-indigo-500"
+                  style="background: none; border: none; cursor: pointer; font-size: var(--cham-text-xs); color: var(--cham-accent-fg); padding: 0;"
                 >
                   Reset to default
                 </button>
               </div>
-              <p :if={field[:description]} class="text-xs text-gray-400">{field[:description]}</p>
+              <p
+                :if={field[:description]}
+                style="margin: 0; font-size: var(--cham-text-xs); color: var(--cham-fg-soft);"
+              >
+                {field[:description]}
+              </p>
 
               <%= if field.type == :boolean do %>
-                <div class="flex items-center gap-3">
+                <div style="display: flex; align-items: center; gap: var(--cham-space-3);">
                   <input type="hidden" name={Atom.to_string(field.key)} value="false" />
                   <input
                     type="checkbox"
@@ -179,7 +169,6 @@
                     id={"config-#{field.key}"}
                     value="true"
                     checked={Map.get(@form_values, Atom.to_string(field.key)) == "true"}
-                    class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                   />
                 </div>
               <% else %>
@@ -187,7 +176,8 @@
                   <select
                     name={Atom.to_string(field.key)}
                     id={"config-#{field.key}"}
-                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    class="search-input"
+                    style="padding: 8px 12px;"
                   >
                     <option
                       :for={opt <- field.options}
@@ -206,7 +196,8 @@
                       id={"config-#{field.key}"}
                       rows="6"
                       placeholder={if field.default, do: "Default: #{field.default}", else: ""}
-                      class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-mono text-xs"
+                      class="search-input"
+                      style="padding: 8px 12px; font-family: var(--cham-font-mono); font-size: var(--cham-text-xs);"
                     >{Map.get(@form_values, Atom.to_string(field.key), "")}</textarea>
                   <% else %>
                     <input
@@ -215,24 +206,20 @@
                       id={"config-#{field.key}"}
                       value={Map.get(@form_values, Atom.to_string(field.key), "")}
                       placeholder={if field.default, do: "Default: #{field.default}", else: ""}
-                      class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      class="search-input"
+                      style="padding: 8px 12px;"
                     />
                   <% end %>
                 <% end %>
               <% end %>
             </div>
 
-            <div class="pt-4 border-t border-gray-200">
-              <button
-                type="submit"
-                class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
-              >
-                Save Configuration
-              </button>
+            <div style="padding-top: var(--cham-space-4); border-top: 1px solid var(--cham-border-subtle);">
+              <button type="submit" class="btn btn-primary">Save Configuration</button>
             </div>
           </form>
         </div>
       </div>
     </div>
-  </div>
+  </main>
 </div>

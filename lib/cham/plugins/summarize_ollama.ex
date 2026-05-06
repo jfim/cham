@@ -191,7 +191,7 @@ defmodule Cham.Plugins.SummarizeOllama.SummarizeStage do
                filenames: ["summary.md"]
              }
            ],
-           item_metadata: %{},
+           item_metadata: %{"summary_excerpt" => summary_excerpt(summary)},
            provenance: %{"model" => model}
          }}
 
@@ -209,5 +209,32 @@ defmodule Cham.Plugins.SummarizeOllama.SummarizeStage do
 
   defp get_config do
     Cham.Plugin.Config.read("summarize_ollama")
+  end
+
+  @excerpt_length 280
+
+  @doc """
+  Strips Markdown formatting and returns the first #{@excerpt_length} characters
+  of the summary as a single line of plain text. Used for the dashboard list
+  view blurb.
+  """
+  def summary_excerpt(markdown) when is_binary(markdown) do
+    markdown
+    |> String.replace(~r/```[^`]*```/s, " ")
+    |> String.replace(~r/`([^`]*)`/, "\\1")
+    |> String.replace(~r/!\[[^\]]*\]\([^)]*\)/, " ")
+    |> String.replace(~r/\[([^\]]*)\]\([^)]*\)/, "\\1")
+    |> String.replace(~r/<[^>]+>/, " ")
+    |> String.replace(~r/^\s{0,3}\#{1,6}\s+/m, "")
+    |> String.replace(~r/^\s*[-*+]\s+/m, "")
+    |> String.replace(~r/^\s*\d+\.\s+/m, "")
+    |> String.replace(~r/^\s*>\s?/m, "")
+    |> String.replace(~r/\*\*([^*]+)\*\*/, "\\1")
+    |> String.replace(~r/__([^_]+)__/, "\\1")
+    |> String.replace(~r/(?<![*\w])\*([^*\n]+)\*(?!\w)/, "\\1")
+    |> String.replace(~r/(?<![_\w])_([^_\n]+)_(?!\w)/, "\\1")
+    |> String.replace(~r/\s+/, " ")
+    |> String.trim()
+    |> String.slice(0, @excerpt_length)
   end
 end

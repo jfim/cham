@@ -22,12 +22,18 @@
         phx-click="toggle_in_progress"
       >
         <span>
-          <span class="caret">▶</span> In Progress
-          <span :if={@active_count > 0} style="opacity: 0.6;">({@active_count})</span>
+          <span class="caret">▶</span>
+          In Progress <span :if={@active_count > 0} style="opacity: 0.6;">({@active_count})</span>
         </span>
       </button>
-      <div :if={@show_in_progress} style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px;">
-        <div :if={Enum.empty?(@in_progress)} style="font-size: var(--cham-text-xs); color: var(--cham-fg-faint); padding: 0 var(--cham-space-2);">
+      <div
+        :if={@show_in_progress}
+        style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px;"
+      >
+        <div
+          :if={Enum.empty?(@in_progress)}
+          style="font-size: var(--cham-text-xs); color: var(--cham-fg-faint); padding: 0 var(--cham-space-2);"
+        >
           Nothing in progress
         </div>
         <.link
@@ -68,12 +74,18 @@
         phx-click="toggle_tags"
       >
         <span>
-          <span class="caret">▶</span> Tags
-          <span :if={map_size(@tag_counts) > 0} style="opacity: 0.6;">({map_size(@tag_counts)})</span>
+          <span class="caret">▶</span>
+          Tags
+          <span :if={map_size(@tag_counts) > 0} style="opacity: 0.6;">
+            ({map_size(@tag_counts)})
+          </span>
         </span>
       </button>
       <div :if={@show_tags} style="margin-top: 6px; overflow-y: auto;">
-        <div :if={map_size(@tag_counts) == 0} style="font-size: var(--cham-text-xs); color: var(--cham-fg-faint);">
+        <div
+          :if={map_size(@tag_counts) == 0}
+          style="font-size: var(--cham-text-xs); color: var(--cham-fg-faint);"
+        >
           No tags yet
         </div>
         <div style="display: flex; flex-direction: column; gap: 2px;">
@@ -83,7 +95,9 @@
             phx-value-tag={tag}
             class={["facet", @active_tag == tag && "is-active"]}
           >
-            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{tag}</span>
+            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              {tag}
+            </span>
             <span class="count">{count}</span>
           </button>
         </div>
@@ -135,7 +149,9 @@
 
       <%!-- Empty state --%>
       <div :if={Enum.empty?(@items) && @total_count == 0} class="empty">
-        <p style="margin: 0 0 var(--cham-space-4);">Nothing archived yet. Submit your first URL to get started.</p>
+        <p style="margin: 0 0 var(--cham-space-4);">
+          Nothing archived yet. Submit your first URL to get started.
+        </p>
         <button class="btn btn-primary" phx-click={show_modal("submit-modal")}>
           <.icon name="hero-plus" class="h-4 w-4" /> Submit your first URL
         </button>
@@ -182,7 +198,8 @@
           <div class="doc-thumb">
             <div class="doc-page">
               <div class="l h"></div>
-              <div :for={w <- [80, 60, 75, 90, 65, 80, 70, 85]} class="l" style={"width: #{w}%;"}></div>
+              <div :for={w <- [80, 60, 75, 90, 65, 80, 70, 85]} class="l" style={"width: #{w}%;"}>
+              </div>
             </div>
           </div>
           <div class="doc-meta">
@@ -194,7 +211,10 @@
 
       <%!-- List rows for articles/other, grouped by day --%>
       <div :if={not Enum.empty?(@items) && @active_type not in ["video", "document"]}>
-        <section :for={{label, group_items} <- group_items_by_day(@items)} style="margin-bottom: var(--cham-space-6);">
+        <section
+          :for={{label, group_items} <- group_items_by_day(@items)}
+          style="margin-bottom: var(--cham-space-6);"
+        >
           <h2 class="sidebar-eyebrow" style="margin-bottom: var(--cham-space-2);">{label}</h2>
           <div>
             <.link
@@ -207,10 +227,10 @@
                   {Cham.Items.best_title(item) || item.title || truncate_url(item.url)}
                 </h3>
                 <p
-                  :if={excerpt = item.metadata["excerpt"]}
+                  :if={blurb = item.metadata["excerpt"] || item.metadata["summary_excerpt"]}
                   class="row-excerpt"
                 >
-                  {excerpt}
+                  {blurb}
                 </p>
                 <div class="row-meta">
                   <.content_type_badge type={item.content_type} />
@@ -261,7 +281,11 @@
   <div style="font: var(--cham-fw-semibold) var(--cham-text-xl)/1.2 var(--cham-font-display); color: var(--cham-fg-strong); margin-bottom: var(--cham-space-4);">
     Add URL
   </div>
-  <form id="submit-form" phx-submit="submit_url" style="display: flex; flex-direction: column; gap: var(--cham-space-4);">
+  <form
+    id="submit-form"
+    phx-submit="submit_url"
+    style="display: flex; flex-direction: column; gap: var(--cham-space-4);"
+  >
     <div>
       <input
         type="url"
@@ -272,7 +296,12 @@
         style="padding: 10px 14px;"
         phx-mounted={JS.focus()}
       />
-      <p :if={@submit_error} style="margin-top: 4px; font-size: var(--cham-text-sm); color: var(--cham-stage-fail-fg);">{@submit_error}</p>
+      <p
+        :if={@submit_error}
+        style="margin-top: 4px; font-size: var(--cham-text-sm); color: var(--cham-stage-fail-fg);"
+      >
+        {@submit_error}
+      </p>
     </div>
     <div style="display: flex; justify-content: flex-end; gap: var(--cham-space-2);">
       <button type="submit" class="btn btn-primary">Submit</button>

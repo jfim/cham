@@ -87,6 +87,41 @@ defmodule Cham.Plugins.SummarizeOllamaTest do
     end
   end
 
+  describe "summary_excerpt/1" do
+    test "strips headings, lists, bold, and collapses whitespace" do
+      markdown = """
+      # Title
+
+      This is a **bold** point about _Elixir_.
+
+      - first item
+      - second item
+      """
+
+      assert SummarizeStage.summary_excerpt(markdown) ==
+               "Title This is a bold point about Elixir. first item second item"
+    end
+
+    test "strips link syntax keeping link text" do
+      markdown = "See [the docs](https://example.com) for more."
+      assert SummarizeStage.summary_excerpt(markdown) == "See the docs for more."
+    end
+
+    test "strips fenced code blocks and inline code" do
+      markdown = "Use `mix test` to run tests.\n\n```\nIO.puts(\"hi\")\n```\n\nAfter."
+      result = SummarizeStage.summary_excerpt(markdown)
+      assert result =~ "Use mix test to run tests."
+      assert result =~ "After."
+      refute result =~ "IO.puts"
+    end
+
+    test "truncates to 280 characters" do
+      markdown = String.duplicate("word ", 200)
+      result = SummarizeStage.summary_excerpt(markdown)
+      assert String.length(result) == 280
+    end
+  end
+
   describe "perform/4 with Bypass" do
     setup do
       bypass = Bypass.open()

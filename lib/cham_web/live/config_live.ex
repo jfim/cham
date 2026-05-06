@@ -170,7 +170,7 @@ defmodule ChamWeb.ConfigLive do
   defp section_name("enabled_plugins"), do: "Enabled Plugins"
   defp section_name("display"), do: "Display"
   defp section_name("pipeline"), do: "Pipelines"
-  defp section_name(ns), do: ns
+  defp section_name(ns), do: ns |> String.split(".") |> List.last() |> humanize_key()
 
   defp section_description("desired_artifacts"),
     do: "Configure which artifacts are produced per content type"

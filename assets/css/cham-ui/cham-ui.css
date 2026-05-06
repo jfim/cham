@@ -576,7 +576,7 @@ body {
   color: var(--cham-fg);
   margin: 0 0 1.1em;
 }
-.reader-prose p:first-child::first-letter {
+.reader-prose > p:first-child::first-letter {
   font-size: 3em;
   font-weight: var(--cham-fw-bold);
   float: left;

@@ -1,7 +1,11 @@
 <div class="item-detail-shell">
   <%!-- Top Bar --%>
   <div class="item-topbar">
-    <.link navigate={@return_path} class="iconbtn" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 4px 8px; font-size: var(--cham-text-sm); color: var(--cham-fg-muted);">
+    <.link
+      navigate={@return_path}
+      class="iconbtn"
+      style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 4px 8px; font-size: var(--cham-text-sm); color: var(--cham-fg-muted);"
+    >
       <.icon name="hero-arrow-left-mini" class="h-4 w-4" /> Back to archive
     </.link>
     <.content_type_badge :if={@item.content_type} type={@item.content_type} />
@@ -18,17 +22,35 @@
     <article class="reader-paper">
       <h1>{@item.title || "Untitled"}</h1>
       <div class="reader-byline">
-        <a :if={@item.url} href={@item.url} target="_blank" rel="noopener">{domain_from_url(@item.url)}</a>
+        <a :if={@item.url} href={@item.url} target="_blank" rel="noopener">
+          {domain_from_url(@item.url)}
+        </a>
         <span :if={@item.url} class="sep">·</span>
         <.relative_time at={@item.inserted_at} />
+        <%= if video_uploader(@item) do %>
+          <span class="sep">·</span>
+          <span>{video_uploader(@item)}</span>
+        <% end %>
+        <%= if video_duration(@item) do %>
+          <span class="sep">·</span>
+          <span style="font-family: var(--cham-font-mono);">{video_duration(@item)}</span>
+        <% end %>
         <%= if (@item.tags || []) != [] do %>
           <span class="sep">·</span>
-          <span :for={tag <- @item.tags || []} style="font-family: var(--cham-font-mono);">#{tag}</span>
+          <span :for={tag <- @item.tags || []} style="font-family: var(--cham-font-mono);">
+            #{tag}
+          </span>
         <% end %>
         <%= if @subscription do %>
           <span class="sep">·</span>
-          <span>from
-            <.link navigate={~p"/subscriptions/#{@subscription.id}"} style="color: var(--cham-accent); text-decoration: none;">{@subscription.title}</.link>
+          <span>
+            from
+            <.link
+              navigate={~p"/subscriptions/#{@subscription.id}"}
+              style="color: var(--cham-accent); text-decoration: none;"
+            >
+              {@subscription.title}
+            </.link>
           </span>
         <% end %>
       </div>
@@ -50,10 +72,14 @@
               Subscribe to {@feed_metadata["title"]}
             </h2>
             <%= if @feed_metadata["description"] do %>
-              <p style="font-size: var(--cham-text-sm); color: var(--cham-fg-muted); margin: 0 0 var(--cham-space-4);">{@feed_metadata["description"]}</p>
+              <p style="font-size: var(--cham-text-sm); color: var(--cham-fg-muted); margin: 0 0 var(--cham-space-4);">
+                {@feed_metadata["description"]}
+              </p>
             <% end %>
 
-            <h3 class="sidebar-eyebrow" style="margin-bottom: var(--cham-space-2);">Recent entries</h3>
+            <h3 class="sidebar-eyebrow" style="margin-bottom: var(--cham-space-2);">
+              Recent entries
+            </h3>
             <ul style="font-size: var(--cham-text-sm); margin: 0 0 var(--cham-space-4); padding-left: var(--cham-space-5);">
               <%= for entry <- Enum.take(@feed_metadata["entries"] || [], 10) do %>
                 <li style="padding: 2px 0;">
@@ -65,15 +91,32 @@
               <% end %>
             </ul>
 
-            <.form for={%{}} phx-submit="subscribe" style="display: flex; flex-direction: column; gap: var(--cham-space-3); max-width: 28rem;">
+            <.form
+              for={%{}}
+              phx-submit="subscribe"
+              style="display: flex; flex-direction: column; gap: var(--cham-space-3); max-width: 28rem;"
+            >
               <div>
-                <label style="display: block; font-size: var(--cham-text-sm); font-weight: var(--cham-fw-medium); margin-bottom: 4px;">Title</label>
-                <input name="title" value={@feed_metadata["title"]} class="search-input" style="padding: 8px 12px;" />
+                <label style="display: block; font-size: var(--cham-text-sm); font-weight: var(--cham-fw-medium); margin-bottom: 4px;">
+                  Title
+                </label>
+                <input
+                  name="title"
+                  value={@feed_metadata["title"]}
+                  class="search-input"
+                  style="padding: 8px 12px;"
+                />
               </div>
 
               <div>
-                <label style="display: block; font-size: var(--cham-text-sm); font-weight: var(--cham-fw-medium); margin-bottom: 4px;">Poll interval</label>
-                <select name="poll_interval_seconds" class="search-input" style="padding: 8px 12px;">
+                <label style="display: block; font-size: var(--cham-text-sm); font-weight: var(--cham-fw-medium); margin-bottom: 4px;">
+                  Poll interval
+                </label>
+                <select
+                  name="poll_interval_seconds"
+                  class="search-input"
+                  style="padding: 8px 12px;"
+                >
                   <option value="3600">1 hour</option>
                   <option value="21600">6 hours</option>
                   <option value="86400" selected>24 hours</option>
@@ -81,17 +124,30 @@
               </div>
 
               <fieldset style="border: 1px solid var(--cham-border-subtle); border-radius: var(--cham-radius-md); padding: var(--cham-space-3);">
-                <legend style="font-size: var(--cham-text-sm); font-weight: var(--cham-fw-medium); padding: 0 4px;">Backfill</legend>
+                <legend style="font-size: var(--cham-text-sm); font-weight: var(--cham-fw-medium); padding: 0 4px;">
+                  Backfill
+                </legend>
                 <label style="display: block; font-size: var(--cham-text-sm); margin-bottom: 4px;">
-                  <input type="radio" name="backfill[mode]" value="none" checked /> None (ingest new items only)
+                  <input type="radio" name="backfill[mode]" value="none" checked />
+                  None (ingest new items only)
                 </label>
                 <label style="display: block; font-size: var(--cham-text-sm); margin-bottom: 4px;">
                   <input type="radio" name="backfill[mode]" value="last_n" /> Last
-                  <input type="number" name="backfill[n]" value="10" min="1" style="width: 4rem; padding: 2px 6px; border: 1px solid var(--cham-border-input); border-radius: var(--cham-radius-sm);" /> items
+                  <input
+                    type="number"
+                    name="backfill[n]"
+                    value="10"
+                    min="1"
+                    style="width: 4rem; padding: 2px 6px; border: 1px solid var(--cham-border-input); border-radius: var(--cham-radius-sm);"
+                  /> items
                 </label>
                 <label style="display: block; font-size: var(--cham-text-sm);">
                   <input type="radio" name="backfill[mode]" value="since" /> Since
-                  <input type="date" name="backfill[date]" style="padding: 2px 6px; border: 1px solid var(--cham-border-input); border-radius: var(--cham-radius-sm);" />
+                  <input
+                    type="date"
+                    name="backfill[date]"
+                    style="padding: 2px 6px; border: 1px solid var(--cham-border-input); border-radius: var(--cham-radius-sm);"
+                  />
                 </label>
               </fieldset>
 
@@ -104,27 +160,59 @@
       <% end %>
 
       <%!-- Processing View --%>
-      <div :if={is_processing?(@item)} style="margin-top: var(--cham-space-6); padding: var(--cham-space-5); border: 1px solid var(--cham-border-subtle); border-radius: var(--cham-radius-md); background: var(--cham-surface);">
-        <h2 class="sidebar-eyebrow" style="margin: 0 0 var(--cham-space-3);">Processing pipeline</h2>
-        <div :if={@stage_history == []} style="font-size: var(--cham-text-sm); color: var(--cham-fg-faint);">
+      <div
+        :if={is_processing?(@item)}
+        style="margin-top: var(--cham-space-6); padding: var(--cham-space-5); border: 1px solid var(--cham-border-subtle); border-radius: var(--cham-radius-md); background: var(--cham-surface);"
+      >
+        <h2 class="sidebar-eyebrow" style="margin: 0 0 var(--cham-space-3);">
+          Processing pipeline
+        </h2>
+        <div
+          :if={@stage_history == []}
+          style="font-size: var(--cham-text-sm); color: var(--cham-fg-faint);"
+        >
           Waiting for pipeline to start...
         </div>
-        <div :if={@stage_history != []} style="display: flex; flex-direction: column; gap: var(--cham-space-2);">
-          <div :for={stage <- @stage_history} style="display: flex; align-items: center; gap: var(--cham-space-3); font-size: var(--cham-text-sm);">
+        <div
+          :if={@stage_history != []}
+          style="display: flex; flex-direction: column; gap: var(--cham-space-2);"
+        >
+          <div
+            :for={stage <- @stage_history}
+            style="display: flex; align-items: center; gap: var(--cham-space-3); font-size: var(--cham-text-sm);"
+          >
             <.status_badge status={stage.status} />
-            <span style="font-weight: var(--cham-fw-medium); color: var(--cham-fg-muted); font-family: var(--cham-font-mono);">{stage.stage}</span>
-            <span :if={stage.duration_ms} style="color: var(--cham-fg-faint); font-family: var(--cham-font-mono);">{stage.duration_ms}ms</span>
-            <span :if={stage.error} style="color: var(--cham-stage-fail-fg); font-size: var(--cham-text-xs);">{stage.error}</span>
+            <span style="font-weight: var(--cham-fw-medium); color: var(--cham-fg-muted); font-family: var(--cham-font-mono);">
+              {stage.stage}
+            </span>
+            <span
+              :if={stage.duration_ms}
+              style="color: var(--cham-fg-faint); font-family: var(--cham-font-mono);"
+            >
+              {stage.duration_ms}ms
+            </span>
+            <span
+              :if={stage.error}
+              style="color: var(--cham-stage-fail-fg); font-size: var(--cham-text-xs);"
+            >
+              {stage.error}
+            </span>
           </div>
         </div>
         <div :for={{stage_id, prog} <- @progress} style="margin-top: var(--cham-space-2);">
-          <div style="font-size: var(--cham-text-xs); font-weight: var(--cham-fw-medium); color: var(--cham-fg-muted); margin-bottom: 4px;">{stage_id}</div>
+          <div style="font-size: var(--cham-text-xs); font-weight: var(--cham-fw-medium); color: var(--cham-fg-muted); margin-bottom: 4px;">
+            {stage_id}
+          </div>
           <.progress_bar progress={prog.progress} message={prog.message} />
         </div>
       </div>
 
       <%!-- Article body --%>
-      <div :if={@item.content_type == "article"} class="reader-prose" style="margin-top: var(--cham-space-6);">
+      <div
+        :if={@item.content_type == "article"}
+        class="reader-prose"
+        style="margin-top: var(--cham-space-6);"
+      >
         <.content_state state={@primary_content.state} error={@primary_content.error}>
           {raw(@primary_content.html || @primary_content.content)}
         </.content_state>
@@ -132,16 +220,27 @@
 
       <%!-- Video --%>
       <div :if={@item.content_type == "video"} style="margin-top: var(--cham-space-6);">
-        <div :if={@original_file_url} style="border: 1px solid var(--cham-border-subtle); border-radius: var(--cham-radius-md); overflow: hidden;">
+        <div
+          :if={@original_file_url}
+          style="border: 1px solid var(--cham-border-subtle); border-radius: var(--cham-radius-md); overflow: hidden;"
+        >
           <video controls style="width: 100%; display: block;" preload="metadata">
             <source src={@original_file_url} /> Your browser does not support the video tag.
           </video>
         </div>
-        <div :if={!@original_file_url} style="aspect-ratio: 16/9; background: var(--cham-surface-sunken); border-radius: var(--cham-radius-md); display: flex; align-items: center; justify-content: center;">
+        <div
+          :if={!@original_file_url}
+          style="aspect-ratio: 16/9; background: var(--cham-surface-sunken); border-radius: var(--cham-radius-md); display: flex; align-items: center; justify-content: center;"
+        >
           <div style="text-align: center; color: var(--cham-fg-faint);">
             <.icon name="hero-play-circle" class="h-12 w-12" />
             <p>Video file not available</p>
-            <a href={@item.url} target="_blank" rel="noopener" style="color: var(--cham-accent); font-size: var(--cham-text-sm);">
+            <a
+              href={@item.url}
+              target="_blank"
+              rel="noopener"
+              style="color: var(--cham-accent); font-size: var(--cham-text-sm);"
+            >
               Watch on original site ↗
             </a>
           </div>
@@ -150,14 +249,25 @@
 
       <%!-- Document --%>
       <div :if={@item.content_type == "document"} style="margin-top: var(--cham-space-6);">
-        <div :if={@original_file_url} style="border: 1px solid var(--cham-border-subtle); border-radius: var(--cham-radius-md); overflow: hidden;">
+        <div
+          :if={@original_file_url}
+          style="border: 1px solid var(--cham-border-subtle); border-radius: var(--cham-radius-md); overflow: hidden;"
+        >
           <iframe src={@original_file_url} style="width: 100%; height: 70vh; border: 0;"></iframe>
         </div>
-        <div :if={!@original_file_url} style="aspect-ratio: 3/4; max-height: 24rem; background: var(--cham-surface-sunken); border-radius: var(--cham-radius-md); display: flex; align-items: center; justify-content: center;">
+        <div
+          :if={!@original_file_url}
+          style="aspect-ratio: 3/4; max-height: 24rem; background: var(--cham-surface-sunken); border-radius: var(--cham-radius-md); display: flex; align-items: center; justify-content: center;"
+        >
           <div style="text-align: center; color: var(--cham-fg-faint);">
             <.icon name="hero-document-text" class="h-12 w-12" />
             <p>PDF file not available</p>
-            <a href={@item.url} target="_blank" rel="noopener" style="color: var(--cham-accent); font-size: var(--cham-text-sm);">
+            <a
+              href={@item.url}
+              target="_blank"
+              rel="noopener"
+              style="color: var(--cham-accent); font-size: var(--cham-text-sm);"
+            >
               View original ↗
             </a>
           </div>
@@ -165,12 +275,32 @@
       </div>
 
       <%!-- Other artifacts --%>
-      <div :if={@item.content_type not in ["article", "video", "document", "feed"]} style="margin-top: var(--cham-space-6); padding: var(--cham-space-5); border: 1px solid var(--cham-border-subtle); border-radius: var(--cham-radius-md); background: var(--cham-surface);">
-        <p style="font-size: var(--cham-text-sm); color: var(--cham-fg-soft); margin: 0 0 var(--cham-space-3);">Available artifacts:</p>
-        <div :if={@artifacts == []} style="font-size: var(--cham-text-sm); color: var(--cham-fg-faint);">No artifacts yet</div>
-        <div :for={artifact <- @artifacts} style="font-size: var(--cham-text-sm); color: var(--cham-fg-muted); margin-bottom: 4px;">
-          <span style="font-family: var(--cham-font-mono); font-size: var(--cham-text-xs); background: var(--cham-surface-sunken); padding: 1px 4px; border-radius: var(--cham-radius-sm);">{artifact.stage}</span>
-          <span :for={{k, v} <- artifact.labels} style="margin-left: 8px; color: var(--cham-fg-faint); font-family: var(--cham-font-mono);">{k}:{v}</span>
+      <div
+        :if={@item.content_type not in ["article", "video", "document", "feed"]}
+        style="margin-top: var(--cham-space-6); padding: var(--cham-space-5); border: 1px solid var(--cham-border-subtle); border-radius: var(--cham-radius-md); background: var(--cham-surface);"
+      >
+        <p style="font-size: var(--cham-text-sm); color: var(--cham-fg-soft); margin: 0 0 var(--cham-space-3);">
+          Available artifacts:
+        </p>
+        <div
+          :if={@artifacts == []}
+          style="font-size: var(--cham-text-sm); color: var(--cham-fg-faint);"
+        >
+          No artifacts yet
+        </div>
+        <div
+          :for={artifact <- @artifacts}
+          style="font-size: var(--cham-text-sm); color: var(--cham-fg-muted); margin-bottom: 4px;"
+        >
+          <span style="font-family: var(--cham-font-mono); font-size: var(--cham-text-xs); background: var(--cham-surface-sunken); padding: 1px 4px; border-radius: var(--cham-radius-sm);">
+            {artifact.stage}
+          </span>
+          <span
+            :for={{k, v} <- artifact.labels}
+            style="margin-left: 8px; color: var(--cham-fg-faint); font-family: var(--cham-font-mono);"
+          >
+            {k}:{v}
+          </span>
         </div>
       </div>
     </article>
@@ -178,7 +308,8 @@
 
   <%!-- Bottom Pane (fixed in shell) --%>
   <div class="pane" id="detail-pane" phx-hook="PaneResize">
-    <div class="pane-resize-handle" data-resize-handle aria-label="Resize pane" role="separator"></div>
+    <div class="pane-resize-handle" data-resize-handle aria-label="Resize pane" role="separator">
+    </div>
     <div class="pane-tabs">
       <button
         :for={tab <- tabs_for(@item)}
@@ -205,10 +336,16 @@
       </div>
 
       <div :if={@active_tab == "pipeline"} style="padding: var(--cham-space-5);">
-        <div :if={@stage_history == []} style="font-size: var(--cham-text-sm); color: var(--cham-fg-faint); padding: var(--cham-space-4) 0;">
+        <div
+          :if={@stage_history == []}
+          style="font-size: var(--cham-text-sm); color: var(--cham-fg-faint); padding: var(--cham-space-4) 0;"
+        >
           No pipeline stages have run yet.
         </div>
-        <table :if={@stage_history != []} style="width: 100%; font-size: var(--cham-text-sm); border-collapse: collapse;">
+        <table
+          :if={@stage_history != []}
+          style="width: 100%; font-size: var(--cham-text-sm); border-collapse: collapse;"
+        >
           <thead>
             <tr style="text-align: left; font-size: var(--cham-text-xs); font-weight: var(--cham-fw-semibold); color: var(--cham-fg-faint); text-transform: uppercase; letter-spacing: var(--cham-track-wider); border-bottom: 1px solid var(--cham-border-subtle);">
               <th style="padding-bottom: 8px; padding-right: 16px;">Stage</th>
@@ -219,23 +356,47 @@
             </tr>
           </thead>
           <tbody>
-            <tr :for={stage <- @stage_history} style="border-bottom: 1px solid var(--cham-border-subtle);">
-              <td style="padding: 8px 16px 8px 0; font-weight: var(--cham-fw-medium); color: var(--cham-fg-muted); font-family: var(--cham-font-mono);">{stage.stage}</td>
+            <tr
+              :for={stage <- @stage_history}
+              style="border-bottom: 1px solid var(--cham-border-subtle);"
+            >
+              <td style="padding: 8px 16px 8px 0; font-weight: var(--cham-fw-medium); color: var(--cham-fg-muted); font-family: var(--cham-font-mono);">
+                {stage.stage}
+              </td>
               <td style="padding: 8px 16px 8px 0;"><.status_badge status={stage.status} /></td>
-              <td style="padding: 8px 16px 8px 0; color: var(--cham-fg-soft); font-family: var(--cham-font-mono);">{format_duration(stage.duration_ms)}</td>
+              <td style="padding: 8px 16px 8px 0; color: var(--cham-fg-soft); font-family: var(--cham-font-mono);">
+                {format_duration(stage.duration_ms)}
+              </td>
               <td style="padding: 8px 16px 8px 0; color: var(--cham-fg-soft);">
                 <.relative_time :if={stage.started_at} at={stage.started_at} />
               </td>
               <td style="padding: 8px 0; color: var(--cham-fg-soft);">
-                <span :if={stage.error} style="color: var(--cham-stage-fail-fg); font-size: var(--cham-text-xs); word-break: break-all;">{String.slice(stage.error || "", 0, 200)}</span>
-                <span :if={stage.snooze_reason} style="color: var(--cham-stage-active-fg); font-size: var(--cham-text-xs);">Snoozed: {stage.snooze_reason}</span>
-                <span :if={stage.attempt && stage.attempt > 1} style="color: var(--cham-fg-faint); font-size: var(--cham-text-xs);">Attempt {stage.attempt}</span>
+                <span
+                  :if={stage.error}
+                  style="color: var(--cham-stage-fail-fg); font-size: var(--cham-text-xs); word-break: break-all;"
+                >
+                  {String.slice(stage.error || "", 0, 200)}
+                </span>
+                <span
+                  :if={stage.snooze_reason}
+                  style="color: var(--cham-stage-active-fg); font-size: var(--cham-text-xs);"
+                >
+                  Snoozed: {stage.snooze_reason}
+                </span>
+                <span
+                  :if={stage.attempt && stage.attempt > 1}
+                  style="color: var(--cham-fg-faint); font-size: var(--cham-text-xs);"
+                >
+                  Attempt {stage.attempt}
+                </span>
               </td>
             </tr>
           </tbody>
         </table>
         <div :for={{stage_id, prog} <- @progress} style="margin-top: var(--cham-space-4);">
-          <div style="font-size: var(--cham-text-xs); font-weight: var(--cham-fw-medium); color: var(--cham-fg-muted); margin-bottom: 4px;">{stage_id}</div>
+          <div style="font-size: var(--cham-text-xs); font-weight: var(--cham-fw-medium); color: var(--cham-fg-muted); margin-bottom: 4px;">
+            {stage_id}
+          </div>
           <.progress_bar progress={prog.progress} message={prog.message} />
         </div>
       </div>
@@ -244,7 +405,10 @@
         <pre>{@metadata_json}</pre>
       </div>
 
-      <div :if={@active_tab == "chat"} style="text-align: center; padding: var(--cham-space-8); color: var(--cham-fg-faint);">
+      <div
+        :if={@active_tab == "chat"}
+        style="text-align: center; padding: var(--cham-space-8); color: var(--cham-fg-faint);"
+      >
         <.icon name="hero-chat-bubble-left-right" class="h-8 w-8" />
         <p>Chat coming soon</p>
       </div>
@@ -256,8 +420,12 @@
           style="display: flex; align-items: flex-start; justify-content: space-between; gap: var(--cham-space-4); padding: var(--cham-space-4); background: var(--cham-stage-fail-bg); border: 1px solid var(--cham-stage-fail-fg); border-radius: var(--cham-radius-md);"
         >
           <div>
-            <h4 style="color: var(--cham-stage-fail-fg); margin: 0 0 4px;">Retry failed stages</h4>
-            <p style="font-size: var(--cham-text-xs); color: var(--cham-fg-muted); margin: 0;">Clear failed stage executions and retry them.</p>
+            <h4 style="color: var(--cham-stage-fail-fg); margin: 0 0 4px;">
+              Retry failed stages
+            </h4>
+            <p style="font-size: var(--cham-text-xs); color: var(--cham-fg-muted); margin: 0;">
+              Clear failed stage executions and retry them.
+            </p>
           </div>
           <button phx-click="retry_failed" class="btn btn-danger" style="flex-shrink: 0;">
             <.icon name="hero-arrow-path-mini" class="h-4 w-4" /> Retry failed
@@ -275,8 +443,15 @@
               :for={stage_id <- unique_stages(@stage_history)}
               style="display: flex; align-items: center; justify-content: space-between; padding: 8px var(--cham-space-3); border: 1px solid var(--cham-border-subtle); border-radius: var(--cham-radius-md); background: var(--cham-surface);"
             >
-              <span style="font-size: var(--cham-text-sm); font-family: var(--cham-font-mono); color: var(--cham-fg-muted);">{stage_id}</span>
-              <button phx-click="invalidate_stage" phx-value-stage={stage_id} class="btn btn-ghost" style="padding: 4px 10px; font-size: var(--cham-text-xs);">
+              <span style="font-size: var(--cham-text-sm); font-family: var(--cham-font-mono); color: var(--cham-fg-muted);">
+                {stage_id}
+              </span>
+              <button
+                phx-click="invalidate_stage"
+                phx-value-stage={stage_id}
+                class="btn btn-ghost"
+                style="padding: 4px 10px; font-size: var(--cham-text-xs);"
+              >
                 <.icon name="hero-arrow-path-mini" class="h-3 w-3" /> Rerun
               </button>
             </div>
@@ -291,15 +466,21 @@
             </h4>
             <p style="font-size: var(--cham-text-xs); color: var(--cham-fg-muted); margin: 0;">
               {if @stage_history == [],
-                do: "No stages have run yet for this item. Re-trigger the orchestrator to schedule them.",
+                do:
+                  "No stages have run yet for this item. Re-trigger the orchestrator to schedule them.",
                 else: "Invalidate all stages and reprocess from scratch."}
             </p>
           </div>
           <button
             phx-click="reprocess_all"
-            data-confirm={if @stage_history == [], do: nil, else: "This will invalidate all stages and reprocess the item from scratch. Continue?"}
+            data-confirm={
+              if @stage_history == [],
+                do: nil,
+                else:
+                  "This will invalidate all stages and reprocess the item from scratch. Continue?"
+            }
             class="btn"
-            style={"flex-shrink: 0; background: var(--cham-stage-active-fg); color: var(--cham-fg-on-accent);"}
+            style="flex-shrink: 0; background: var(--cham-stage-active-fg); color: var(--cham-fg-on-accent);"
           >
             <.icon name="hero-arrow-path-mini" class="h-4 w-4" />
             {if @stage_history == [], do: "Re-kick", else: "Reprocess all"}

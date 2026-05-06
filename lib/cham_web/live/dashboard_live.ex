@@ -195,7 +195,10 @@ defmodule ChamWeb.DashboardLive do
 
   defp hero_text(assigns) do
     n = fn count -> "<strong>#{count}</strong>" end
-    q = fn s -> "&ldquo;#{Phoenix.HTML.html_escape(s) |> Phoenix.HTML.safe_to_string()}&rdquo;" end
+
+    q = fn s ->
+      "&ldquo;#{Phoenix.HTML.html_escape(s) |> Phoenix.HTML.safe_to_string()}&rdquo;"
+    end
 
     cond do
       assigns.search_query && assigns.search_query != "" ->
@@ -281,7 +284,13 @@ defmodule ChamWeb.DashboardLive do
         _ -> nil
       end
 
-    [duration, host]
+    uploader =
+      case item.metadata && item.metadata["uploader"] do
+        u when is_binary(u) and u != "" -> u
+        _ -> nil
+      end
+
+    [duration, uploader, host]
     |> Enum.reject(&is_nil/1)
     |> case do
       [] -> item.url || ""

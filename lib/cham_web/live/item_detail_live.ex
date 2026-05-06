@@ -389,6 +389,43 @@ defmodule ChamWeb.ItemDetailLive do
     end
   end
 
+  defp video_uploader(%{content_type: type, metadata: meta})
+       when type in ["video", "podcast"] and is_map(meta) do
+    case Map.get(meta, "uploader") do
+      u when is_binary(u) and u != "" -> u
+      _ -> nil
+    end
+  end
+
+  defp video_uploader(_), do: nil
+
+  defp video_duration(%{content_type: type, metadata: meta})
+       when type in ["video", "podcast"] and is_map(meta) do
+    case Map.get(meta, "duration_seconds") || Map.get(meta, "duration") do
+      s when is_integer(s) and s > 0 -> format_seconds(s)
+      s when is_float(s) and s > 0 -> format_seconds(round(s))
+      _ -> nil
+    end
+  end
+
+  defp video_duration(_), do: nil
+
+  defp format_seconds(seconds) when seconds >= 3600 do
+    h = div(seconds, 3600)
+    m = div(rem(seconds, 3600), 60)
+    s = rem(seconds, 60)
+    "#{h}:#{pad2(m)}:#{pad2(s)}"
+  end
+
+  defp format_seconds(seconds) do
+    m = div(seconds, 60)
+    s = rem(seconds, 60)
+    "#{m}:#{pad2(s)}"
+  end
+
+  defp pad2(n) when n < 10, do: "0#{n}"
+  defp pad2(n), do: Integer.to_string(n)
+
   defp is_processing?(item), do: item.status in ["bootstrapping", "processing"]
 
   defp has_failed_stages?(stage_history) do

@@ -1,4 +1,12 @@
 <div class="app">
+  <%!-- Mobile sidebar backdrop --%>
+  <div
+    class="sidebar-backdrop"
+    phx-click={JS.remove_class("is-open", to: ".sidebar, .sidebar-backdrop")}
+    aria-hidden="true"
+  >
+  </div>
+
   <%!-- Sidebar --%>
   <aside class="sidebar">
     <div class="sidebar-brand">
@@ -129,6 +137,20 @@
 
   <%!-- Main column --%>
   <div class="main">
+    <%!-- Mobile topbar with hamburger --%>
+    <div class="mobile-topbar">
+      <button
+        type="button"
+        class="hamburger"
+        aria-label="Open navigation"
+        phx-click={JS.add_class("is-open", to: ".sidebar, .sidebar-backdrop")}
+      >
+        <.icon name="hero-bars-3" class="h-5 w-5" />
+      </button>
+      <.link navigate={~p"/"} class="wordmark">Cham</.link>
+      <span class="khmer">ចាំ</span>
+    </div>
+
     <div class="dashboard">
       <h1 class="hero">{raw(hero_text(assigns))}</h1>
       <p class="hero-sub">A pocket for the entire web.</p>

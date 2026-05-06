@@ -19,7 +19,7 @@ body {
 
 /* ------- App shell ----------------------------------------------------- */
 
-.app { display: flex; min-height: 100vh; }
+.app { display: flex; min-height: 100dvh; }
 
 .sidebar {
   width: var(--cham-sidebar-w);
@@ -32,8 +32,81 @@ body {
   flex-shrink: 0;
   position: sticky;
   top: 0;
-  height: 100vh;
+  height: 100dvh;
   overflow-y: auto;
+}
+
+.sidebar-backdrop { display: none; }
+.mobile-topbar { display: none; }
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(280px, 85vw);
+    height: 100dvh;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+  }
+  .sidebar.is-open {
+    transform: translateX(0);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 40;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .sidebar-backdrop.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    gap: var(--cham-space-3);
+    padding: var(--cham-space-3) var(--cham-space-4);
+    border-bottom: 1px solid var(--cham-border-subtle);
+    background: var(--cham-bg);
+    position: sticky;
+    top: 0;
+    z-index: 30;
+  }
+  .mobile-topbar .hamburger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--cham-border);
+    border-radius: 8px;
+    background: var(--cham-surface);
+    color: var(--cham-fg-strong);
+    cursor: pointer;
+  }
+  .mobile-topbar .wordmark {
+    font: var(--cham-fw-bold) var(--cham-text-lg)/1 var(--cham-font-display);
+    color: var(--cham-fg-strong);
+    text-decoration: none;
+  }
+  .mobile-topbar .khmer {
+    font-family: "Noto Sans Khmer", var(--cham-font-display);
+    font-size: var(--cham-text-sm);
+    color: var(--cham-fg-faint);
+  }
+
+  .dashboard {
+    padding: var(--cham-space-6) var(--cham-space-4) var(--cham-space-6);
+  }
 }
 
 .sidebar-brand {

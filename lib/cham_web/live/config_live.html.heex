@@ -50,7 +50,7 @@
               class={["facet", @active_section && @active_section.namespace == backend.namespace && "is-active"]}
               style={[
                 "flex-direction: column; align-items: flex-start; gap: 2px; padding: var(--cham-space-2) var(--cham-space-3); height: auto;",
-                backend.schema == [] && " opacity: 0.5; cursor: not-allowed;"
+                if(backend.schema == [], do: " opacity: 0.5; cursor: not-allowed;", else: "")
               ]}
             >
               <span style="font-weight: var(--cham-fw-medium); font-size: var(--cham-text-sm); color: var(--cham-fg);">
@@ -74,7 +74,7 @@
             class={["facet", @active_section && @active_section.namespace == plugin.namespace && "is-active"]}
             style={[
               "flex-direction: column; align-items: flex-start; gap: 2px; padding: var(--cham-space-2) var(--cham-space-3); height: auto;",
-              !has_config?(plugin) && " opacity: 0.5; cursor: not-allowed;"
+              if(!has_config?(plugin), do: " opacity: 0.5; cursor: not-allowed;", else: "")
             ]}
           >
             <span style="font-weight: var(--cham-fw-medium); font-size: var(--cham-text-sm); color: var(--cham-fg);">

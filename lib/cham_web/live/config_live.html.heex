@@ -25,7 +25,7 @@
               phx-click="select_section"
               phx-value-namespace={section.namespace}
               phx-value-name={section.name}
-              class={["facet", @active_section && @active_section.namespace == section.namespace && "is-active"]}
+              class={["facet", "facet-stack", @active_section && @active_section.namespace == section.namespace && "is-active"]}
               style="flex-direction: column; align-items: flex-start; gap: 2px; padding: var(--cham-space-2) var(--cham-space-3); height: auto;"
             >
               <span style="font-weight: var(--cham-fw-medium); font-size: var(--cham-text-sm); color: var(--cham-fg);">
@@ -47,7 +47,7 @@
               phx-value-namespace={backend.namespace}
               phx-value-name={backend.name}
               disabled={backend.schema == []}
-              class={["facet", @active_section && @active_section.namespace == backend.namespace && "is-active"]}
+              class={["facet", "facet-stack", @active_section && @active_section.namespace == backend.namespace && "is-active"]}
               style={[
                 "flex-direction: column; align-items: flex-start; gap: 2px; padding: var(--cham-space-2) var(--cham-space-3); height: auto;",
                 if(backend.schema == [], do: " opacity: 0.5; cursor: not-allowed;", else: "")
@@ -71,7 +71,7 @@
             phx-value-namespace={plugin.namespace}
             phx-value-name={plugin.name}
             disabled={!has_config?(plugin)}
-            class={["facet", @active_section && @active_section.namespace == plugin.namespace && "is-active"]}
+            class={["facet", "facet-stack", @active_section && @active_section.namespace == plugin.namespace && "is-active"]}
             style={[
               "flex-direction: column; align-items: flex-start; gap: 2px; padding: var(--cham-space-2) var(--cham-space-3); height: auto;",
               if(!has_config?(plugin), do: " opacity: 0.5; cursor: not-allowed;", else: "")

@@ -88,8 +88,15 @@ body {
   color: var(--cham-fg-on-accent);
   font-weight: var(--cham-fw-medium);
 }
+.facet.facet-stack.is-active {
+  background: var(--cham-accent-tint);
+  color: var(--cham-accent);
+  box-shadow: inset 3px 0 0 var(--cham-accent);
+}
+.facet.facet-stack.is-active > span:first-child { color: var(--cham-accent) !important; }
 .facet .count { color: var(--cham-fg-faint); font-variant-numeric: tabular-nums; font-family: var(--cham-font-mono); font-size: var(--cham-text-xs); }
 .facet.is-active .count { color: rgba(255,255,255,0.7); }
+.facet.facet-stack.is-active .count { color: var(--cham-accent); opacity: 0.75; }
 
 .disclosure-btn {
   display: flex;

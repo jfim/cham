@@ -23,6 +23,7 @@
   padding-top: var(--cham-space-8);
   padding-bottom: var(--cham-space-8);
 }
+.item-detail-shell > .reader:focus { outline: none; }
 .item-detail-shell > .pane {
   position: static;
   flex-shrink: 0;

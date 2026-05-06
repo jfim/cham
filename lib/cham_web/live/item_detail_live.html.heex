@@ -18,7 +18,7 @@
   </div>
 
   <%!-- Reader column --%>
-  <div class="reader">
+  <div class="reader" tabindex="-1" phx-mounted={JS.focus()}>
     <article class="reader-paper">
       <h1>{@item.title || "Untitled"}</h1>
       <div class="reader-byline">

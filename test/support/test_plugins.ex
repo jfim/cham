@@ -169,6 +169,73 @@ defmodule Cham.TestPlugins.NewFallbackStage do
     do: {:ok, %{artifacts: [], item_metadata: %{}, provenance: %{}}}
 end
 
+defmodule Cham.TestPlugins.SpecializedBootstrapPlugin do
+  @behaviour Cham.Plugin
+
+  @impl true
+  def plugin_id, do: "specialized_bootstrap"
+  @impl true
+  def name, do: "Specialized Bootstrap"
+  @impl true
+  def description, do: "Specialized bootstrap stage that becomes :not_applicable after running"
+  @impl true
+  def config_schema, do: []
+  @impl true
+  def init(_context), do: {:ok, %{}}
+  @impl true
+  def stages(_state), do: [Cham.TestPlugins.SpecializedBootstrapStage]
+end
+
+defmodule Cham.TestPlugins.SpecializedBootstrapStage do
+  @behaviour Cham.Stage
+
+  @impl true
+  def name, do: "Specialized Bootstrap Stage"
+  @impl true
+  def description,
+    do:
+      "Specialized to URLs containing 'special'; reports :not_applicable once its derived marker exists"
+
+  @impl true
+  def input_matchers, do: [%{}]
+  @impl true
+  def output_labels do
+    [
+      %{"origin" => "original", "type" => "initial_download", "format" => "special"},
+      %{"origin" => "derived", "type" => "specialized_marker"}
+    ]
+  end
+
+  @impl true
+  def queue, do: :network
+  @impl true
+  def max_attempts, do: 3
+
+  @impl true
+  def can_process?(current_artifacts) do
+    already_done? =
+      Enum.any?(current_artifacts, fn l ->
+        l["origin"] == "derived" and l["type"] == "specialized_marker"
+      end)
+
+    has_special_url? =
+      Enum.any?(current_artifacts, fn l ->
+        url = l["url"]
+        is_binary(url) and String.contains?(url, "special")
+      end)
+
+    cond do
+      already_done? -> :not_applicable
+      has_special_url? -> {:ready, input_matchers(), []}
+      true -> :not_applicable
+    end
+  end
+
+  @impl true
+  def perform(_inputs, _dir, _desired, _item_id),
+    do: {:ok, %{artifacts: [], item_metadata: %{}, provenance: %{}}}
+end
+
 defmodule Cham.TestPlugins.RaisingStage do
   @behaviour Cham.Stage
 

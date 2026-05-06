@@ -214,6 +214,102 @@ defmodule Cham.Pipeline.OrchestratorTest do
 
       refute "old_fallback" in plugin_ids
     end
+
+    test "does not add fallback after a specialized bootstrap stage has completed" do
+      registry_name = :"specialized_registry_#{System.unique_integer([:positive])}"
+
+      {:ok, _pid} =
+        Registry.start_link(
+          name: registry_name,
+          plugin_order: ["specialized_bootstrap", "new_fallback"]
+        )
+
+      :ok =
+        Registry.register_plugin(
+          registry_name,
+          Cham.TestPlugins.SpecializedBootstrapPlugin,
+          %{}
+        )
+
+      :ok = Registry.register_plugin(registry_name, Cham.TestPlugins.NewFallbackPlugin, %{})
+
+      orchestrator_name = :"specialized_orchestrator_#{System.unique_integer([:positive])}"
+
+      {:ok, orchestrator_pid} =
+        Orchestrator.start_link(
+          name: orchestrator_name,
+          registry: registry_name,
+          recovery_interval: :infinity
+        )
+
+      Ecto.Adapters.SQL.Sandbox.allow(Cham.Repo, self(), orchestrator_pid)
+      :sys.get_state(orchestrator_name)
+
+      previous =
+        case Cham.Config.Manager.read_raw("pipeline") do
+          {:ok, raw} -> raw
+          _ -> %{}
+        end
+
+      :ok =
+        Cham.Config.Manager.write_all("pipeline", %{fallback_bootstrap_stage: "new_fallback"})
+
+      on_exit(fn -> Cham.Config.Manager.write_all("pipeline", previous) end)
+
+      url = "https://example.com/special-#{System.unique_integer([:positive])}"
+
+      {:ok, item} = Items.create_item(%{url: url, status: "bootstrapping"})
+
+      {:ok, _input} =
+        Items.create_artifact(%{
+          item_id: item.id,
+          stage: "input",
+          labels: %{"domain" => "example.com", "url" => url},
+          filenames: [],
+          path: "processing/input-special",
+          status: "produced"
+        })
+
+      # Simulate the specialized bootstrap stage having run: produced its
+      # original artifact, written the derived marker that flips its
+      # can_process? to :not_applicable, and recorded a completed execution.
+      {:ok, _produced} =
+        Items.create_artifact(%{
+          item_id: item.id,
+          stage: "specialized_bootstrap",
+          labels: %{"origin" => "original", "type" => "initial_download", "format" => "special"},
+          filenames: ["payload.bin"],
+          path: "processing/specialized_bootstrap-done",
+          status: "produced"
+        })
+
+      {:ok, _marker} =
+        Items.create_artifact(%{
+          item_id: item.id,
+          stage: "specialized_bootstrap",
+          labels: %{"origin" => "derived", "type" => "specialized_marker"},
+          filenames: [],
+          path: "processing/specialized_bootstrap-done",
+          status: "produced"
+        })
+
+      Repo.insert!(%Cham.JobTracking.StageExecution{
+        item_id: item.id,
+        stage: "specialized_bootstrap",
+        status: "completed",
+        started_at: now_truncated(),
+        ended_at: now_truncated()
+      })
+
+      Orchestrator.kick_off(orchestrator_name, item.id)
+      :sys.get_state(orchestrator_name)
+
+      jobs = oban_jobs_for_item(item.id)
+      plugin_ids = Enum.map(jobs, & &1.args["plugin_id"])
+
+      refute "new_fallback" in plugin_ids,
+             "expected new_fallback NOT to be enqueued after specialized bootstrap completed, got #{inspect(plugin_ids)}"
+    end
   end
 
   describe "stage_failed/4" do

@@ -166,14 +166,23 @@ defmodule Cham.Pipeline.Orchestrator do
       # run via the configured fallback path. Otherwise a previously-configured
       # fallback (with leftover StageExecution rows, produced artifacts, or a
       # pending Oban job) would suppress the new fallback.
+      #
+      # A specialized stage that has actually done work for this item (produced
+      # an artifact or has a completed StageExecution) still counts, even if
+      # its can_process?/1 now reports :not_applicable because it sees its own
+      # output. Without this, a stage like ytdlp_feed that flips to
+      # :not_applicable after producing its derived marker would be wrongly
+      # discarded as "not specialized," causing the fallback to run on top.
       fallback_id = get_fallback_stage_id()
       artifact_labels = Enum.map(artifacts, & &1.labels)
+      did_work_ids = stages_that_did_work(item.id, artifacts)
 
       bootstrap_stages =
         Enum.filter(all_stages, fn stage ->
           stage.plugin_id != fallback_id and
             Enum.any?(stage.output_labels, &(Map.get(&1, "type") == "initial_download")) and
-            specialized_for?(stage, artifact_labels)
+            (specialized_for?(stage, artifact_labels) or
+               MapSet.member?(did_work_ids, stage.plugin_id))
         end)
 
       has_bootstrap_stage =
@@ -203,6 +212,17 @@ defmodule Cham.Pipeline.Orchestrator do
     else
       true
     end
+  end
+
+  # Stages that have actually produced an artifact for this item. We do not
+  # include bare StageExecution "completed" rows, because the 5aa0bf1 scenario
+  # (a previously-configured fallback that left behind a stale StageExecution
+  # row but no real output) needs the new fallback to take over.
+  defp stages_that_did_work(_item_id, artifacts) do
+    artifacts
+    |> Enum.filter(&(&1.status == "produced"))
+    |> Enum.map(& &1.stage)
+    |> MapSet.new()
   end
 
   defp get_fallback_stage_id do

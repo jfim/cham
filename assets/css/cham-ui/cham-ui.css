@@ -753,8 +753,8 @@ body {
 }
 .chat-bubble.user {
   align-self: flex-end;
-  background: var(--cham-accent);
-  color: var(--cham-fg-on-accent);
+  background: var(--cham-accent-tint-2);
+  color: var(--cham-fg-strong);
   border-bottom-right-radius: var(--cham-radius-sm);
 }
 .chat-bubble.assistant {

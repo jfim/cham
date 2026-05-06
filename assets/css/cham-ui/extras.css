@@ -79,9 +79,11 @@ button.facet {
 .chat .chat-stream {
   display: flex;
   flex-direction: column;
-  gap: var(--cham-space-3);
+  gap: var(--cham-space-5);
 }
 .chat .chat-bubble.user { white-space: pre-wrap; }
+.chat .chat-bubble .prose { font-family: inherit; font-size: inherit; line-height: inherit; color: inherit; }
+.chat .chat-bubble .prose :where(p, ul, ol, li, h1, h2, h3, h4, h5, h6, blockquote) { font-family: inherit; }
 .chat .chat-bubble .prose > :first-child { margin-top: 0; }
 .chat .chat-bubble .prose > :last-child { margin-bottom: 0; }
 .chat .chat-thinking {

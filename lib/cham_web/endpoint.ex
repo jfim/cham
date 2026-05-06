@@ -23,7 +23,7 @@ defmodule ChamWeb.Endpoint do
     at: "/",
     from: :cham,
     gzip: false,
-    only: ChamWeb.static_paths()
+    only_matching: ChamWeb.static_paths()
 
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.

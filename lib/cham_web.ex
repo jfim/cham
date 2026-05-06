@@ -18,7 +18,7 @@ defmodule ChamWeb do
   """
 
   def static_paths,
-    do: ~w(assets fonts images favicon.ico favicon.svg apple-touch-icon.png robots.txt)
+    do: ~w(assets fonts images favicon apple-touch-icon robots.txt)
 
   def router do
     quote do

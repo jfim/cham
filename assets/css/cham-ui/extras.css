@@ -39,6 +39,91 @@ button.facet {
   font-family: inherit;
 }
 
+/* Chat pane: fill the pane-body, center bubbles on wide screens. */
+.pane-body:has(> .chat) { padding: 0; }
+.pane-body > .chat {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.chat .chat-centered {
+  width: 100%;
+  max-width: 80ch;
+  margin: 0 auto;
+}
+.chat .chat-source-note {
+  flex-shrink: 0;
+  padding: var(--cham-space-3) var(--cham-space-6);
+  font-size: var(--cham-text-xs);
+  color: var(--cham-fg-muted);
+  border-bottom: 1px solid var(--cham-border-subtle);
+  background: var(--cham-surface);
+}
+.chat .chat-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cham-space-2);
+  color: var(--cham-fg-faint);
+  text-align: center;
+  padding: var(--cham-space-8);
+}
+.chat .chat-log {
+  flex: 1;
+  min-height: 0;
+  padding: var(--cham-space-5) var(--cham-space-6);
+}
+.chat .chat-stream {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cham-space-3);
+}
+.chat .chat-bubble.user { white-space: pre-wrap; }
+.chat .chat-bubble .prose > :first-child { margin-top: 0; }
+.chat .chat-bubble .prose > :last-child { margin-bottom: 0; }
+.chat .chat-thinking {
+  align-self: flex-start;
+  color: var(--cham-fg-faint);
+  font-style: italic;
+  font-size: var(--cham-text-sm);
+  padding: var(--cham-space-2) var(--cham-space-4);
+}
+.chat .chat-error {
+  align-self: stretch;
+  color: var(--cham-stage-fail-fg);
+  background: var(--cham-stage-fail-bg);
+  border-radius: var(--cham-radius-md);
+  padding: var(--cham-space-2) var(--cham-space-3);
+  font-size: var(--cham-text-xs);
+}
+.chat .chat-form {
+  flex-shrink: 0;
+  padding: var(--cham-space-3) var(--cham-space-6);
+  background: var(--cham-surface);
+}
+.chat .chat-form-row {
+  display: flex;
+  gap: var(--cham-space-2);
+  align-items: flex-end;
+}
+.chat .chat-form textarea {
+  flex: 1;
+  resize: none;
+  padding: var(--cham-space-2) var(--cham-space-3);
+  border: 1px solid var(--cham-border-input);
+  border-radius: var(--cham-radius-md);
+  font-family: var(--cham-font-ui);
+  font-size: var(--cham-text-sm);
+  line-height: 1.5;
+  background: var(--cham-surface-raised);
+  color: var(--cham-fg);
+  outline: none;
+}
+.chat .chat-form textarea:focus { border-color: var(--cham-border-focus); }
+.chat .chat-form textarea:disabled { opacity: 0.6; }
+
 /* Article prose: lists, code, blockquotes, inline links */
 .reader-prose ul,
 .reader-prose ol {

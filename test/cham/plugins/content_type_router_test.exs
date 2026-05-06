@@ -118,6 +118,22 @@ defmodule Cham.Plugins.ContentTypeRouterTest do
       assert File.exists?(Path.expand(filename, working_dir))
     end
 
+    test "routes text/plain to plaintext", %{source_dir: source_dir, working_dir: working_dir} do
+      inputs = make_input(source_dir, "original.txt", "Just some plain text.\n", "text/plain")
+
+      assert {:ok, result} = RouteStage.perform(inputs, working_dir, [], "item-1")
+
+      assert [artifact] = result.artifacts
+
+      assert artifact.labels == %{
+               "origin" => "original",
+               "format" => "text",
+               "type" => "plaintext"
+             }
+
+      assert result.item_metadata["content_type"] == "article"
+    end
+
     test "routes application/pdf to document", %{source_dir: source_dir, working_dir: working_dir} do
       inputs = make_input(source_dir, "original.pdf", "%PDF-1.4 fake pdf", "application/pdf")
 

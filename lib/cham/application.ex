@@ -71,6 +71,7 @@ defmodule Cham.Application do
       Cham.Plugins.GenericDownloadUrl,
       Cham.Plugins.ContentTypeRouter,
       Cham.Plugins.ExtractArticle,
+      Cham.Plugins.ExtractPlaintext,
       Cham.Plugins.ExtractFeedItems,
       Cham.Plugins.ExtractPdf,
       Cham.Plugins.ExtractAudio,

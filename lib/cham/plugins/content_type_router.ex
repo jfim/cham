@@ -157,6 +157,10 @@ defmodule Cham.Plugins.ContentTypeRouter.RouteStage do
     {%{"origin" => "original", "format" => "text", "type" => "article"}, "article"}
   end
 
+  defp route_labels("text/plain") do
+    {%{"origin" => "original", "format" => "text", "type" => "plaintext"}, "article"}
+  end
+
   defp route_labels("application/pdf") do
     {%{"origin" => "original", "format" => "document", "type" => "pdf"}, "document"}
   end

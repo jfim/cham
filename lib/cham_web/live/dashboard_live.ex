@@ -323,8 +323,23 @@ defmodule ChamWeb.DashboardLive do
 
     wc = item.metadata && item.metadata["word_count"]
 
+    duration =
+      case item.metadata && (item.metadata["duration_seconds"] || item.metadata["duration"]) do
+        s when is_integer(s) and s > 0 -> format_duration(s)
+        s when is_float(s) and s > 0 -> format_duration(round(s))
+        _ -> nil
+      end
+
+    uploader =
+      case item.metadata && item.metadata["uploader"] do
+        u when is_binary(u) and u != "" -> u
+        _ -> nil
+      end
+
     parts =
       []
+      |> then(fn p -> if duration, do: [duration | p], else: p end)
+      |> then(fn p -> if uploader, do: [uploader | p], else: p end)
       |> then(fn p -> if wc && wc > 0, do: ["#{format_word_count(wc)} words" | p], else: p end)
       |> then(fn p ->
         if wc && wc > 0, do: ["#{reading_time_minutes(wc)} min read" | p], else: p

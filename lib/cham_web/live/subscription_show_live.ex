@@ -170,9 +170,7 @@ defmodule ChamWeb.SubscriptionShowLive do
           </.form>
         </section>
 
-        <section
-          style="margin-bottom: var(--cham-space-8); padding: var(--cham-space-5); border: 1px solid var(--cham-border-subtle); border-radius: var(--cham-radius-md); background: var(--cham-surface);"
-        >
+        <section style="margin-bottom: var(--cham-space-8); padding: var(--cham-space-5); border: 1px solid var(--cham-border-subtle); border-radius: var(--cham-radius-md); background: var(--cham-surface);">
           <h2 class="sidebar-eyebrow" style="margin: 0 0 var(--cham-space-4);">Re-run backfill</h2>
           <.form
             for={%{}}
@@ -204,7 +202,10 @@ defmodule ChamWeb.SubscriptionShowLive do
 
         <section>
           <h2 class="sidebar-eyebrow" style="margin: 0 0 var(--cham-space-3);">Items</h2>
-          <div :if={@items == []} style="font-size: var(--cham-text-sm); color: var(--cham-fg-soft); padding: var(--cham-space-4) 0;">
+          <div
+            :if={@items == []}
+            style="font-size: var(--cham-text-sm); color: var(--cham-fg-soft); padding: var(--cham-space-4) 0;"
+          >
             No items yet.
           </div>
           <div :if={@items != []}>

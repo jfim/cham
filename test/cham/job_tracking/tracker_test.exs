@@ -18,7 +18,9 @@ defmodule Cham.JobTracking.TrackerTest do
     start_supervised!({Tracker, name: name})
 
     {:ok, item} =
-      Items.create_item(%{url: "https://example.com/track-#{:erlang.unique_integer([:positive])}"})
+      Items.create_item(%{
+        url: "https://example.com/track-#{:erlang.unique_integer([:positive])}"
+      })
 
     %{tracker: name, item: item}
   end

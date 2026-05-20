@@ -25,7 +25,11 @@
               phx-click="select_section"
               phx-value-namespace={section.namespace}
               phx-value-name={section.name}
-              class={["facet", "facet-stack", @active_section && @active_section.namespace == section.namespace && "is-active"]}
+              class={[
+                "facet",
+                "facet-stack",
+                @active_section && @active_section.namespace == section.namespace && "is-active"
+              ]}
               style="flex-direction: column; align-items: flex-start; gap: 2px; padding: var(--cham-space-2) var(--cham-space-3); height: auto;"
             >
               <span style="font-weight: var(--cham-fw-medium); font-size: var(--cham-text-sm); color: var(--cham-fg);">
@@ -47,7 +51,11 @@
               phx-value-namespace={backend.namespace}
               phx-value-name={backend.name}
               disabled={backend.schema == []}
-              class={["facet", "facet-stack", @active_section && @active_section.namespace == backend.namespace && "is-active"]}
+              class={[
+                "facet",
+                "facet-stack",
+                @active_section && @active_section.namespace == backend.namespace && "is-active"
+              ]}
               style={[
                 "flex-direction: column; align-items: flex-start; gap: 2px; padding: var(--cham-space-2) var(--cham-space-3); height: auto;",
                 if(backend.schema == [], do: " opacity: 0.5; cursor: not-allowed;", else: "")
@@ -57,7 +65,9 @@
                 {backend.name}
               </span>
               <span style="font-size: var(--cham-text-xs); color: var(--cham-fg-faint);">
-                {if backend.schema != [], do: "#{length(backend.schema)} settings", else: "No settings"}
+                {if backend.schema != [],
+                  do: "#{length(backend.schema)} settings",
+                  else: "No settings"}
               </span>
             </button>
           </div>
@@ -71,7 +81,11 @@
             phx-value-namespace={plugin.namespace}
             phx-value-name={plugin.name}
             disabled={!has_config?(plugin)}
-            class={["facet", "facet-stack", @active_section && @active_section.namespace == plugin.namespace && "is-active"]}
+            class={[
+              "facet",
+              "facet-stack",
+              @active_section && @active_section.namespace == plugin.namespace && "is-active"
+            ]}
             style={[
               "flex-direction: column; align-items: flex-start; gap: 2px; padding: var(--cham-space-2) var(--cham-space-3); height: auto;",
               if(!has_config?(plugin), do: " opacity: 0.5; cursor: not-allowed;", else: "")
@@ -81,7 +95,9 @@
               {plugin.name}
             </span>
             <span style="font-size: var(--cham-text-xs); color: var(--cham-fg-faint);">
-              {if has_config?(plugin), do: "#{length(plugin.schema)} settings", else: "No settings"}
+              {if has_config?(plugin),
+                do: "#{length(plugin.schema)} settings",
+                else: "No settings"}
             </span>
           </button>
         </div>
@@ -128,7 +144,10 @@
             phx-submit="save_config"
             style="display: flex; flex-direction: column; gap: var(--cham-space-5); padding: var(--cham-space-5); border: 1px solid var(--cham-border-subtle); border-radius: var(--cham-radius-md); background: var(--cham-surface);"
           >
-            <div :for={field <- @active_section.schema} style="display: flex; flex-direction: column; gap: 4px;">
+            <div
+              :for={field <- @active_section.schema}
+              style="display: flex; flex-direction: column; gap: 4px;"
+            >
               <div style="display: flex; align-items: center; justify-content: space-between; gap: var(--cham-space-2);">
                 <label
                   for={"config-#{field.key}"}

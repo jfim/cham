@@ -47,8 +47,7 @@ defmodule ChamWeb.SubscriptionIndexLive do
           class="iconbtn"
           style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 4px 8px; font-size: var(--cham-text-sm); color: var(--cham-fg-muted);"
         >
-          <ChamWeb.CoreComponents.icon name="hero-arrow-left-mini" class="h-4 w-4" />
-          Back to archive
+          <ChamWeb.CoreComponents.icon name="hero-arrow-left-mini" class="h-4 w-4" /> Back to archive
         </.link>
       </div>
 

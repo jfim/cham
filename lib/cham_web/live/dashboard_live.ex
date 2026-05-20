@@ -4,7 +4,7 @@ defmodule ChamWeb.DashboardLive do
   alias Cham.Items
   alias Cham.Pipeline
 
-  @page_size 100
+  @page_size 50
 
   @impl true
   def mount(_params, _session, socket) do

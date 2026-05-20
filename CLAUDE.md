@@ -25,7 +25,7 @@ Track future improvements, ideas, and TODOs in `/home/jfim/sync/Obsidian Persona
 
 ## Tech Stack
 
-- Elixir 1.17+, OTP 27+
+- Elixir 1.19+, OTP 28+
 - Phoenix 1.7+ with LiveView
 - Oban for background job processing
 - PostgreSQL 16+

@@ -76,7 +76,7 @@ body {
     gap: var(--cham-space-3);
     padding: var(--cham-space-3) var(--cham-space-4);
     border-bottom: 1px solid var(--cham-border-subtle);
-    background: var(--cham-bg);
+    background: var(--cham-surface);
     position: sticky;
     top: 0;
     z-index: 30;

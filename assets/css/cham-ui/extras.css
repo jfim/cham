@@ -12,7 +12,7 @@
 .item-detail-shell {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
   background: var(--cham-surface-page);
 }
 .item-detail-shell > .item-topbar { flex-shrink: 0; }

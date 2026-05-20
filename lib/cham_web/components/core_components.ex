@@ -153,8 +153,8 @@ defmodule ChamWeb.CoreComponents do
         id="client-error"
         kind={:error}
         title={gettext("We can't find the internet")}
-        phx-disconnected={show(".phx-client-error #client-error")}
-        phx-connected={hide("#client-error")}
+        phx-disconnected={JS.remove_attribute("hidden", to: ".phx-client-error #client-error")}
+        phx-connected={JS.set_attribute({"hidden", ""}, to: "#client-error")}
         hidden
       >
         {gettext("Attempting to reconnect")}
@@ -165,8 +165,8 @@ defmodule ChamWeb.CoreComponents do
         id="server-error"
         kind={:error}
         title={gettext("Something went wrong!")}
-        phx-disconnected={show(".phx-server-error #server-error")}
-        phx-connected={hide("#server-error")}
+        phx-disconnected={JS.remove_attribute("hidden", to: ".phx-server-error #server-error")}
+        phx-connected={JS.set_attribute({"hidden", ""}, to: "#server-error")}
         hidden
       >
         {gettext("Hang in there while we get back on track")}

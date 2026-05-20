@@ -260,11 +260,21 @@ defmodule Cham.Items do
   end
 
   def count_by_tag do
-    Item
-    |> select([i], i.tags)
+    from(i in Item,
+      cross_join: t in fragment("unnest(?)", i.tags),
+      group_by: fragment("?", t),
+      select: {fragment("?", t), count(i.id)}
+    )
     |> Repo.all()
-    |> List.flatten()
-    |> Enum.frequencies()
+    |> Map.new()
+  end
+
+  @doc """
+  Total visible item count (matches the default `list_items_query/1` filters:
+  excludes backfill_seen items and feed items that have a matching subscription).
+  """
+  def count_visible_items do
+    [] |> list_items_query() |> Repo.aggregate(:count, :id)
   end
 
   def list_in_progress_items do

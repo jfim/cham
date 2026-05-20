@@ -17,6 +17,7 @@ defmodule Cham.Application do
       {DNSCluster, query: Application.get_env(:cham, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Cham.PubSub},
       Cham.Items.Cache,
+      Cham.Items.StatsCache,
       {Cham.Config.Manager,
        toml_path: Application.get_env(:cham, :config_toml_path, "config/cham.toml"),
        event_bus: Cham.PubSub},

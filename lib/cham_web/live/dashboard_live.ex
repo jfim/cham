@@ -37,32 +37,45 @@ defmodule ChamWeb.DashboardLive do
     {items, total_count} =
       Items.list_items_paginated(filters, page: page, page_size: @page_size)
 
-    in_progress = Items.list_in_progress_items()
-    type_counts = Items.count_by_content_type()
-    tag_counts = Items.count_by_tag()
-
-    active_count =
-      Enum.count(in_progress, fn item -> item.status in ["bootstrapping", "processing"] end)
-
-    grand_total = length(Items.list_items([]))
     total_pages = max(div(total_count + @page_size - 1, @page_size), 1)
 
     socket =
       socket
       |> assign(:items, items)
-      |> assign(:in_progress, in_progress)
       |> assign(:active_type, active_type)
       |> assign(:active_tag, active_tag)
       |> assign(:search_query, search_query)
       |> assign(:page, page)
       |> assign(:total_pages, total_pages)
       |> assign(:filtered_count, total_count)
-      |> assign(:type_counts, type_counts)
-      |> assign(:tag_counts, tag_counts)
-      |> assign(:active_count, active_count)
-      |> assign(:total_count, grand_total)
+      |> ensure_stats_loaded()
 
     {:noreply, socket}
+  end
+
+  defp ensure_stats_loaded(socket) do
+    if Map.has_key?(socket.assigns, :total_count) do
+      socket
+    else
+      load_stats(socket)
+    end
+  end
+
+  defp load_stats(socket) do
+    in_progress = Items.list_in_progress_items()
+
+    active_count =
+      Enum.count(in_progress, &(&1.status in ["bootstrapping", "processing"]))
+
+    %{type_counts: type_counts, tag_counts: tag_counts, total_count: total_count} =
+      Cham.Items.StatsCache.stats()
+
+    socket
+    |> assign(:in_progress, in_progress)
+    |> assign(:active_count, active_count)
+    |> assign(:type_counts, type_counts)
+    |> assign(:tag_counts, tag_counts)
+    |> assign(:total_count, total_count)
   end
 
   @impl true
@@ -118,11 +131,6 @@ defmodule ChamWeb.DashboardLive do
 
   @impl true
   def handle_info(_event, socket) do
-    in_progress = Items.list_in_progress_items()
-    active_count = Enum.count(in_progress, &(&1.status in ["bootstrapping", "processing"]))
-    type_counts = Items.count_by_content_type()
-    tag_counts = Items.count_by_tag()
-
     filters =
       build_filters(
         socket.assigns.active_type,
@@ -136,19 +144,14 @@ defmodule ChamWeb.DashboardLive do
         page_size: @page_size
       )
 
-    grand_total = length(Items.list_items([]))
     total_pages = max(div(total_count + @page_size - 1, @page_size), 1)
 
     {:noreply,
      socket
-     |> assign(:in_progress, in_progress)
-     |> assign(:active_count, active_count)
-     |> assign(:type_counts, type_counts)
-     |> assign(:tag_counts, tag_counts)
      |> assign(:items, items)
      |> assign(:filtered_count, total_count)
      |> assign(:total_pages, total_pages)
-     |> assign(:total_count, grand_total)}
+     |> load_stats()}
   end
 
   defp build_filters(active_type, active_tag, search_query) do

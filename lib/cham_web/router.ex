@@ -44,4 +44,16 @@ defmodule ChamWeb.Router do
     pipe_through :api
     get "/health", HealthController, :index
   end
+
+  if Application.compile_env(:cham, :dev_routes, Mix.env() == :dev) do
+    import Phoenix.LiveDashboard.Router
+
+    scope "/dev" do
+      pipe_through :browser
+      live_dashboard "/dashboard",
+        metrics: ChamWeb.Telemetry,
+        ecto_repos: [Cham.Repo],
+        ecto_psql_extras_options: [long_running_queries: [threshold: "200 milliseconds"]]
+    end
+  end
 end

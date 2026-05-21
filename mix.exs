@@ -24,7 +24,7 @@ defmodule Cham.MixProject do
   def application do
     [
       mod: {Cham.Application, []},
-      extra_applications: [:logger, :runtime_tools, :xmerl]
+      extra_applications: [:logger, :runtime_tools, :xmerl, :os_mon]
     ]
   end
 
@@ -56,6 +56,8 @@ defmodule Cham.MixProject do
        depth: 1},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
+      {:phoenix_live_dashboard, "~> 0.8"},
+      {:ecto_psql_extras, "~> 0.6"},
       {:gettext, "~> 0.26"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.1.1"},

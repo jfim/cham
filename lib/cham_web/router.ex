@@ -17,8 +17,8 @@ defmodule ChamWeb.Router do
   scope "/", ChamWeb do
     pipe_through :browser
 
-    live "/", DashboardLive
-    live "/items/:id", ItemDetailLive
+    live "/", DashboardLive, :index
+    live "/items/:id", DashboardLive, :detail
     live "/config", ConfigLive
     live "/subscriptions", SubscriptionIndexLive
     live "/subscriptions/:id", SubscriptionShowLive

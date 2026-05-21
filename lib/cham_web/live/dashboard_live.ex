@@ -3,6 +3,7 @@ defmodule ChamWeb.DashboardLive do
 
   alias Cham.Items
   alias Cham.Pipeline
+  alias ChamWeb.DashboardLive.DetailHelpers
 
   @page_size 50
 
@@ -21,12 +22,40 @@ defmodule ChamWeb.DashboardLive do
       |> assign(:show_submit_modal, false)
       |> assign(:submit_error, nil)
       |> assign(:page_size, @page_size)
+      |> assign(:view, :list)
+      |> assign(:selected_item_id, nil)
+      |> assign(:selected_item_title, nil)
 
     {:ok, socket}
   end
 
   @impl true
   def handle_params(params, _uri, socket) do
+    case socket.assigns.live_action do
+      :detail -> apply_detail(socket, params)
+      _ -> apply_list(socket, params)
+    end
+  end
+
+  defp apply_detail(socket, %{"id" => id} = params) do
+    item = Items.get_item!(id)
+    return_path = DetailHelpers.build_return_path(params)
+
+    socket =
+      socket
+      |> assign(:view, :detail)
+      |> assign(:selected_item_id, id)
+      |> assign(:page_title, item.title || "Item Detail")
+      |> assign(:return_path, return_path)
+      |> DetailHelpers.assign_chat_defaults()
+      |> DetailHelpers.assign_detail(item)
+      |> ensure_list_loaded()
+      |> ensure_stats_loaded()
+
+    {:noreply, socket}
+  end
+
+  defp apply_list(socket, params) do
     active_type = Map.get(params, "type")
     active_tag = Map.get(params, "tag")
     search_query = params |> Map.get("q", "") |> to_string() |> String.trim()
@@ -41,6 +70,9 @@ defmodule ChamWeb.DashboardLive do
 
     socket =
       socket
+      |> assign(:view, :list)
+      |> assign(:selected_item_id, nil)
+      |> assign(:selected_item_title, nil)
       |> assign(:items, items)
       |> assign(:active_type, active_type)
       |> assign(:active_tag, active_tag)
@@ -51,6 +83,25 @@ defmodule ChamWeb.DashboardLive do
       |> ensure_stats_loaded()
 
     {:noreply, socket}
+  end
+
+  defp ensure_list_loaded(socket) do
+    if Map.has_key?(socket.assigns, :items) do
+      socket
+    else
+      filters = build_filters(nil, nil, "")
+      {items, total_count} = Items.list_items_paginated(filters, page: 1, page_size: @page_size)
+      total_pages = max(div(total_count + @page_size - 1, @page_size), 1)
+
+      socket
+      |> assign(:items, items)
+      |> assign(:active_type, nil)
+      |> assign(:active_tag, nil)
+      |> assign(:search_query, "")
+      |> assign(:page, 1)
+      |> assign(:total_pages, total_pages)
+      |> assign(:filtered_count, total_count)
+    end
   end
 
   defp ensure_stats_loaded(socket) do
@@ -129,8 +180,165 @@ defmodule ChamWeb.DashboardLive do
     end
   end
 
+  # ---------- Detail-view event handlers ----------
+
+  def handle_event("select_tab", %{"tab" => tab}, socket) do
+    new_tab = if socket.assigns.active_tab == tab, do: nil, else: tab
+
+    socket =
+      socket
+      |> assign(:active_tab, new_tab)
+      |> DetailHelpers.maybe_load_transcript(new_tab)
+      |> DetailHelpers.maybe_load_chat(new_tab)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("retry_failed", _params, socket) do
+    case Pipeline.reprocess(socket.assigns.item.id, retry_failed: true) do
+      {:ok, _} -> {:noreply, put_flash(socket, :info, "Retrying failed stages...")}
+      {:error, _} -> {:noreply, put_flash(socket, :error, "Failed to retry")}
+    end
+  end
+
+  def handle_event("invalidate_stage", %{"stage" => stage_id}, socket) do
+    case Pipeline.reprocess(socket.assigns.item.id, invalidate: [stage_id]) do
+      {:ok, _} -> {:noreply, put_flash(socket, :info, "Rerunning #{stage_id}...")}
+      {:error, _} -> {:noreply, put_flash(socket, :error, "Failed to reprocess stage")}
+    end
+  end
+
+  def handle_event("subscribe", params, socket) do
+    backfill = DetailHelpers.parse_backfill_params(params["backfill"] || %{})
+
+    attrs = %{
+      title: params["title"],
+      poll_interval_seconds: String.to_integer(params["poll_interval_seconds"] || "86400"),
+      backfill: backfill
+    }
+
+    case Cham.Subscriptions.subscribe_from_item(socket.assigns.item.id, attrs) do
+      {:ok, sub} ->
+        {:noreply, push_navigate(socket, to: ~p"/subscriptions/#{sub.id}")}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Subscribe failed: #{inspect(reason)}")}
+    end
+  end
+
+  def handle_event("delete_item", _params, socket) do
+    item = socket.assigns.item
+
+    if item.status in ~w(bootstrapping processing) do
+      Pipeline.cancel(item.id)
+    end
+
+    item = Items.get_item!(item.id)
+
+    case Items.delete_item_with_files(item) do
+      :ok ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Item deleted")
+         |> push_navigate(to: socket.assigns.return_path)}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete item")}
+    end
+  end
+
+  def handle_event("reprocess_all", _params, socket) do
+    item = socket.assigns.item
+    stage_ids = socket.assigns.stage_history |> Enum.map(& &1.stage) |> Enum.uniq()
+
+    case Pipeline.reprocess(item.id, invalidate: stage_ids) do
+      {:ok, _} -> {:noreply, put_flash(socket, :info, "Reprocessing all stages...")}
+      {:error, _} -> {:noreply, put_flash(socket, :error, "Failed to reprocess")}
+    end
+  end
+
+  def handle_event("update_chat_input", %{"message" => message}, socket) do
+    {:noreply, assign(socket, :chat_input, message)}
+  end
+
+  def handle_event("send_chat", %{"message" => message}, socket) do
+    trimmed = String.trim(message || "")
+
+    cond do
+      trimmed == "" ->
+        {:noreply, socket}
+
+      socket.assigns.chat_pending ->
+        {:noreply, socket}
+
+      true ->
+        item = socket.assigns.item
+        artifacts = socket.assigns.artifacts
+
+        optimistic_user_turn = %{
+          role: "user",
+          content: trimmed,
+          ts: DateTime.utc_now() |> DateTime.to_iso8601()
+        }
+
+        task =
+          Task.async(fn ->
+            Cham.Chat.send_message(item, artifacts, trimmed)
+          end)
+
+        {:noreply,
+         socket
+         |> assign(:chat_history, socket.assigns.chat_history ++ [optimistic_user_turn])
+         |> assign(:chat_input, "")
+         |> assign(:chat_pending, true)
+         |> assign(:chat_error, nil)
+         |> assign(:chat_task_ref, task.ref)}
+    end
+  end
+
   @impl true
-  def handle_info(_event, socket) do
+  def handle_info({ref, result}, %{assigns: %{chat_task_ref: ref}} = socket)
+      when is_reference(ref) do
+    Process.demonitor(ref, [:flush])
+
+    socket =
+      case result do
+        {:ok, history} ->
+          socket
+          |> assign(:chat_history, history)
+          |> assign(:chat_pending, false)
+          |> assign(:chat_task_ref, nil)
+          |> assign(:chat_error, nil)
+
+        {:error, :no_content} ->
+          socket
+          |> assign(:chat_pending, false)
+          |> assign(:chat_task_ref, nil)
+          |> assign(:chat_error, "No content available to chat about yet.")
+
+        {:error, reason} ->
+          socket
+          |> assign(:chat_pending, false)
+          |> assign(:chat_task_ref, nil)
+          |> assign(:chat_error, "Chat failed: #{inspect(reason)}")
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_info(
+        {:DOWN, ref, :process, _pid, _reason},
+        %{assigns: %{chat_task_ref: ref}} = socket
+      )
+      when is_reference(ref) do
+    {:noreply,
+     socket
+     |> assign(:chat_pending, false)
+     |> assign(:chat_task_ref, nil)
+     |> assign(:chat_error, "Chat task crashed")}
+  end
+
+  def handle_info(event, socket) do
     filters =
       build_filters(
         socket.assigns.active_type,
@@ -146,12 +354,33 @@ defmodule ChamWeb.DashboardLive do
 
     total_pages = max(div(total_count + @page_size - 1, @page_size), 1)
 
-    {:noreply,
-     socket
-     |> assign(:items, items)
-     |> assign(:filtered_count, total_count)
-     |> assign(:total_pages, total_pages)
-     |> load_stats()}
+    socket =
+      socket
+      |> assign(:items, items)
+      |> assign(:filtered_count, total_count)
+      |> assign(:total_pages, total_pages)
+      |> load_stats()
+      |> maybe_refresh_detail(event)
+
+    {:noreply, socket}
+  end
+
+  defp maybe_refresh_detail(socket, event) do
+    case socket.assigns do
+      %{view: :detail, item: %{id: item_id}} ->
+        if DetailHelpers.event_for_item?(event, item_id) do
+          item = Items.get_item!(item_id)
+
+          socket
+          |> assign(:page_title, item.title || "Item Detail")
+          |> DetailHelpers.assign_detail(item)
+        else
+          socket
+        end
+
+      _ ->
+        socket
+    end
   end
 
   defp build_filters(active_type, active_tag, search_query) do

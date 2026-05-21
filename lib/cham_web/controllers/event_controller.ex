@@ -2,7 +2,7 @@ defmodule ChamWeb.EventController do
   use ChamWeb, :controller
 
   alias Cham.Items
-  alias Cham.Pipeline.Events.{StageStarted, StageCompleted, StageFailed, StageSnoozed}
+  alias Cham.Pipeline.Events.{StageCompleted, StageFailed, StageSnoozed, StageStarted}
 
   @terminal_statuses ~w(complete incomplete failed cancelled)
   @keepalive_interval 15_000

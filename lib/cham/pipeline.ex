@@ -1,7 +1,7 @@
 defmodule Cham.Pipeline do
+  alias Cham.Archive.{ArchiveManager, FilesystemManager}
   alias Cham.Items
   alias Cham.Items.Events.{ItemCreated, ItemStatusChanged}
-  alias Cham.Archive.{ArchiveManager, FilesystemManager}
 
   @doc """
   Submit a URL for processing. Creates an item, input artifact,

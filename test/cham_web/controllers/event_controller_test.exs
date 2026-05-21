@@ -2,7 +2,7 @@ defmodule ChamWeb.EventControllerTest do
   use ChamWeb.ConnCase
 
   alias Cham.Items
-  alias Cham.Pipeline.Events.{StageStarted, StageCompleted, StageFailed}
+  alias Cham.Pipeline.Events.{StageCompleted, StageFailed, StageStarted}
 
   describe "GET /api/v1/items/:id/events" do
     test "returns 404 for non-existent item", %{conn: conn} do

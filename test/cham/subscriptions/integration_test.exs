@@ -6,11 +6,11 @@ defmodule Cham.Subscriptions.IntegrationTest do
 
   @moduletag :integration
 
+  alias Cham.Items.Item
   alias Cham.Repo
   alias Cham.Subscriptions
-  alias Cham.Subscriptions.{BackendRegistry, PollWorker, PollScheduler}
+  alias Cham.Subscriptions.{BackendRegistry, PollScheduler, PollWorker}
   alias Cham.Subscriptions.Backends.RSS
-  alias Cham.Items.Item
 
   setup do
     tmp =

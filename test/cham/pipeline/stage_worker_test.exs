@@ -1,9 +1,9 @@
 defmodule Cham.Pipeline.StageWorkerTest do
   use Cham.DataCase
 
-  alias Cham.Pipeline.StageWorker
   alias Cham.Items
-  alias Cham.Pipeline.Events.{StageStarted, StageCompleted, StageFailed}
+  alias Cham.Pipeline.Events.{StageCompleted, StageFailed, StageStarted}
+  alias Cham.Pipeline.StageWorker
 
   setup do
     tmp = Path.join(System.tmp_dir!(), "cham_worker_test_#{:erlang.unique_integer([:positive])}")

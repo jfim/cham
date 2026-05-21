@@ -2,7 +2,7 @@ defmodule Cham.ScriptRunnerTest do
   use ExUnit.Case, async: true
 
   alias Cham.ScriptRunner
-  alias Cham.ScriptRunner.Events.{ScriptOutput, ScriptExited, ScriptTimeout}
+  alias Cham.ScriptRunner.Events.{ScriptExited, ScriptOutput, ScriptTimeout}
 
   describe "run_sync/3" do
     test "runs a command and captures stdout" do

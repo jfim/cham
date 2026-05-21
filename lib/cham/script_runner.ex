@@ -1,5 +1,5 @@
 defmodule Cham.ScriptRunner do
-  alias Cham.ScriptRunner.Events.{ScriptOutput, ScriptExited, ScriptTimeout}
+  alias Cham.ScriptRunner.Events.{ScriptExited, ScriptOutput, ScriptTimeout}
 
   def run_sync(command, args, opts) do
     timeout = Keyword.fetch!(opts, :timeout)

@@ -1,15 +1,16 @@
 defmodule Cham.JobTracking.TrackerTest do
   use Cham.DataCase
 
-  alias Cham.JobTracking.{Tracker, StageExecution}
-  alias Cham.Repo
+  alias Cham.JobTracking.{StageExecution, Tracker}
 
   alias Cham.Pipeline.Events.{
-    StageStarted,
     StageCompleted,
     StageFailed,
-    StageProgress
+    StageProgress,
+    StageStarted
   }
+
+  alias Cham.Repo
 
   alias Cham.Items
 

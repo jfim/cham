@@ -250,8 +250,7 @@ defmodule ChamWeb.ConfigLive do
   def humanize_key(key) when is_binary(key) do
     key
     |> String.split(~r/[._]/, trim: true)
-    |> Enum.map(&humanize_word/1)
-    |> Enum.join(" ")
+    |> Enum.map_join(" ", &humanize_word/1)
   end
 
   defp humanize_word(word) do

@@ -50,6 +50,7 @@ defmodule ChamWeb.Router do
 
     scope "/dev" do
       pipe_through :browser
+
       live_dashboard "/dashboard",
         metrics: ChamWeb.Telemetry,
         ecto_repos: [Cham.Repo],

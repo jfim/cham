@@ -4,11 +4,11 @@ defmodule Cham.Subscriptions.PollWorkerTest do
 
   import Ecto.Query
 
+  alias Cham.Items
+  alias Cham.Items.Item
   alias Cham.Repo
   alias Cham.Subscriptions
   alias Cham.Subscriptions.{BackendRegistry, PollWorker}
-  alias Cham.Items
-  alias Cham.Items.Item
 
   defmodule MockBackend do
     @behaviour Cham.Subscriptions.Backend

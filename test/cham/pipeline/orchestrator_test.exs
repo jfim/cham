@@ -1,8 +1,8 @@
 defmodule Cham.Pipeline.OrchestratorTest do
   use Cham.DataCase
 
-  alias Cham.Pipeline.Orchestrator
   alias Cham.Items
+  alias Cham.Pipeline.Orchestrator
   alias Cham.Plugin.Registry
 
   setup do

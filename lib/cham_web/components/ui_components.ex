@@ -96,8 +96,7 @@ defmodule ChamWeb.UIComponents do
       assigns.stage
       |> String.replace("_", " ")
       |> String.split(" ")
-      |> Enum.map(&String.capitalize/1)
-      |> Enum.join(" ")
+      |> Enum.map_join(" ", &String.capitalize/1)
 
     assigns = assign(assigns, label: label, color: color)
 

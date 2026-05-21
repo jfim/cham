@@ -3,7 +3,7 @@ defmodule Cham.Pipeline.StageWorker do
 
   alias Cham.Archive.{ArchiveManager, FilesystemManager}
   alias Cham.Items
-  alias Cham.Pipeline.Events.{StageStarted, StageCompleted, StageFailed, StageSnoozed}
+  alias Cham.Pipeline.Events.{StageCompleted, StageFailed, StageSnoozed, StageStarted}
 
   require Logger
 

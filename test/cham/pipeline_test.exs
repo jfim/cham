@@ -1,8 +1,8 @@
 defmodule Cham.PipelineTest do
   use Cham.DataCase
 
-  alias Cham.Pipeline
   alias Cham.Items
+  alias Cham.Pipeline
 
   setup do
     tmp =

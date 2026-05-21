@@ -42,9 +42,18 @@ defmodule ChamWeb.DashboardLive.DetailHelpers do
 
   def assign_content(socket, item, artifacts, stage_history) do
     socket
-    |> Phoenix.Component.assign(:primary_content, resolve_primary_content(item, artifacts, stage_history))
-    |> Phoenix.Component.assign(:summary, resolve_artifact_content(item, artifacts, stage_history, "summary"))
-    |> Phoenix.Component.assign(:transcript, lazy_transcript_placeholder(artifacts, stage_history))
+    |> Phoenix.Component.assign(
+      :primary_content,
+      resolve_primary_content(item, artifacts, stage_history)
+    )
+    |> Phoenix.Component.assign(
+      :summary,
+      resolve_artifact_content(item, artifacts, stage_history, "summary")
+    )
+    |> Phoenix.Component.assign(
+      :transcript,
+      lazy_transcript_placeholder(artifacts, stage_history)
+    )
     |> Phoenix.Component.assign(:original_file_url, resolve_original_file_url(item, artifacts))
     |> Phoenix.Component.assign(:metadata_json, build_metadata_json(item))
   end

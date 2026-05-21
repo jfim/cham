@@ -3,10 +3,10 @@ defmodule Cham.Subscriptions.PollWorker do
 
   import Ecto.Query
 
+  alias Cham.Items.Item
   alias Cham.Repo
   alias Cham.Subscriptions
   alias Cham.Subscriptions.{BackendRegistry, Backfill}
-  alias Cham.Items.Item
 
   require Logger
 

@@ -1,9 +1,9 @@
 defmodule Cham.Items do
   import Ecto.Query
 
-  alias Cham.Repo
-  alias Cham.Items.{Item, Artifact}
+  alias Cham.Items.{Artifact, Item}
   alias Cham.Items.Events.ItemDeleted
+  alias Cham.Repo
 
   def create_item(attrs) do
     %Item{}

@@ -3,9 +3,9 @@ defmodule ChamWeb.SubscriptionShowLive do
 
   import Ecto.Query
 
+  alias Cham.Items.Item
   alias Cham.Repo
   alias Cham.Subscriptions
-  alias Cham.Items.Item
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do

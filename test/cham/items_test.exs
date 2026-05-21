@@ -2,7 +2,7 @@ defmodule Cham.ItemsTest do
   use Cham.DataCase
 
   alias Cham.Items
-  alias Cham.Items.{Item, Artifact}
+  alias Cham.Items.{Artifact, Item}
 
   describe "create_item/1" do
     test "creates an item with valid url" do

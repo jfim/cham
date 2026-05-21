@@ -1,16 +1,17 @@
 defmodule Cham.JobTracking.Tracker do
   use GenServer
 
-  alias Cham.Repo
   alias Cham.JobTracking.StageExecution
 
   alias Cham.Pipeline.Events.{
-    StageStarted,
     StageCompleted,
     StageFailed,
+    StageProgress,
     StageSnoozed,
-    StageProgress
+    StageStarted
   }
+
+  alias Cham.Repo
 
   import Ecto.Query
 

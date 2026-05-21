@@ -117,11 +117,10 @@ defmodule Cham.Subscriptions.RssParser do
 
   defp element_text(xmlElement(content: content)) do
     content
-    |> Enum.map(fn
+    |> Enum.map_join("", fn
       xmlText(value: v) -> List.to_string(v)
       _ -> ""
     end)
-    |> Enum.join("")
     |> String.trim()
     |> case do
       "" -> nil

@@ -8,7 +8,7 @@
   </div>
 
   <%!-- Sidebar --%>
-  <aside class="sidebar">
+  <aside class="sidebar" style={@view == :detail && "display: none"}>
     <div class="sidebar-brand">
       <.link navigate={~p"/"} class="wordmark" style="text-decoration: none;">Cham</.link>
       <span class="khmer">ចាំ</span>
@@ -46,7 +46,7 @@
         </div>
         <.link
           :for={item <- @in_progress}
-          navigate={~p"/items/#{item.id}"}
+          patch={~p"/items/#{item.id}"}
           class="ingest-row"
           style="text-decoration: none;"
         >
@@ -136,7 +136,7 @@
   </aside>
 
   <%!-- Main column --%>
-  <div class="main">
+  <div class="main" style={@view == :detail && "display: none"}>
     <%!-- Mobile topbar with hamburger --%>
     <div class="mobile-topbar">
       <button
@@ -188,7 +188,7 @@
       <div :if={not Enum.empty?(@items) && @active_type == "video"} class="video-grid">
         <.link
           :for={item <- @items}
-          navigate={~p"/items/#{item.id}?#{return_params(assigns)}"}
+          patch={~p"/items/#{item.id}?#{return_params(assigns)}"}
           class="video-card"
         >
           <% thumb = Cham.Items.best_thumbnail_url(item) %>
@@ -214,7 +214,7 @@
       <div :if={not Enum.empty?(@items) && @active_type == "document"} class="doc-grid">
         <.link
           :for={item <- @items}
-          navigate={~p"/items/#{item.id}?#{return_params(assigns)}"}
+          patch={~p"/items/#{item.id}?#{return_params(assigns)}"}
           class="doc-card"
         >
           <div class="doc-thumb">
@@ -241,7 +241,7 @@
           <div>
             <.link
               :for={item <- group_items}
-              navigate={~p"/items/#{item.id}?#{return_params(assigns)}"}
+              patch={~p"/items/#{item.id}?#{return_params(assigns)}"}
               class="row"
             >
               <div class="row-body">
@@ -296,6 +296,10 @@
         </div>
       </nav>
     </div>
+  </div>
+
+  <div :if={@view == :detail} style="flex: 1; min-width: 0;">
+    <ChamWeb.DashboardLive.DetailView.view {assigns} />
   </div>
 </div>
 

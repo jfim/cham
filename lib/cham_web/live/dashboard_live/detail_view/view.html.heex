@@ -2,7 +2,7 @@
   <%!-- Top Bar --%>
   <div class="item-topbar">
     <.link
-      navigate={@return_path}
+      patch={@return_path}
       class="iconbtn"
       style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 4px 8px; font-size: var(--cham-text-sm); color: var(--cham-fg-muted);"
     >
@@ -365,7 +365,7 @@
               </td>
               <td style="padding: 8px 16px 8px 0;"><.status_badge status={stage.status} /></td>
               <td style="padding: 8px 16px 8px 0; color: var(--cham-fg-soft); font-family: var(--cham-font-mono);">
-                {format_duration(stage.duration_ms)}
+                {format_duration_ms(stage.duration_ms)}
               </td>
               <td style="padding: 8px 16px 8px 0; color: var(--cham-fg-soft);">
                 <.relative_time :if={stage.started_at} at={stage.started_at} />

@@ -461,7 +461,7 @@ defmodule ChamWeb.DashboardLive do
   defp truncate_url(url) do
     case URI.parse(url) do
       %URI{host: host, path: path} when is_binary(host) ->
-        display = (host || "") <> (path || "")
+        display = host <> (path || "")
 
         if String.length(display) > 50 do
           String.slice(display, 0, 47) <> "..."

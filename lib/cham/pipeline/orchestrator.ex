@@ -475,30 +475,26 @@ defmodule Cham.Pipeline.Orchestrator do
   end
 
   defp do_move_to_archive(item, root, slug, state) do
-    case ArchiveManager.move_to_archive(root, item.bootstrap_path, slug, Date.utc_today()) do
-      {:ok, archive_path} ->
-        {:ok, updated_item} =
-          Items.update_item(item, %{
-            status: "processing",
-            archive_path: archive_path,
-            slug: slug,
-            bootstrap_path: nil
-          })
+    {:ok, archive_path} =
+      ArchiveManager.move_to_archive(root, item.bootstrap_path, slug, Date.utc_today())
 
-        Logger.info("Item #{item.id} transitioned to archive at #{archive_path}")
+    {:ok, updated_item} =
+      Items.update_item(item, %{
+        status: "processing",
+        archive_path: archive_path,
+        slug: slug,
+        bootstrap_path: nil
+      })
 
-        Cham.EventBus.publish("item:archived", %ItemArchived{
-          item_id: updated_item.id,
-          slug: slug,
-          archive_path: archive_path
-        })
+    Logger.info("Item #{item.id} transitioned to archive at #{archive_path}")
 
-        evaluate_and_enqueue(updated_item.id, state)
+    Cham.EventBus.publish("item:archived", %ItemArchived{
+      item_id: updated_item.id,
+      slug: slug,
+      archive_path: archive_path
+    })
 
-      {:error, reason} ->
-        Logger.error("Failed to move item #{item.id} to archive: #{inspect(reason)}")
-        transition_to_terminal(item, "failed", "archive move failed")
-    end
+    evaluate_and_enqueue(updated_item.id, state)
   end
 
   defp generate_slug(item) do

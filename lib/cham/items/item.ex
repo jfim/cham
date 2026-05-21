@@ -5,6 +5,8 @@ defmodule Cham.Items.Item do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
+  @type t :: %__MODULE__{}
+
   schema "items" do
     field :url, :string
     field :status, :string, default: "bootstrapping"

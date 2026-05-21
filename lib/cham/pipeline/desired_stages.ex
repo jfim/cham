@@ -138,23 +138,23 @@ defmodule Cham.Pipeline.DesiredStages do
   defp filter_disabled(stages) do
     disabled = disabled_plugin_ids()
 
-    if MapSet.size(disabled) == 0 do
+    if disabled == [] do
       stages
     else
-      Enum.reject(stages, fn stage -> MapSet.member?(disabled, stage.plugin_id) end)
+      Enum.reject(stages, fn stage -> stage.plugin_id in disabled end)
     end
   end
 
+  @spec disabled_plugin_ids() :: [String.t()]
   defp disabled_plugin_ids do
     case Cham.Config.Manager.read_all("enabled_plugins") do
       {:ok, values} ->
         values
         |> Enum.filter(fn {_k, v} -> v == false end)
         |> Enum.map(fn {k, _v} -> Atom.to_string(k) end)
-        |> MapSet.new()
 
       {:error, _} ->
-        MapSet.new()
+        []
     end
   end
 

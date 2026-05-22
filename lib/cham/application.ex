@@ -83,7 +83,8 @@ defmodule Cham.Application do
       Cham.Plugins.AutoTag,
       Cham.Plugins.CleanTitle,
       Cham.Plugins.ExtractThumbnail,
-      Cham.Plugins.DownloadImages
+      Cham.Plugins.DownloadImages,
+      Cham.Plugins.AlambicCleanMarkdown
     ]
 
     for mod <- core_plugins do

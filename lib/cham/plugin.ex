@@ -14,4 +14,7 @@ defmodule Cham.Plugin do
   @callback config_schema() :: [config_field()]
   @callback init(context :: map()) :: {:ok, state :: map()} | {:error, reason :: String.t()}
   @callback stages(state :: map()) :: [module()]
+  @callback default_enabled?() :: boolean()
+
+  @optional_callbacks default_enabled?: 0
 end

@@ -142,7 +142,7 @@ defmodule Cham.Application do
         %{
           key: String.to_atom(entry.plugin_id),
           type: :boolean,
-          default: true,
+          default: plugin_default_enabled?(entry.module),
           description: entry.description,
           required: false,
           options: nil
@@ -150,6 +150,14 @@ defmodule Cham.Application do
       end)
 
     Cham.Config.Manager.register("enabled_plugins", schema)
+  end
+
+  defp plugin_default_enabled?(module) do
+    if function_exported?(module, :default_enabled?, 0) do
+      module.default_enabled?()
+    else
+      true
+    end
   end
 
   defp register_display_config do

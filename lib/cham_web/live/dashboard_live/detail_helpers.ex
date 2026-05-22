@@ -180,12 +180,44 @@ defmodule ChamWeb.DashboardLive.DetailHelpers do
   end
 
   defp resolve_article_content(item, artifacts, stage_history) do
-    case resolve_artifact_content(item, artifacts, stage_history, "content", "derived") do
+    types = content_order()
+    try_content_types(item, artifacts, stage_history, types, nil)
+  end
+
+  defp try_content_types(_item, _artifacts, _stage_history, [], last_result) do
+    last_result || %{state: :not_requested, content: nil, html: nil, error: nil}
+  end
+
+  defp try_content_types(item, artifacts, stage_history, [type | rest], last_result) do
+    derived = resolve_artifact_content(item, artifacts, stage_history, type, "derived")
+
+    case derived do
       %{state: :available} = result ->
         result
 
       _ ->
-        resolve_artifact_content(item, artifacts, stage_history, "content", "original")
+        original = resolve_artifact_content(item, artifacts, stage_history, type, "original")
+
+        case original do
+          %{state: :available} = result -> result
+          _ -> try_content_types(item, artifacts, stage_history, rest, last_result || derived)
+        end
+    end
+  end
+
+  defp content_order do
+    value =
+      case Cham.Config.Manager.read_all("display") do
+        {:ok, cfg} -> Map.get(cfg, :content_order)
+        _ -> nil
+      end
+
+    case value do
+      s when is_binary(s) and s != "" ->
+        s |> String.split(",") |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == ""))
+
+      _ ->
+        ["cleaned_content", "content"]
     end
   end
 

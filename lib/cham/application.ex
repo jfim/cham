@@ -182,6 +182,17 @@ defmodule Cham.Application do
             "Falls back to item.title when none match.",
         required: false,
         options: nil
+      },
+      %{
+        key: :content_order,
+        type: :string,
+        default: "cleaned_content,content",
+        description:
+          "Comma-separated list of content artifact types to display for articles, in " <>
+            "preference order. For each type, the derived artifact is preferred over the " <>
+            "original. Known types: cleaned_content, content.",
+        required: false,
+        options: nil
       }
     ]
 

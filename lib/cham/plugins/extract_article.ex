@@ -78,6 +78,7 @@ defmodule Cham.Plugins.ExtractArticle.ExtractStage do
          ) do
       {:ok, output, _stderr, 0} ->
         item_metadata = parse_metadata(output)
+        tool = Map.get(item_metadata, "extractor", "readability-lxml")
 
         {:ok,
          %{
@@ -92,8 +93,8 @@ defmodule Cham.Plugins.ExtractArticle.ExtractStage do
                filenames: ["content.md"]
              }
            ],
-           item_metadata: item_metadata,
-           provenance: %{"tool" => "readability-lxml"}
+           item_metadata: Map.delete(item_metadata, "extractor"),
+           provenance: %{"tool" => tool}
          }}
 
       {:ok, output, _stderr, exit_code} ->

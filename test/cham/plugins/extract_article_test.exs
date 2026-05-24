@@ -150,7 +150,7 @@ defmodule Cham.Plugins.ExtractArticleIntegrationTest do
            }
 
     assert artifact.filenames == ["content.md"]
-    assert result.provenance == %{"tool" => "readability-lxml"}
+    assert result.provenance["tool"] in ["trafilatura-slice", "readability-lxml"]
 
     content_path = Path.join(working_dir, "content.md")
     assert File.exists?(content_path)
@@ -222,5 +222,57 @@ defmodule Cham.Plugins.ExtractArticleIntegrationTest do
     content = File.read!(Path.join(working_dir, "content.md"))
     assert content =~ "Real Article Title"
     assert content =~ "main content of the article"
+  end
+
+  # Inline <code>, <em>, <strong> are the tags trafilatura's HTML output loses
+  # by normalizing everything into <p>/<pre>/<blockquote>. The slice approach
+  # extracts the article from the *original* tree, preserving these tags so
+  # markdownify can convert them to inline `code`, *italic*, **bold**.
+  @inline_formatted_html """
+  <!DOCTYPE html>
+  <html>
+  <head><title>Inline Formatting</title></head>
+  <body>
+    <article>
+      <h1>Inline Formatting Test</h1>
+      <p>This article exercises the slice extractor by using inline
+      <code>code_identifier</code> spans, <em>emphasized text</em>, and
+      <strong>strong text</strong>. A faithful extraction must preserve all
+      three as inline markdown formatting rather than promoting them to block
+      elements or stripping them entirely.</p>
+      <p>The body needs to be long enough that trafilatura's content selection
+      considers it real article material. So here is more substantive prose to
+      pad the article past the minimum word threshold that the extractor
+      applies when deciding whether a region is article content or boilerplate.</p>
+      <p>And one more paragraph to keep the article comfortably above any
+      length-based heuristics that might otherwise reject this fragment as too
+      short to be worth extracting at all.</p>
+    </article>
+  </body>
+  </html>
+  """
+
+  test "perform/4 preserves inline code, italic, and bold via the slice extractor", %{
+    source_dir: source_dir,
+    working_dir: working_dir
+  } do
+    html_file = Path.join(source_dir, "inline.html")
+    File.write!(html_file, @inline_formatted_html)
+
+    input_artifacts = [
+      %{
+        labels: %{"origin" => "original", "format" => "text", "type" => "article"},
+        filenames: ["inline.html"],
+        input_path: source_dir
+      }
+    ]
+
+    assert {:ok, result} = ExtractStage.perform(input_artifacts, working_dir, [], "item-1")
+    assert result.provenance["tool"] == "trafilatura-slice"
+
+    content = File.read!(Path.join(working_dir, "content.md"))
+    assert content =~ "`code_identifier`"
+    assert content =~ ~r/[*_]emphasized text[*_]/
+    assert content =~ "**strong text**"
   end
 end

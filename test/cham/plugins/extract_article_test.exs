@@ -150,7 +150,7 @@ defmodule Cham.Plugins.ExtractArticleIntegrationTest do
            }
 
     assert artifact.filenames == ["content.md"]
-    assert result.provenance == %{"tool" => "readability-lxml"}
+    assert result.provenance["tool"] in ["trafilatura", "readability-lxml"]
 
     content_path = Path.join(working_dir, "content.md")
     assert File.exists?(content_path)

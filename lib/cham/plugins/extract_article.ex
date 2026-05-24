@@ -78,6 +78,7 @@ defmodule Cham.Plugins.ExtractArticle.ExtractStage do
          ) do
       {:ok, output, _stderr, 0} ->
         item_metadata = parse_metadata(output)
+        {extractor, item_metadata} = Map.pop(item_metadata, "extractor", "trafilatura")
 
         {:ok,
          %{
@@ -93,7 +94,7 @@ defmodule Cham.Plugins.ExtractArticle.ExtractStage do
              }
            ],
            item_metadata: item_metadata,
-           provenance: %{"tool" => "readability-lxml"}
+           provenance: %{"tool" => extractor}
          }}
 
       {:ok, output, _stderr, exit_code} ->

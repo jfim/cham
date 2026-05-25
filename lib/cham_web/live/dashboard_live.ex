@@ -190,6 +190,7 @@ defmodule ChamWeb.DashboardLive do
       |> assign(:active_tab, new_tab)
       |> DetailHelpers.maybe_load_transcript(new_tab)
       |> DetailHelpers.maybe_load_chat(new_tab)
+      |> DetailHelpers.maybe_load_files(new_tab)
 
     {:noreply, socket}
   end

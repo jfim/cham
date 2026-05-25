@@ -38,6 +38,9 @@ defmodule ChamWeb.DashboardLive.DetailHelpers do
     |> Phoenix.Component.assign(:chat_error, nil)
     |> Phoenix.Component.assign(:chat_source_label, nil)
     |> Phoenix.Component.assign(:chat_task_ref, nil)
+    |> Phoenix.Component.assign(:files_loaded?, false)
+    |> Phoenix.Component.assign(:files, [])
+    |> Phoenix.Component.assign(:files_error, nil)
   end
 
   def assign_content(socket, item, artifacts, stage_history) do
@@ -94,6 +97,81 @@ defmodule ChamWeb.DashboardLive.DetailHelpers do
   end
 
   def maybe_load_chat(socket, _tab), do: socket
+
+  def maybe_load_files(socket, "files") do
+    if socket.assigns.files_loaded? do
+      socket
+    else
+      {files, error} =
+        case list_archive_files(socket.assigns.item) do
+          {:ok, list} -> {list, nil}
+          {:error, reason} -> {[], reason}
+        end
+
+      socket
+      |> Phoenix.Component.assign(:files_loaded?, true)
+      |> Phoenix.Component.assign(:files, files)
+      |> Phoenix.Component.assign(:files_error, error)
+    end
+  end
+
+  def maybe_load_files(socket, _tab), do: socket
+
+  @max_files 5000
+
+  def list_archive_files(item) do
+    case item.archive_path || item.bootstrap_path do
+      nil ->
+        {:error, :no_archive_path}
+
+      dir ->
+        if File.dir?(dir) do
+          {:ok, walk_dir(dir, dir, [], 0) |> Enum.sort_by(& &1.path)}
+        else
+          {:error, :archive_missing}
+        end
+    end
+  end
+
+  defp walk_dir(_root, _dir, acc, count) when count >= @max_files, do: acc
+
+  defp walk_dir(root, dir, acc, count) do
+    case File.ls(dir) do
+      {:ok, entries} ->
+        Enum.reduce(entries, {acc, count}, fn entry, {acc, count} ->
+          if count >= @max_files do
+            {acc, count}
+          else
+            full = Path.join(dir, entry)
+            rel = Path.relative_to(full, root)
+
+            case File.stat(full) do
+              {:ok, %{type: :directory}} ->
+                {walk_dir(root, full, acc, count), count}
+
+              {:ok, %{type: :regular, size: size, mtime: mtime}} ->
+                {[%{path: rel, size: size, mtime: mtime} | acc], count + 1}
+
+              _ ->
+                {acc, count}
+            end
+          end
+        end)
+        |> elem(0)
+
+      {:error, _} ->
+        acc
+    end
+  end
+
+  def format_file_size(nil), do: "-"
+  def format_file_size(b) when b < 1024, do: "#{b} B"
+  def format_file_size(b) when b < 1024 * 1024, do: "#{Float.round(b / 1024, 1)} KB"
+
+  def format_file_size(b) when b < 1024 * 1024 * 1024,
+    do: "#{Float.round(b / 1024 / 1024, 1)} MB"
+
+  def format_file_size(b), do: "#{Float.round(b / 1024 / 1024 / 1024, 2)} GB"
 
   def parse_backfill_params(%{"mode" => "none"}), do: :none
 
@@ -384,13 +462,14 @@ defmodule ChamWeb.DashboardLive.DetailHelpers do
         _ -> ["summary"]
       end
 
-    base ++ ["pipeline", "metadata", "chat", "actions"]
+    base ++ ["pipeline", "metadata", "files", "chat", "actions"]
   end
 
   def tab_label("summary"), do: "Summary"
   def tab_label("transcript"), do: "Transcript"
   def tab_label("pipeline"), do: "Pipeline"
   def tab_label("metadata"), do: "Metadata"
+  def tab_label("files"), do: "Files"
   def tab_label("chat"), do: "Chat"
   def tab_label("actions"), do: "Actions"
   def tab_label(other), do: String.capitalize(other)

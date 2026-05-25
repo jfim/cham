@@ -344,7 +344,11 @@ defmodule Cham.Items do
     end
   end
 
-  defp content_order do
+  @doc """
+  Returns the configured `display.content_order` as a list of artifact type strings,
+  defaulting to `["cleaned_content", "content"]`.
+  """
+  def content_order do
     case Cham.Config.Manager.read_all("display") do
       {:ok, %{content_order: s}} when is_binary(s) and s != "" ->
         s |> String.split(",") |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == ""))

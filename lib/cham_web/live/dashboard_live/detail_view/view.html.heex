@@ -405,6 +405,57 @@
         <pre>{@metadata_json}</pre>
       </div>
 
+      <div :if={@active_tab == "files"} style="padding: var(--cham-space-5);">
+        <div
+          :if={@files_error}
+          style="font-size: var(--cham-text-sm); color: var(--cham-fg-faint); padding: var(--cham-space-4) 0;"
+        >
+          <span :if={@files_error == :no_archive_path}>
+            This item has no archive directory yet.
+          </span>
+          <span :if={@files_error == :archive_missing}>
+            Archive directory is missing on disk.
+          </span>
+        </div>
+        <div
+          :if={!@files_error and @files == []}
+          style="font-size: var(--cham-text-sm); color: var(--cham-fg-faint); padding: var(--cham-space-4) 0;"
+        >
+          No files in archive.
+        </div>
+        <table
+          :if={@files != []}
+          style="width: 100%; font-size: var(--cham-text-sm); border-collapse: collapse; font-family: var(--cham-font-mono);"
+        >
+          <thead>
+            <tr style="text-align: left; font-size: var(--cham-text-xs); font-weight: var(--cham-fw-semibold); color: var(--cham-fg-faint); text-transform: uppercase; letter-spacing: var(--cham-track-wider); border-bottom: 1px solid var(--cham-border-subtle);">
+              <th style="padding-bottom: 8px; padding-right: 16px;">Path</th>
+              <th style="padding-bottom: 8px; padding-right: 16px; text-align: right;">Size</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              :for={f <- @files}
+              style="border-bottom: 1px solid var(--cham-border-subtle);"
+            >
+              <td style="padding: 6px 16px 6px 0;">
+                <a
+                  href={~p"/api/v1/items/#{@item.id}/files/#{Path.split(f.path)}"}
+                  target="_blank"
+                  rel="noopener"
+                  style="color: var(--cham-fg-muted); text-decoration: none;"
+                >
+                  {f.path}
+                </a>
+              </td>
+              <td style="padding: 6px 0; text-align: right; color: var(--cham-fg-soft);">
+                {format_file_size(f.size)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       <div :if={@active_tab == "chat"} class="chat">
         <div :if={@chat_source_label} class="chat-source-note">
           <div class="chat-centered">

@@ -258,6 +258,50 @@ defmodule Cham.TestPlugins.RaisingStage do
   end
 end
 
+defmodule Cham.TestPlugins.TransientRaisingStage do
+  @behaviour Cham.Stage
+
+  @impl true
+  def name, do: "Transient Raising Stage"
+  @impl true
+  def description, do: "Test stage that raises, with max_attempts > 1"
+  @impl true
+  def input_matchers, do: [%{"domain" => "example.com"}]
+  @impl true
+  def output_labels, do: [%{"origin" => "derived", "type" => "none"}]
+  @impl true
+  def queue, do: :general
+  @impl true
+  def max_attempts, do: 3
+
+  @impl true
+  def perform(_inputs, _dir, _desired, _item_id) do
+    raise "transient kaboom"
+  end
+end
+
+defmodule Cham.TestPlugins.FailingStage do
+  @behaviour Cham.Stage
+
+  @impl true
+  def name, do: "Failing Stage"
+  @impl true
+  def description, do: "Test stage that returns {:error, _} with retries"
+  @impl true
+  def input_matchers, do: [%{"domain" => "example.com"}]
+  @impl true
+  def output_labels, do: [%{"origin" => "derived", "type" => "none"}]
+  @impl true
+  def queue, do: :general
+  @impl true
+  def max_attempts, do: 3
+
+  @impl true
+  def perform(_inputs, _dir, _desired, _item_id) do
+    {:error, :nope}
+  end
+end
+
 defmodule Cham.TestPlugins.PluginEcho do
   @behaviour Cham.Plugin
 

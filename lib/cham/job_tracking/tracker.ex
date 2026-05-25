@@ -118,13 +118,19 @@ defmodule Cham.JobTracking.Tracker do
   @doc false
   def handle_oban_exception(@oban_exception_event, _measurements, metadata, _config) do
     case metadata do
-      %{job: %Oban.Job{worker: "Cham.Pipeline.StageWorker", args: args, attempt: attempt}} ->
-        Cham.EventBus.publish("pipeline:stage_failed", %StageFailed{
-          stage_id: args["plugin_id"],
-          item_id: args["item_id"],
-          error: format_oban_exception(metadata),
-          attempt: attempt
-        })
+      %{job: %Oban.Job{worker: "Cham.Pipeline.StageWorker"} = job} ->
+        # Only publish StageFailed when Oban has exhausted retries. A transient
+        # crash on a non-final attempt would otherwise latch the StageExecution
+        # row to "failed", causing the orchestrator's bootstrapping-phase check
+        # to mark the item permanently failed before the retry runs.
+        if final_attempt?(job) do
+          Cham.EventBus.publish("pipeline:stage_failed", %StageFailed{
+            stage_id: job.args["plugin_id"],
+            item_id: job.args["item_id"],
+            error: format_oban_exception(metadata),
+            attempt: job.attempt
+          })
+        end
 
       _ ->
         :ok
@@ -135,6 +141,16 @@ defmodule Cham.JobTracking.Tracker do
         "Tracker telemetry handler failed: #{Exception.format(:error, exception, __STACKTRACE__)}"
       )
   end
+
+  defp final_attempt?(%Oban.Job{attempt: attempt, max_attempts: max_attempts})
+       when is_integer(attempt) and is_integer(max_attempts) do
+    attempt >= max_attempts
+  end
+
+  # If max_attempts isn't on the job (older jobs, or hand-crafted in tests),
+  # err on the side of publishing — preserves the historical behavior so
+  # nothing silently disappears.
+  defp final_attempt?(_job), do: true
 
   defp format_oban_exception(%{kind: kind, reason: reason, stacktrace: stacktrace}) do
     Exception.format(kind, reason, stacktrace)

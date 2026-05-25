@@ -297,6 +297,63 @@ defmodule Cham.Items do
     end
   end
 
+  @doc """
+  Read the primary article markdown for an item, honoring the
+  `display.content_order` config (default `["cleaned_content", "content"]`).
+  For each type, derived artifacts are preferred over original.
+  """
+  def read_primary_markdown(%Item{} = item) do
+    cond do
+      item.content_type != "article" ->
+        {:error, :not_found}
+
+      item.status not in ["complete", "incomplete"] ->
+        {:error, :not_ready}
+
+      true ->
+        artifacts = list_artifacts(item.id)
+        do_read_primary_markdown(item, artifacts, content_order())
+    end
+  end
+
+  defp do_read_primary_markdown(_item, _artifacts, []), do: {:error, :not_found}
+
+  defp do_read_primary_markdown(item, artifacts, [type | rest]) do
+    case find_and_read(item, artifacts, type, "derived") do
+      {:ok, body} ->
+        {:ok, body}
+
+      :miss ->
+        case find_and_read(item, artifacts, type, "original") do
+          {:ok, body} -> {:ok, body}
+          :miss -> do_read_primary_markdown(item, artifacts, rest)
+        end
+    end
+  end
+
+  defp find_and_read(item, artifacts, type, origin) do
+    artifact =
+      Enum.find(artifacts, fn a ->
+        a.labels["type"] == type and a.labels["origin"] == origin and
+          a.status == "produced"
+      end)
+
+    case artifact && read_artifact_content(item, artifact) do
+      {:ok, body} -> {:ok, body}
+      _ -> :miss
+    end
+  end
+
+  defp content_order do
+    case Cham.Config.Manager.read_all("display") do
+      {:ok, %{content_order: s}} when is_binary(s) and s != "" ->
+        s |> String.split(",") |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == ""))
+
+      _ ->
+        ["cleaned_content", "content"]
+    end
+  end
+
   def create_artifact(attrs) do
     %Artifact{}
     |> Artifact.changeset(attrs)

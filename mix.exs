@@ -66,6 +66,7 @@ defmodule Cham.MixProject do
       {:toml, "~> 0.7"},
       {:req, "~> 0.5"},
       {:earmark, "~> 1.4"},
+      {:anubis_mcp, "~> 1.6"},
       {:bypass, "~> 2.1", only: :test},
       {:lazy_html, ">= 0.1.0", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},

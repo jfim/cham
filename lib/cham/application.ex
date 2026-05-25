@@ -24,6 +24,7 @@ defmodule Cham.Application do
       {Cham.Plugin.Registry, name: Cham.Plugin.Registry, plugin_order: []},
       Cham.Subscriptions.Supervisor,
       Cham.Pipeline.Supervisor,
+      {Cham.MCP.Server, transport: :streamable_http},
       # Start to serve requests, typically the last entry
       ChamWeb.Endpoint
     ]

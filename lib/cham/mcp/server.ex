@@ -7,8 +7,7 @@ defmodule Cham.MCP.Server do
     capabilities: [:tools]
 
   component(Cham.MCP.Tools.GetArticleMarkdown)
-  # TODO: enabled in Task 8-9
-  # component(Cham.MCP.Tools.SearchArticles)
+  component(Cham.MCP.Tools.SearchArticles)
 
   @impl true
   def init(_client_info, frame), do: {:ok, frame}

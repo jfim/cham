@@ -45,6 +45,11 @@ defmodule ChamWeb.Router do
     get "/health", HealthController, :index
   end
 
+  scope "/mcp" do
+    pipe_through :api
+    forward "/", Anubis.Server.Transport.StreamableHTTP.Plug, server: Cham.MCP.Server
+  end
+
   if Application.compile_env(:cham, :dev_routes, Mix.env() == :dev) do
     import Phoenix.LiveDashboard.Router
 

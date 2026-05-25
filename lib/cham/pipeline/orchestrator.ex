@@ -347,18 +347,23 @@ defmodule Cham.Pipeline.Orchestrator do
     active = active_oban_stage_ids(item.id)
 
     cond do
+      # If any stage job is still enqueued/running/retryable, hold off on
+      # terminal transitions. This covers two cases:
+      #   1. all_originals_complete? returns true vacuously when no
+      #      original-producing stage is "reachable" via the normal DAG (the
+      #      fallback fetcher's can_process? returns :not_applicable); without
+      #      this guard a freshly-kicked-off item would archive itself before
+      #      its fetch even runs.
+      #   2. An original-producing stage's first attempt failed and Oban
+      #      scheduled a retry. The StageExecution row already says "failed"
+      #      but the retry hasn't run yet — declaring the item permanently
+      #      failed here would discard the retry's eventual success.
+      MapSet.size(active) > 0 ->
+        :ok
+
       not MapSet.disjoint?(failed, original_stage_ids(stages)) ->
         Logger.warning("Item #{item.id} has failed original-producing stages, marking failed")
         transition_to_terminal(item, "failed", "original stage failed")
-
-      # If a fetch is currently enqueued/running, don't race ahead and declare
-      # bootstrap complete. all_originals_complete? returns true vacuously when
-      # no original-producing stage is "reachable" via the normal DAG (the
-      # fallback fetcher's can_process? returns :not_applicable), and without
-      # this guard a freshly-kicked-off item would archive itself before its
-      # fetch even runs.
-      MapSet.size(active) > 0 ->
-        :ok
 
       DAG.all_originals_complete?(stages, artifacts, completed_ids) ->
         transition_to_archive(item, state)

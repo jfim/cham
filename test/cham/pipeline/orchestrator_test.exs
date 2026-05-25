@@ -422,6 +422,73 @@ defmodule Cham.Pipeline.OrchestratorTest do
       refute updated.error_message == "original stage failed"
     end
 
+    test "does not mark bootstrapping item failed when a retryable Oban job is still pending" do
+      # Reproduces production stall: attempt 1 of an original-producing stage
+      # failed, Oban scheduled a retryable retry, and *before* attempt 2 ran the
+      # 30-second recovery tick (or any other trigger) ran check_transitions.
+      # The item was getting marked permanently failed even though the retry
+      # was still pending, discarding the eventual success.
+      registry_name = :"pending_retry_registry_#{System.unique_integer([:positive])}"
+
+      {:ok, _pid} =
+        Registry.start_link(name: registry_name, plugin_order: ["plugin_echo"])
+
+      :ok = Registry.register_plugin(registry_name, Cham.TestPlugins.PluginEcho, %{})
+
+      orchestrator_name = :"pending_retry_orchestrator_#{System.unique_integer([:positive])}"
+
+      {:ok, orchestrator_pid} =
+        Orchestrator.start_link(
+          name: orchestrator_name,
+          registry: registry_name,
+          recovery_interval: :infinity
+        )
+
+      Ecto.Adapters.SQL.Sandbox.allow(Cham.Repo, self(), orchestrator_pid)
+      :sys.get_state(orchestrator_name)
+
+      {:ok, item} =
+        Items.create_item(%{
+          url: "https://example.com/pending-retry-#{System.unique_integer([:positive])}",
+          status: "bootstrapping"
+        })
+
+      # Attempt 1 recorded as failed; no produced artifact, no completed row.
+      Repo.insert!(%Cham.JobTracking.StageExecution{
+        item_id: item.id,
+        stage: "plugin_echo",
+        status: "failed",
+        attempt: 1,
+        started_at: now_truncated(),
+        ended_at: now_truncated(),
+        error: "transient"
+      })
+
+      # Oban has scheduled the retry — job sits in "retryable" state.
+      Repo.insert_all("oban_jobs", [
+        %{
+          state: "retryable",
+          queue: "default",
+          worker: "Cham.Pipeline.StageWorker",
+          args: %{"item_id" => item.id, "plugin_id" => "plugin_echo"},
+          attempt: 1,
+          max_attempts: 3,
+          inserted_at: now_truncated(),
+          scheduled_at: now_truncated()
+        }
+      ])
+
+      Orchestrator.stage_failed(orchestrator_name, item.id, "plugin_echo", "transient")
+      :sys.get_state(orchestrator_name)
+
+      updated = Items.get_item!(item.id)
+
+      refute updated.status == "failed",
+             "item was marked failed while a retry was still pending in Oban"
+
+      refute updated.error_message == "original stage failed"
+    end
+
     test "does not mark item failed when artifact is produced before completed StageExecution row lands" do
       registry_name = :"race_registry_#{System.unique_integer([:positive])}"
 

@@ -64,6 +64,79 @@ defmodule Cham.Pipeline.StageWorkerTest do
       assert_receive %StageCompleted{stage_id: "echo_stage", item_id: _}
     end
 
+    test "does not publish StageFailed when {:error, _} on a non-final attempt", %{
+      item: item,
+      tmp: tmp
+    } do
+      item_dir = Path.join(tmp, "item")
+      File.mkdir_p!(Path.join(item_dir, "processing"))
+
+      Cham.EventBus.subscribe("pipeline")
+
+      result =
+        StageWorker.execute_stage(
+          Cham.TestPlugins.FailingStage,
+          "failing_stage",
+          item,
+          item_dir,
+          1
+        )
+
+      assert {:error, :nope} = result
+      assert_receive %StageStarted{stage_id: "failing_stage", attempt: 1}
+      refute_receive %StageFailed{stage_id: "failing_stage"}, 100
+    end
+
+    test "publishes StageFailed when {:error, _} on the final attempt", %{
+      item: item,
+      tmp: tmp
+    } do
+      item_dir = Path.join(tmp, "item")
+      File.mkdir_p!(Path.join(item_dir, "processing"))
+
+      Cham.EventBus.subscribe("pipeline")
+
+      result =
+        StageWorker.execute_stage(
+          Cham.TestPlugins.FailingStage,
+          "failing_stage",
+          item,
+          item_dir,
+          3
+        )
+
+      assert {:error, :nope} = result
+      assert_receive %StageStarted{stage_id: "failing_stage", attempt: 3}
+      assert_receive %StageFailed{stage_id: "failing_stage", attempt: 3}
+    end
+
+    test "does not publish StageFailed when stage raises on a non-final attempt", %{
+      item: item,
+      tmp: tmp
+    } do
+      item_dir = Path.join(tmp, "item")
+      File.mkdir_p!(Path.join(item_dir, "processing"))
+
+      Cham.EventBus.subscribe("pipeline")
+
+      # RaisingStage declares max_attempts: 1, so attempt 1 IS the final attempt
+      # there. We need a stage with higher max_attempts to exercise the
+      # transient-raise path. Wrap FailingStage's module via a custom stage
+      # that raises but has max_attempts: 3.
+      assert_raise RuntimeError, "transient kaboom", fn ->
+        StageWorker.execute_stage(
+          Cham.TestPlugins.TransientRaisingStage,
+          "transient_raising_stage",
+          item,
+          item_dir,
+          1
+        )
+      end
+
+      assert_receive %StageStarted{stage_id: "transient_raising_stage", attempt: 1}
+      refute_receive %StageFailed{stage_id: "transient_raising_stage"}, 100
+    end
+
     test "publishes StageFailed and reraises when stage raises", %{item: item, tmp: tmp} do
       item_dir = Path.join(tmp, "item")
       File.mkdir_p!(Path.join(item_dir, "processing"))

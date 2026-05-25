@@ -175,13 +175,14 @@ defmodule Cham.JobTracking.TrackerTest do
   end
 
   describe "oban exception telemetry" do
-    test "publishes StageFailed when StageWorker job raises", %{item: item} do
+    test "publishes StageFailed when StageWorker job raises on final attempt", %{item: item} do
       Cham.EventBus.subscribe("pipeline")
 
       job = %Oban.Job{
         worker: "Cham.Pipeline.StageWorker",
         args: %{"item_id" => item.id, "plugin_id" => "auto_tag"},
-        attempt: 2
+        attempt: 3,
+        max_attempts: 3
       }
 
       metadata = %{
@@ -201,12 +202,40 @@ defmodule Cham.JobTracking.TrackerTest do
       assert_receive %StageFailed{
         stage_id: "auto_tag",
         item_id: received_id,
-        attempt: 2,
+        attempt: 3,
         error: err
       }
 
       assert received_id == item.id
       assert err =~ "boom"
+    end
+
+    test "does NOT publish StageFailed when StageWorker job raises on a non-final attempt",
+         %{item: item} do
+      Cham.EventBus.subscribe("pipeline")
+
+      job = %Oban.Job{
+        worker: "Cham.Pipeline.StageWorker",
+        args: %{"item_id" => item.id, "plugin_id" => "auto_tag"},
+        attempt: 1,
+        max_attempts: 3
+      }
+
+      metadata = %{
+        job: job,
+        kind: :error,
+        reason: %RuntimeError{message: "transient"},
+        stacktrace: []
+      }
+
+      Tracker.handle_oban_exception(
+        [:oban, :job, :exception],
+        %{duration: 0},
+        metadata,
+        nil
+      )
+
+      refute_receive %StageFailed{}, 50
     end
 
     test "ignores non-StageWorker jobs" do

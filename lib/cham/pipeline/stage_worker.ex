@@ -79,28 +79,34 @@ defmodule Cham.Pipeline.StageWorker do
     # Resolve input artifacts
     input_artifacts = resolve_inputs(stage_module, item.id, item_dir)
 
+    final_attempt? = attempt >= stage_max_attempts(stage_module)
+
     # Execute the stage
     result =
       try do
         stage_module.perform(input_artifacts, stage_dir, [], item.id)
       rescue
         exception ->
-          publish_crash_failure(
-            plugin_id,
-            item.id,
-            attempt,
-            Exception.format(:error, exception, __STACKTRACE__)
-          )
+          if final_attempt? do
+            publish_crash_failure(
+              plugin_id,
+              item.id,
+              attempt,
+              Exception.format(:error, exception, __STACKTRACE__)
+            )
+          end
 
           reraise exception, __STACKTRACE__
       catch
         kind, reason ->
-          publish_crash_failure(
-            plugin_id,
-            item.id,
-            attempt,
-            Exception.format(kind, reason, __STACKTRACE__)
-          )
+          if final_attempt? do
+            publish_crash_failure(
+              plugin_id,
+              item.id,
+              attempt,
+              Exception.format(kind, reason, __STACKTRACE__)
+            )
+          end
 
           :erlang.raise(kind, reason, __STACKTRACE__)
       end
@@ -130,17 +136,29 @@ defmodule Cham.Pipeline.StageWorker do
         {:ok, stage_dir}
 
       {:error, reason} ->
-        Cham.EventBus.publish("pipeline:stage_failed", %StageFailed{
-          stage_id: plugin_id,
-          item_id: item.id,
-          error: inspect(reason),
-          attempt: attempt
-        })
+        if final_attempt? do
+          Cham.EventBus.publish("pipeline:stage_failed", %StageFailed{
+            stage_id: plugin_id,
+            item_id: item.id,
+            error: inspect(reason),
+            attempt: attempt
+          })
+        end
 
         {:error, reason}
 
       {:snooze, duration_ms, reason} ->
         {:snooze, duration_ms, reason}
+    end
+  end
+
+  defp stage_max_attempts(stage_module) do
+    Code.ensure_loaded(stage_module)
+
+    if function_exported?(stage_module, :max_attempts, 0) do
+      stage_module.max_attempts()
+    else
+      3
     end
   end
 

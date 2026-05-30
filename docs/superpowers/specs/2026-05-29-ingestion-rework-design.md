@@ -163,6 +163,9 @@ Owns everything mechanical:
 - Every stage that has a recorded **terminal outcome** for this item, the outcome
   (§6), and the artifacts it emitted (with labels and **category**, §9).
 - The seed `input` artifact (the submitted URL and user metadata).
+- Whether the item has been **archived** yet — i.e. promoted from the bootstrap
+  staging location to its permanent slug-named location (§11). This is what gates the
+  archive handshake (§4.3).
 
 **Desired artifacts are *not* a separate input.** They are derived **inside** `plan` from
 `config` (a `classification → [desired artifacts]` mapping) applied to the item's
@@ -173,10 +176,28 @@ re-routing falls out as an ordinary frontier change — no mid-DAG mutation, no 
 ### 4.2 Outputs
 
 - `{:run, [stage]}` — the eligible frontier the executor should (idempotently) schedule.
-- `{:archive}` — all reachable capture-producing stages have terminal outcomes; the item
-  should be promoted to its permanent archive location (§11).
+- `{:archive}` — all reachable capture-producing stages have terminal outcomes and the
+  item is **not yet archived**; it should be promoted to its permanent archive location
+  (§11).
 - `{:terminal, status}` — no further progress is possible; the item's final status is
   `status` (§9.2).
+
+### 4.3 The archive handshake
+
+Archival is not a special control path — it is one turn of the ordinary
+outcome→replan loop, gated by the `archived` fact:
+
+1. Capture-producing stages reach terminal outcomes; the item is still
+   `archived = false`. `plan` returns `{:archive}`.
+2. The executor performs the physical move (§11) and records the item as archived.
+3. The executor re-invokes `plan` with **the same facts plus `archived = true`**. Now
+   `plan` no longer returns `{:archive}` (the guard is satisfied) and instead returns the
+   `{:run, [stage]}` frontier for extract/process.
+
+Extract and process stages are therefore only scheduled **after** archival, so they
+operate on files in the permanent location rather than the bootstrap staging directory.
+`plan` remains pure: the same `(config, facts)` always yields the same decision, and the
+`archived` flag is simply one of the facts.
 
 ## 5. In-Flight State Stays Out of the Logical Layer
 
@@ -334,8 +355,10 @@ deploy — e.g. re-summarizing thousands of items); if ever added it is opt-in p
   destination path contains the **slug**, the slug needs a title, and the title needs a
   fetch (`slugify(url)` is the floor, so a slug always exists).
 - Promotion is **eager**: as soon as all reachable capture-producing stages have terminal
-  outcomes, `plan` emits `{:archive}` and the **executor performs the move**. The item is
-  then browseable while extract/process continue. This replaces the hand-rolled
+  outcomes, `plan` emits `{:archive}` and the **executor performs the move**, records
+  `archived = true`, and re-invokes `plan` (the handshake, §4.3). Extract/process stages
+  are only scheduled on that second invocation, so they operate on the permanent location;
+  the item is browseable while they continue. This replaces the hand-rolled
   `transition_to_archive` (and its `bootstrap_path`/`archive_path` nil-juggling) with a
   fact query + a directive.
 

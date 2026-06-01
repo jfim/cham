@@ -20,9 +20,9 @@ nothing above it yet (no `plan`, no executor, no capture).
 - The repo compiles and `mix test` is green on the new units.
 - Infra is intact: config (TOML `Config.Manager`/`Schema`), event bus, Oban wiring,
   LiveView shell, smoke-test harness.
-- There is **no end-to-end ingestion pipeline** — that is rebuilt in Phases 2–7. This
+- There is **no end-to-end ingestion pipeline** — that is rebuilt in Phases 1–8. This
   is expected per the build strategy (in-place rewrite on a branch, non-runnable until
-  the Phase 5 cutover).
+  the Phase 6 cutover).
 
 ## 2. Scope
 
@@ -32,13 +32,13 @@ nothing above it yet (no `plan`, no executor, no capture).
   `artifact.json` write, re-slugify rename.
 - `Cham.Identity` — URL normalization (versioned, in code), hashing, hash-set lookup.
 - Ecto schemas + **primitive** context functions (building blocks only; the
-  orchestrated submit flow is Phase 3).
+  orchestrated submit flow is Phase 4).
 - Teardown of the v2 ingestion layer broken by the schema change.
 
 ### Out of scope (owned elsewhere)
-- The `facts` projection and the durable outcome-record shape (Phase 1/2).
-- The transactional submit path + unique-constraint dedup-fallback + enqueue (Phase 3).
-- Reindex (Phase 2).
+- The `facts` projection and the durable outcome-record shape (Phase 2/3).
+- The transactional submit path + unique-constraint dedup-fallback + enqueue (Phase 4).
+- Reindex (Phase 3).
 - Future normalization-version features: `www.` stripping, IDN→punycode, query-param
   reordering.
 - `pgvector`/embeddings, per-user data split, typed-artifact on-disk contracts
@@ -169,7 +169,7 @@ re-establishes them against the recreated table.
 A **fresh v3 migration set**: drop v2 `items` and `artifacts`, create the v3 six,
 re-establish the kept tables' FKs to the new `items`. Dev databases reset; this is
 acceptable because the archive is the source of truth and the index is rebuildable
-(reindex, Phase 2). Exact drop/recreate ordering vs. dependent FKs is an implementation
+(reindex, Phase 3). Exact drop/recreate ordering vs. dependent FKs is an implementation
 detail for the plan.
 
 ## 4. On-Disk Layout — `Cham.Archive.Layout`
@@ -226,26 +226,26 @@ Schemas: `Item`, `UrlIdentity`, `Snapshot`, `Component`, `Artifact`, `Edge` (eac
 changeset enforcing the constraints above).
 
 Phase 0 ships the **building-block functions only** — the orchestrated, transactional
-submit path with dedup-fallback and capture enqueue is Phase 3:
+submit path with dedup-fallback and capture enqueue is Phase 4:
 
 - **`create_item_with_identity(submitted_url, provenance)`** — in one transaction
   inserts the `items` row (`status: bootstrapping`, `slug: ingest-<shorthash>`,
   `archive_path`, `first_captured_at`), the `url_identities(role: submitted)` row, and
   the **first `snapshots` row** (creation-time `captured_at`, the given `provenance`);
   then creates the on-disk item dir and writes that snapshot's input record
-  (`{provenance, submitted_url, submitted_hash}`). The capture stage (Phase 4) later
+  (`{provenance, submitted_url, submitted_hash}`). The capture stage (Phase 5) later
   runs inside this same first snapshot (ingestion-completion §6.4). Surfaces a
-  `unique(url_hash)` violation as `{:error, :exists}` (Phase 3 turns that into
+  `unique(url_hash)` violation as `{:error, :exists}` (Phase 4 turns that into
   resolve-to-existing-item + enqueue).
 - **`lookup_item_by_url/1`** (§5).
 - **`add_redirect_aliases(item, normalized_urls)`** — inserts
-  `url_identities(role: redirect_alias)` rows (used by the capture stage in Phase 4).
+  `url_identities(role: redirect_alias)` rows (used by the capture stage in Phase 5).
 - **`write_input_record(item, snapshot, provenance)`** — atomic write of
   `snapshots/<ts>/input-<ts>/artifact.json`.
 - **`re_slugify(item, title)`** — calls `Layout.re_slugify`, then updates `items.slug`
   and `items.archive_path` (rename-first, DB-second).
 - Thin insert helpers: `create_snapshot/2`, `create_component/2`, `record_artifact/2`
-  (consumed by the Phase 2 projection; the **write** primitives live here).
+  (consumed by the Phase 3 projection; the **write** primitives live here).
 
 These replace the v2 `Cham.Items` create/lookup surface; v2 read functions tied to
 removed columns/shape are removed (§7).
@@ -266,7 +266,7 @@ the repo compiles and tests run, keeping the infra.
 
 **Keep:** config (`Config.Manager`/`Schema`/`TomlEncoder`), event bus, Oban wiring,
 LiveView shell + router, `ScriptRunner`, subscriptions table/schema, smoke-test harness
-(assertions rewritten in Phase 5).
+(assertions rewritten in Phase 6).
 
 **Placeholder rule:** where a *kept* module references removed code, reduce it to a
 compiling placeholder with a comment naming the phase that rebuilds it — do not leave
@@ -289,8 +289,8 @@ dead logic.
 ## 9. Open Questions (non-blocking; resolve in the owning phase)
 
 - **Exact `<ts>` precision / collision handling** for sub-second multiple captures
-  (Phase 4 may need millisecond ts or a discriminator).
+  (Phase 5 may need millisecond ts or a discriminator).
 - **`provenance` jsonb shape** beyond `{kind, actor, ref, agent}` — finalized when the
-  submit path (Phase 3) and discovery (Phase 5) land.
+  submit path (Phase 4) and discovery (Phase 6) land.
 - **Multiple same-type components** index-discriminator (data-model §10) — only matters
-  once a real case appears (Phase 5).
+  once a real case appears (Phase 6).

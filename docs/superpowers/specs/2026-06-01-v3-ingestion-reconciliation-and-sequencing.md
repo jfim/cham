@@ -128,9 +128,9 @@ changes-for-v3 names incompatible — data model, pipeline, capture/extraction,
 rendering — in the same repo; **keep the infra** (config, event bus, Oban wiring,
 LiveView shell, smoke-test harness). **No feature flag, no v2/v3 coexistence.**
 
-- **Cutover gate = Phase 5.** The branch replaces v2 the moment the vertical slice
+- **Cutover gate = Phase 6.** The branch replaces v2 the moment the vertical slice
   "submit URL → passe-partout capture → WARC on disk → extract → browseable item"
-  passes the smoke test. Phases 6–8 land after cutover.
+  passes the smoke test. Phases 7–9 land after cutover.
 - **Migration:** reindex (rebuild the index from the archive) plus the optional
   v2→v3 converter for expensive captures (ytdlp originals). Cheap content
   (articles) is re-ingested from the URL rather than converted.
@@ -138,37 +138,58 @@ LiveView shell, smoke-test harness). **No feature flag, no v2/v3 coexistence.**
 ## Part D — Sequencing
 
 Each phase becomes its own `spec → plan → subagent-driven execution` cycle (per
-CLAUDE.md), with this doc as the shared reference. Phases 0 and 1 run concurrently
-once the `facts`/`config` shape is pinned.
+CLAUDE.md), with this doc as the shared reference. **Each phase is designed in its
+own session** — the seams below are recorded against their phase, not designed now.
+
+**Scope expansion (2026-06-01):** the polyglot **plugin runtime** is a real phase
+(Phase 1) — the Phase 0 teardown removes the v2 runtime and nothing else rebuilds one.
+It is the **full kind × class model** (kind = stage/subscriber/integration; class =
+in-process Elixir / external subprocess; wire protocol canonical, in-process a fast
+path). Two coupled "contract freezes" fold into it because deferring them re-opens the
+stage I/O contract / lifecycle later: the **typed-artifact contract** (artifact types
+declared in the stage I/O contract; specific on-disk typed layouts still deferred) and
+the **`waiting_for_input` outcome** (stage lifecycle + executor allow a needs-input
+outcome + resume; concrete input channels — body upload, interactive UI — deferred). A
+third candidate, **search-index (`search_vector`) population**, was *downgraded*: it is
+a leaf nothing depends on, so Phase 3's projection just leaves a marked stub
+(`# search index update goes here`) and real FTS lands with the deferred search feature.
 
 | Phase | Scope | Depends on |
 |---|---|---|
 | **0 — Data-model substrate** | Postgres schema + migrations (`items`, `url_identities`, `snapshots`, `components`, `artifacts`, `edges`); Ecto schemas/contexts; on-disk layout module (path construction, create-in-archive, atomic `artifact.json`, re-slugify rename); URL normalization (versioned denylist) + hashing + hash-set lookup. | — |
-| **1 — Pure control plane** | `plan(config, facts)`: candidate walk, phase selection, conflict resolution, classification→desired-artifacts, terminal tiers, version invalidation. Pure unit tests, no Oban/DB. | shape of 0 |
-| **2 — Projection + reindex** | Build `facts` from disk/DB; the shared disk→DB projection (used by both finalizer and reindex); reindex (`--full`/`--upsert`). | 0 |
-| **3 — Executor** | Replaces `Orchestrator`. Oban scheduling from `plan` decisions; in-flight dedup; same-tool retry; liveness→terminal; one durable outcome channel; re-slugify side-effect; submit path (item + `url_identities(submitted)` + eager input record) with unique-constraint dedup; finalization step. | 0, 1, 2 |
-| **4 — Capture** | `passe_partout_capture` stage + `warc_index` script (recompress→CDXJ→sort); retire `generic_download_url`; `[capture] order` candidate-walk wiring; `Cham.Throttle` gate via snooze. | 0–3 |
-| **5 — Extraction → Components + Discovery** | Port `extract_article` et al. to the Component model (emit extracted artifact, title, referents/edges); content-type-as-result (retire `content_type_router`); `Cham.Discovery.Policy` + executor spawn via submit path. **← cutover gate (vertical slice).** | 0–4 |
-| **6 — Page view** | `render_webpage` (Node+DOMPurify via ScriptRunner); WARC resource endpoint (SURT + CDXJ binary-search + range-read); article-image-ref rewrite (B4 / page-view §9); UI toggle. | 4, 5 |
-| **7 — Process stages + UI** | Port `summarize`/`transcribe`/`embeddings`/`auto_tag`/`clean_title` to goal-directed process phase + per-component derived artifacts; item-detail UI (components, status, snapshot history); version-invalidation reprocess CLI. | 5 |
-| **8 — v2→v3 converter** *(optional/secondary)* | Low-fidelity converter to preserve expensive captures (ytdlp originals). | 0–5 |
+| **1 — Plugin runtime** | Wire-protocol plugin contract; kind (stage/subscriber/integration) × class (in-process/external subprocess); stage declaration (typed I/O, phase, version, `can_process?`); invocation (in-process call + external subprocess JSON protocol); outcome taxonomy incl. **`waiting_for_input`**; registry. Folds in the **typed-artifact contract** + **`waiting_for_input`** seams. | 0 (Layout for working dirs) |
+| **2 — Pure control plane** | `plan(config, facts)`: candidate walk, phase selection, conflict resolution, classification→desired-artifacts, terminal tiers, version invalidation. Pure unit tests, no Oban/DB. Reasons over Phase 1's stage-declaration contract. | shape of 0, 1 |
+| **3 — Projection + reindex** | Build `facts` from disk/DB; the shared disk→DB projection (used by both finalizer and reindex); reindex (`--full`/`--upsert`). **Stub** for `search_vector` population (real FTS deferred). | 0 |
+| **4 — Executor** | Replaces `Orchestrator`. Oban scheduling from `plan` decisions; in-flight dedup; same-tool retry; liveness→terminal; one durable outcome channel; re-slugify side-effect; submit path (item + `url_identities(submitted)` + eager input record) with unique-constraint dedup; finalization step; **`waiting_for_input` resume**. Invokes stages via the Phase 1 runtime. | 0, 1, 2, 3 |
+| **5 — Capture** | `passe_partout_capture` stage + `warc_index` script (recompress→CDXJ→sort); retire `generic_download_url`; `[capture] order` candidate-walk wiring; `Cham.Throttle` gate via snooze. | 0–4 |
+| **6 — Extraction → Components + Discovery** | Port `extract_article` et al. to the Component model (emit extracted artifact, title, referents/edges); content-type-as-result (retire `content_type_router`); `Cham.Discovery.Policy` + executor spawn via submit path. **← cutover gate (vertical slice).** | 0–5 |
+| **7 — Page view** | `render_webpage` (Node+DOMPurify via ScriptRunner); WARC resource endpoint (SURT + CDXJ binary-search + range-read); article-image-ref rewrite (B4 / page-view §9); UI toggle. | 5, 6 |
+| **8 — Process stages + UI** | Port `summarize`/`transcribe`/`embeddings`/`auto_tag`/`clean_title` to goal-directed process phase + per-component derived artifacts; **LLM provider abstraction** (restore; v2 hardcodes OpenAI); item-detail UI (components, status, snapshot history); version-invalidation reprocess CLI. | 6 |
+| **9 — v2→v3 converter** *(optional/secondary)* | Low-fidelity converter to preserve expensive captures (ytdlp originals). | 0–6 |
 
-**Critical path:** 0 → 2 → 3 → 4 → 5 (cutover). Phase 1 parallels 0; Phases 6–8
-follow cutover.
+**Critical path:** 0a → 0b → 1 → (2, 3) → 4 → 5 → 6 (cutover). Phase 2 (`plan`)
+parallelizes Phase 1's *implementation* once the stage-declaration contract is specced;
+Phase 3 parallels 1–2. Phases 7–9 follow cutover.
+
+**Explicitly deferred (separable layers on a stable index/contract):** display
+transforms (link rewriting, "Cham it"); subscriber/integration *implementations*
+(Obsidian/vault sync, reverse-index tables) — the runtime *contract* accommodates the
+kinds; full search UX + semantic/`pgvector`; full REST API + research-workspace UI;
+per-user data split; embeddings/`pgvector`; mobile; federation.
 
 ## Part E — Carried-over open questions
 
 Not blockers for sequencing, but each owning phase must resolve them:
 
 - **`facts` source** — projected from the DB index, directly from disk, or both; and
-  the exact durable outcome-record shape (the "one channel"). *(Phase 1/2.)*
+  the exact durable outcome-record shape (the "one channel"). *(Phase 2/3.)*
 - **Failure-category set** — final closed set (`:blocked`, `:unsupported`,
-  `:bad_input`, `:error`, …) and which warrant candidate fall-through. *(Phase 1.)*
+  `:bad_input`, `:error`, …) and which warrant candidate fall-through. *(Phase 2.)*
 - **URL-normalization denylist** — the exact tracking-param set + canonicalization
   rules (host casing, query ordering, trailing slash). *(Phase 0.)*
 - **`url_hash` storage type** — `text` (hex) vs `bytea`. *(Phase 0.)*
-- **Article-view rewrite point** — extract-time vs display transform. *(Phase 6.)*
+- **Article-view rewrite point** — extract-time vs display transform. *(Phase 7.)*
 - **Reverse-edge query vs materialized inverse**; **snapshot-pinned edges**.
-  *(Phase 6/7.)*
-- **eTLD+1 extraction** — vendor a public-suffix list vs approximate. *(Phase 4.)*
-- **Multiple same-type components** — index-discriminator scheme. *(Phase 5.)*
+  *(Phase 7/8.)*
+- **eTLD+1 extraction** — vendor a public-suffix list vs approximate. *(Phase 5.)*
+- **Multiple same-type components** — index-discriminator scheme. *(Phase 6.)*

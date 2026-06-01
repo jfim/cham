@@ -15,7 +15,7 @@
 
 ## Teardown decisions (read before starting)
 
-The schema change drops `items.url`, `items.bootstrap_path`, `items.content_type` and re-keys `artifacts` from `item_id` to `snapshot_id`/`component_id`. Everything reading those breaks. The build strategy accepts a non-runnable app until the Phase 5 cutover, so we **remove** the broken v2 code rather than port it now.
+The schema change drops `items.url`, `items.bootstrap_path`, `items.content_type` and re-keys `artifacts` from `item_id` to `snapshot_id`/`component_id`. Everything reading those breaks. The build strategy accepts a non-runnable app until the Phase 6 cutover, so we **remove** the broken v2 code rather than port it now.
 
 **REMOVE (rebuilt in later phases):**
 - The processing pipeline: `lib/cham/pipeline/` (all) and its tests.
@@ -220,7 +220,7 @@ Expected: no output (chat fully removed; other unrelated errors from Tasks 3–7
 
 ```bash
 git add -A
-git commit -m "refactor(v3): remove item chat (returns as a research-pane panel in Phase 7)"
+git commit -m "refactor(v3): remove item chat (returns as a research-pane panel in Phase 8)"
 ```
 
 ---
@@ -299,7 +299,7 @@ defmodule ChamWeb.Router do
 end
 ```
 
-Note: removed the `/` DashboardLive index + `/items/:id` detail, all `/api/v1/items*`, `/api/v1/tags/clear`, and the file-serving route. Kept `ConfigLive`, `SubscriptionIndexLive`, `/health`, MCP, and dev dashboard. There is intentionally **no root `/` page** during the rebuild; it returns in Phase 7.
+Note: removed the `/` DashboardLive index + `/items/:id` detail, all `/api/v1/items*`, `/api/v1/tags/clear`, and the file-serving route. Kept `ConfigLive`, `SubscriptionIndexLive`, `/health`, MCP, and dev dashboard. There is intentionally **no root `/` page** during the rebuild; it returns in Phase 8.
 
 - [ ] **Step 3: Compile and resolve residual web references**
 
@@ -369,7 +369,7 @@ git rm test/cham/subscriptions/poll_worker_test.exs 2>/dev/null || true
 - [ ] **Step 2: Remove `PollWorker` references from the subscriptions context**
 
 Run: `git grep -n "PollWorker"`
-Expected after edits: no matches. In `lib/cham/subscriptions.ex`, delete any function that enqueues `PollWorker` (e.g. `enqueue_poll/1`) and any call site. The subscriptions **table, schema, context CRUD, and RSS backend remain**; only the item-creating poll path is removed (re-wired to the v3 submit path in Phase 3/4).
+Expected after edits: no matches. In `lib/cham/subscriptions.ex`, delete any function that enqueues `PollWorker` (e.g. `enqueue_poll/1`) and any call site. The subscriptions **table, schema, context CRUD, and RSS backend remain**; only the item-creating poll path is removed (re-wired to the v3 submit path in Phase 4/5).
 
 - [ ] **Step 3: Compile**
 
@@ -431,7 +431,7 @@ git rm -r lib/cham/items lib/cham/items.ex
 git rm -r test/cham/items test/cham/items_test.exs 2>/dev/null || true
 ```
 
-Note: `Cham.Items.ItemMessage` (the chat-storage schema) is removed too — chat returns in Phase 7. The `item_messages` **table** is preserved by the migration (Task 8); the schema module is re-introduced when chat returns.
+Note: `Cham.Items.ItemMessage` (the chat-storage schema) is removed too — chat returns in Phase 8. The `item_messages` **table** is preserved by the migration (Task 8); the schema module is re-introduced when chat returns.
 
 - [ ] **Step 2: Compile the whole project clean**
 

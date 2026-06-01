@@ -121,6 +121,31 @@ So an implementer reading a base spec sees the override without cross-referencin
 - See `2026-06-01-v3-phase-0-data-model-substrate-design.md` §3 for the full Phase 0
   schema.
 
+### B7. Process-stage rename / replacement (Phase 5/8 rebuild decisions)
+
+Phase 0a deletes every v2 stage, so these are *naming/structure decisions for the
+rebuild*, not edits to live code. Settled 2026-06-01:
+
+- **`summarize_ollama → summarize_llm`.** Provider-agnostic name; the LLM provider is
+  Fireworks, not Ollama, so the v2 name was already wrong. Aligns with the Phase 8 LLM
+  provider abstraction.
+- **`transcribe_fireworks → transcribe_deepgram`.** A *capability* change, not a rename:
+  Fireworks dropped Whisper, so ASR moves to Deepgram. Needs a Deepgram client + API key
+  in config. Splits vendors: **Fireworks = LLM, Deepgram = ASR**.
+- **No LLM-stage fusion.** `summarize`, `auto_tag`, `clean_title` stay **three separate
+  stages**, not a fused `llm_postprocess`. Fusion was rejected because it defeats the
+  per-artifact **versioned reprocessing** the data model invests in (re-running only
+  `auto_tag` after a model upgrade is *cheaper* with separate stages: N calls vs N calls
+  doing 3× work each), and a combo+individual pair would need janky override machinery
+  (two producers of one artifact type). Provider-agnostic renaming of `auto_tag` /
+  `clean_title` is left as a Phase 8 detail.
+- **Burst control is a rate gate, not fusion.** The motivation for fusion (bulk reprocess
+  flooding the LLM provider — e.g. 1000 articles × 3 calls) is a *concurrency* problem,
+  solved by an **LLM-provider rate gate** — the same machinery as the per-domain throttle
+  gate (ingestion-completion §6.2), keyed on provider. Deferred to Phase 8; build only if
+  it actually bites. Executor-level call coalescing was considered and rejected as
+  unnecessary complexity for a personal archive.
+
 ## Part C — Build strategy
 
 **In-place rewrite on a long-lived branch.** Rewrite the four subsystems
@@ -134,6 +159,18 @@ LiveView shell, smoke-test harness). **No feature flag, no v2/v3 coexistence.**
 - **Migration:** reindex (rebuild the index from the archive) plus the optional
   v2→v3 converter for expensive captures (ytdlp originals). Cheap content
   (articles) is re-ingested from the URL rather than converted.
+
+**Quality gates land after the teardown (Plan 0a.5).** Enforcing static analysis
+against code 0a is about to delete is pure churn, so gates are added *after* 0a, when
+the surviving core is small. Plan 0a.5: add `mix format --check-formatted` + `sobelow`
+(Phoenix/web + the Phase 7 WARC resource endpoint) + `dialyxir` (success-typing the
+Phase 1 typed-artifact contract across the polyglot plugin boundary) + `credo`; run one
+cleanup pass over the surviving core; then make the gate **CI-blocking from Phase 0b
+onward**. `dialyxir` starts as a *non-blocking* CI job until the PLT cache is stable,
+then flips to blocking. This **supersedes the CLAUDE.md "no Credo or other linters"
+line** — `mix format` stays the sole *formatting* authority; credo covers
+consistency/complexity only. The CLAUDE.md edit is a step *in* Plan 0a.5 (so the doc
+never describes tooling that isn't installed yet).
 
 ## Part D — Sequencing
 
@@ -164,10 +201,11 @@ a leaf nothing depends on, so Phase 3's projection just leaves a marked stub
 | **5 — Capture** | `passe_partout_capture` stage + `warc_index` script (recompress→CDXJ→sort); retire `generic_download_url`; `[capture] order` candidate-walk wiring; `Cham.Throttle` gate via snooze. | 0–4 |
 | **6 — Extraction → Components + Discovery** | Port `extract_article` et al. to the Component model (emit extracted artifact, title, referents/edges); content-type-as-result (retire `content_type_router`); `Cham.Discovery.Policy` + executor spawn via submit path. **← cutover gate (vertical slice).** | 0–5 |
 | **7 — Page view** | `render_webpage` (Node+DOMPurify via ScriptRunner); WARC resource endpoint (SURT + CDXJ binary-search + range-read); article-image-ref rewrite (B4 / page-view §9); UI toggle. | 5, 6 |
-| **8 — Process stages + UI** | Port `summarize`/`transcribe`/`embeddings`/`auto_tag`/`clean_title` to goal-directed process phase + per-component derived artifacts; **LLM provider abstraction** (restore; v2 hardcodes OpenAI); item-detail UI (components, status, snapshot history); version-invalidation reprocess CLI. | 6 |
+| **8 — Process stages + UI** | Port `summarize_llm`/`transcribe_deepgram`/`embeddings`/`auto_tag`/`clean_title` to goal-directed process phase + per-component derived artifacts (three separate LLM stages, no fusion — B7); **LLM provider abstraction** (restore; v2 hardcodes OpenAI); optional **LLM-provider rate gate** (B7); item-detail UI (components, status, snapshot history); version-invalidation reprocess CLI. | 6 |
 | **9 — v2→v3 converter** *(optional/secondary)* | Low-fidelity converter to preserve expensive captures (ytdlp originals). | 0–6 |
 
-**Critical path:** 0a → 0b → 1 → (2, 3) → 4 → 5 → 6 (cutover). Phase 2 (`plan`)
+**Critical path:** 0a → 0a.5 (quality gates; see Part C) → 0b → 1 → (2, 3) → 4 → 5 → 6
+(cutover). Phase 2 (`plan`)
 parallelizes Phase 1's *implementation* once the stage-declaration contract is specced;
 Phase 3 parallels 1–2. Phases 7–9 follow cutover.
 

@@ -178,6 +178,12 @@ Reindex runs **Phase 1 only** — it rebuilds the index from disk but never re-s
 captures (a rebuild is not a re-crawl). Un-captured referents remain dangling edges
 until their target is captured by some other means.
 
+**Deferred (out of scope for the v3 ingest rework):** there is no user-facing way yet
+to *see* that an item has un-captured referents (e.g. a `linked` target that policy
+skipped, or a dangling edge a reindex did not light up) or to capture one on demand.
+Surfacing dangling/un-captured referents in the UI — and a "capture this referent"
+action — needs its own design and is explicitly not part of this spec.
+
 ### 5.5 Timing consequence
 
 A discovered child is enqueued only *after* its parent fully terminates, so children

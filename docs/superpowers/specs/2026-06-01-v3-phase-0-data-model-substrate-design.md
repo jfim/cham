@@ -59,8 +59,7 @@ staging path.
 | `id` | uuid | PK. First 8 hex = the slug `shorthash`. |
 | `slug` | text | `ingest-<hash>` then `<title-slug>-<hash>`. |
 | `title` | text, null | Null until first title-bearing extraction. |
-| `status` | text | `bootstrapping`/`extracting`/`processing`/`complete`/`incomplete`/`failed`. |
-| `content_type` | text, null | Denormalized convenience: primary component type of latest snapshot. Derived. |
+| `status` | text | `bootstrapping`/`extracting`/`processing`/`complete`/`incomplete`/`failed`. Maintained projection of the active frontier; terminal tiers rebuildable from artifacts by reindex, in-flight states re-driven by `plan`. |
 | `archive_path` | text | Relative item dir (`YYYY/MM/DD/<slug>`). **Unique.** |
 | `first_captured_at` | utc_datetime | Drives date sharding; immutable. |
 | `tags` | jsonb | User + auto tags. |
@@ -68,9 +67,15 @@ staging path.
 | `search_vector` | tsvector | Full-text index. |
 | `inserted_at`/`updated_at` | utc_datetime | |
 
-Indexes: unique(`archive_path`), btree(`status`), btree(`content_type`),
-btree(`first_captured_at`), GIN(`tags`), GIN(`search_vector`). Id-prefix lookup
-(`cham item view <hash>`) matches on `id` (carry over v2 `lookup_by_id_prefix`).
+**No `content_type` column** (overrides physical-layout §6). An item has a *set* of
+component types, not a primary one; type filtering ("show me all videos") is a query
+over `components` (an item is a video iff its latest snapshot has a `video` component).
+If that join becomes a hot path we denormalize a `content_types` **array** maintained by
+the projection — deferred (YAGNI).
+
+Indexes: unique(`archive_path`), btree(`status`), btree(`first_captured_at`),
+GIN(`tags`), GIN(`search_vector`). Id-prefix lookup (`cham item view <hash>`) matches on
+`id` (carry over v2 `lookup_by_id_prefix`).
 
 ### New: `url_identities` (keystone resolution table)
 
@@ -92,12 +97,20 @@ Indexes: unique(`url_hash`), btree(`item_id`). Lookup = single index hit on `url
 | `id` | uuid | PK |
 | `item_id` | uuid | FK → items (delete_all) |
 | `captured_at` | utc_datetime | |
-| `provenance` | jsonb | `{kind, actor, ref, agent}` |
-| `status` | text | Per-snapshot lifecycle |
+| `provenance` | jsonb | How this capture was triggered: `{kind, actor, ref, agent}`. Per-snapshot (each capture has its own origin). Written at snapshot creation. |
 | `snapshot_path` | text | Relative (`snapshots/<ts>/`) |
 | `inserted_at` | utc_datetime | |
 
 Indexes: btree(`item_id`), btree(`captured_at`).
+
+**No `status` column** (overrides physical-layout §6). Lifecycle is tracked at the
+item level (`items.status`); every consumer (UI list/detail, CLI/REST filters, stats,
+restart reconciliation) reads it per-item, and `plan` does not read it at all (status is
+an output projection, not a `plan` input). Per-snapshot state — "complete item, newer
+capture in progress" or a snapshot-history badge — is derivable (item status non-terminal
++ a prior snapshot with produced artifacts; a snapshot's outcome from its own artifacts).
+Re-add a stored per-snapshot status later only if a real consumer appears (a cheap
+migration).
 
 ### New: `components`
 

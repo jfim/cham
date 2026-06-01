@@ -110,6 +110,17 @@ So an implementer reading a base spec sees the override without cross-referencin
   record are written in the submit-path transaction (the dedup claim). The capture
   stage adds only `redirect_alias` rows.
 
+### B6. Schema trims (Phase 0 spec over physical-layout §6)
+
+- **`items` has no `content_type` column.** An item has a *set* of component types,
+  not a primary one; type filtering queries `components`. Denormalize a `content_types`
+  array later only if the join is a hot path (YAGNI).
+- **`snapshots` has no `status` column.** Lifecycle is item-level (`items.status`);
+  per-snapshot state is derivable from that snapshot's artifacts. Re-add only if a real
+  per-snapshot consumer appears.
+- See `2026-06-01-v3-phase-0-data-model-substrate-design.md` §3 for the full Phase 0
+  schema.
+
 ## Part C — Build strategy
 
 **In-place rewrite on a long-lived branch.** Rewrite the four subsystems

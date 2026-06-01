@@ -136,7 +136,7 @@ Re-keyed from `item_id` to the snapshot/component hierarchy; gains `category` an
 | `category` | text | `capture` / `extracted` / `derived` |
 | `stage` | text | Plugin id |
 | `labels` | jsonb | Label map |
-| `filenames` | jsonb | Output filenames |
+| `filenames` | text[] | Output filenames (a string list; `text[]` not jsonb — greppable, matches v2) |
 | `path` | text | Relative stage dir |
 | `status` | text | `produced` / `failed` / `not_applicable` |
 | `version` | integer | Stage version (reprocess invalidation) |

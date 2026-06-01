@@ -158,13 +158,14 @@ API submit calls — there is no separate discovery code path — with
 `provenance = {kind: discovery, ref: {parent_item_id, edge_type}}`.
 
 That path, in one transaction, inserts the `items` row + a
-`url_identities(role=submitted)` row. `unique(url_hash)` is the **dedup claim**:
+`url_identities(role=submitted)` row (and eagerly writes the on-disk input record,
+§7.4). `unique(url_hash)` is the **dedup claim**:
 
 - **Race or already-exists** → the insert hits the unique constraint → no new item,
   no duplicate capture. The executor falls back to resolving the edge's
   `target_item_id` to the existing item.
-- **New** → item created (`status=bootstrapping`, dir `ingest-<shorthash>`), capture
-  enqueued, its own `plan` loop begins.
+- **New** → item created (`status=bootstrapping`, dir `ingest-<shorthash>`, first
+  snapshot input record written), capture enqueued, its own `plan` loop begins.
 
 **Cycle termination falls out of this:** A embeds B, B embeds A → B's discovery of A
 finds A's hash already claimed → edge only, no re-capture. A discovered capture that
@@ -252,15 +253,36 @@ These decisions change already-approved specs and must be reflected there:
 3. **Data-model §6 (discovery resolved).** The deferred extractor↔executor↔enqueue
    interaction is specified here (§4–5): referents on disk → projection → policy →
    submit path.
-4. **Physical-layout §5 (submitted identity written at creation).** The
-   `url_identities(role=submitted)` row is created at **item creation** (the shared
-   submit path), since it is the `unique(url_hash)` dedup claim — not deferred to the
-   capture stage (which still adds `redirect_alias` rows). To keep this
-   reindex-recoverable, **item creation eagerly writes the first snapshot's input
-   record** (`{provenance, submitted_url, submitted_hash}`). This single change makes
-   user-submit and discovery byte-identical, gives the dedup claim an on-disk
-   counterpart, and lets reindex recover the submitted identity so a source's edge
-   resolves to a discovered-but-not-yet-captured target.
+4. **Physical-layout §5 / §3 (submitted identity written at creation) — this
+   spec OVERRIDES the prior decision.** Physical-layout §5 currently says *all*
+   `url_identities` rows (both `submitted` and `redirect_alias`) are emitted by the
+   capture stage. **That is overridden here.**
+
+   *Why it must change:* if the `submitted` row is only written when capture
+   completes, the `unique(url_hash)` dedup claim does not exist during submit/
+   discovery. Two submissions or discoveries of the same URL would both pass the
+   "is this already an item?" check, both create an item, and **both start
+   capturing the same URL** — the constraint only trips long after the redundant
+   fetch is already underway. The claim has to be made at creation, not at capture.
+
+   *The override:* the `url_identities(role=submitted)` row is created at **item
+   creation**, in the same transaction that inserts the `items` row (the shared
+   submit path). That transaction *is* the dedup claim. The capture stage still adds
+   the `redirect_alias` rows later (the redirect chain is unknown until the fetch
+   happens).
+
+   *Keeping the DB rebuildable:* a freshly-created-but-not-yet-captured item now has
+   a DB identity row with no on-disk source (capture hasn't written its
+   `artifact.json` yet), which a from-disk reindex would lose — and the source
+   item's edge to this target would fail to resolve. So **item creation also writes
+   the input record eagerly**, at `snapshots/<creation-ts>/input-<creation-ts>/
+   artifact.json`, carrying `{provenance, submitted_url, submitted_hash}` — all known
+   at submit time. The first snapshot dir is created at item creation with a
+   creation-time timestamp; the capture stage then runs inside that same snapshot.
+   (This reuses the existing input-record file type — no new on-disk type — and the
+   `submitted_hash` lets reindex rebuild the `submitted` identity from disk so edges
+   resolve.) Net: only **redirect aliases** ride the capture stage; the **submitted**
+   identity is a creation-time DB row *and* on-disk input record.
 
 Everything else in the three prior specs is unchanged.
 

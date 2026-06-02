@@ -47,7 +47,7 @@ defmodule ChamWeb.DashboardLive do
       |> assign(:selected_item_id, id)
       |> assign(:page_title, item.title || "Item Detail")
       |> assign(:return_path, return_path)
-      |> DetailHelpers.assign_chat_defaults()
+      |> DetailHelpers.assign_detail_defaults()
       |> DetailHelpers.assign_detail(item)
       |> ensure_list_loaded()
       |> ensure_stats_loaded()
@@ -189,7 +189,6 @@ defmodule ChamWeb.DashboardLive do
       socket
       |> assign(:active_tab, new_tab)
       |> DetailHelpers.maybe_load_transcript(new_tab)
-      |> DetailHelpers.maybe_load_chat(new_tab)
       |> DetailHelpers.maybe_load_files(new_tab)
 
     {:noreply, socket}
@@ -258,87 +257,7 @@ defmodule ChamWeb.DashboardLive do
     end
   end
 
-  def handle_event("update_chat_input", %{"message" => message}, socket) do
-    {:noreply, assign(socket, :chat_input, message)}
-  end
-
-  def handle_event("send_chat", %{"message" => message}, socket) do
-    trimmed = String.trim(message || "")
-
-    cond do
-      trimmed == "" ->
-        {:noreply, socket}
-
-      socket.assigns.chat_pending ->
-        {:noreply, socket}
-
-      true ->
-        item = socket.assigns.item
-        artifacts = socket.assigns.artifacts
-
-        optimistic_user_turn = %{
-          role: "user",
-          content: trimmed,
-          ts: DateTime.utc_now() |> DateTime.to_iso8601()
-        }
-
-        task =
-          Task.async(fn ->
-            Cham.Chat.send_message(item, artifacts, trimmed)
-          end)
-
-        {:noreply,
-         socket
-         |> assign(:chat_history, socket.assigns.chat_history ++ [optimistic_user_turn])
-         |> assign(:chat_input, "")
-         |> assign(:chat_pending, true)
-         |> assign(:chat_error, nil)
-         |> assign(:chat_task_ref, task.ref)}
-    end
-  end
-
   @impl true
-  def handle_info({ref, result}, %{assigns: %{chat_task_ref: ref}} = socket)
-      when is_reference(ref) do
-    Process.demonitor(ref, [:flush])
-
-    socket =
-      case result do
-        {:ok, history} ->
-          socket
-          |> assign(:chat_history, history)
-          |> assign(:chat_pending, false)
-          |> assign(:chat_task_ref, nil)
-          |> assign(:chat_error, nil)
-
-        {:error, :no_content} ->
-          socket
-          |> assign(:chat_pending, false)
-          |> assign(:chat_task_ref, nil)
-          |> assign(:chat_error, "No content available to chat about yet.")
-
-        {:error, reason} ->
-          socket
-          |> assign(:chat_pending, false)
-          |> assign(:chat_task_ref, nil)
-          |> assign(:chat_error, "Chat failed: #{inspect(reason)}")
-      end
-
-    {:noreply, socket}
-  end
-
-  def handle_info(
-        {:DOWN, ref, :process, _pid, _reason},
-        %{assigns: %{chat_task_ref: ref}} = socket
-      )
-      when is_reference(ref) do
-    {:noreply,
-     socket
-     |> assign(:chat_pending, false)
-     |> assign(:chat_task_ref, nil)
-     |> assign(:chat_error, "Chat task crashed")}
-  end
-
   def handle_info(event, socket) do
     filters =
       build_filters(

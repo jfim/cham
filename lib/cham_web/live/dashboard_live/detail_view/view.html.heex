@@ -456,54 +456,6 @@
         </table>
       </div>
 
-      <div :if={@active_tab == "chat"} class="chat">
-        <div :if={@chat_source_label} class="chat-source-note">
-          <div class="chat-centered">
-            Chatting against the <strong>{@chat_source_label}</strong>.
-          </div>
-        </div>
-
-        <div :if={!@chat_source_label && @chat_loaded?} class="chat-empty">
-          <.icon name="hero-chat-bubble-left-right" class="h-8 w-8" />
-          <p>Chat is unavailable until content has been processed for this item.</p>
-        </div>
-
-        <div :if={@chat_source_label} class="chat-log">
-          <div class="chat-centered chat-stream">
-            <div
-              :for={turn <- @chat_history}
-              class={["chat-bubble", turn.role]}
-            >
-              <div :if={turn.role == "assistant"} class="prose">
-                {raw(md_to_html(turn.content))}
-              </div>
-              <div :if={turn.role == "user"} style="white-space: pre-wrap;">{turn.content}</div>
-            </div>
-
-            <div :if={@chat_pending} class="chat-thinking">Thinking…</div>
-
-            <div :if={@chat_error} class="chat-error">{@chat_error}</div>
-          </div>
-        </div>
-
-        <form
-          :if={@chat_source_label}
-          class="chat-form"
-          phx-submit="send_chat"
-          phx-change="update_chat_input"
-        >
-          <div class="chat-centered chat-form-row">
-            <textarea
-              name="message"
-              placeholder="Ask a question about this item…"
-              rows="2"
-              disabled={@chat_pending}
-            >{@chat_input}</textarea>
-            <button type="submit" class="btn btn-primary" disabled={@chat_pending}>Send</button>
-          </div>
-        </form>
-      </div>
-
       <div :if={@active_tab == "actions"} class="actions">
         <%!-- Retry Failed --%>
         <div

@@ -28,16 +28,9 @@ defmodule ChamWeb.DashboardLive.DetailHelpers do
     |> assign_content(item, artifacts, stage_history)
   end
 
-  def assign_chat_defaults(socket) do
+  def assign_detail_defaults(socket) do
     socket
     |> Phoenix.Component.assign(:active_tab, nil)
-    |> Phoenix.Component.assign(:chat_loaded?, false)
-    |> Phoenix.Component.assign(:chat_history, [])
-    |> Phoenix.Component.assign(:chat_input, "")
-    |> Phoenix.Component.assign(:chat_pending, false)
-    |> Phoenix.Component.assign(:chat_error, nil)
-    |> Phoenix.Component.assign(:chat_source_label, nil)
-    |> Phoenix.Component.assign(:chat_task_ref, nil)
     |> Phoenix.Component.assign(:files_loaded?, false)
     |> Phoenix.Component.assign(:files, [])
     |> Phoenix.Component.assign(:files_error, nil)
@@ -80,23 +73,6 @@ defmodule ChamWeb.DashboardLive.DetailHelpers do
   end
 
   def maybe_load_transcript(socket, _tab), do: socket
-
-  def maybe_load_chat(socket, "chat") do
-    if socket.assigns.chat_loaded? do
-      socket
-    else
-      item = socket.assigns.item
-      artifacts = socket.assigns.artifacts
-      {content, label} = Cham.Chat.resolve_content(item, artifacts)
-
-      socket
-      |> Phoenix.Component.assign(:chat_loaded?, true)
-      |> Phoenix.Component.assign(:chat_history, Cham.Chat.load_history(item))
-      |> Phoenix.Component.assign(:chat_source_label, if(content, do: label))
-    end
-  end
-
-  def maybe_load_chat(socket, _tab), do: socket
 
   def maybe_load_files(socket, "files") do
     if socket.assigns.files_loaded? do
@@ -452,7 +428,7 @@ defmodule ChamWeb.DashboardLive.DetailHelpers do
         _ -> ["summary"]
       end
 
-    base ++ ["pipeline", "metadata", "files", "chat", "actions"]
+    base ++ ["pipeline", "metadata", "files", "actions"]
   end
 
   def tab_label("summary"), do: "Summary"
@@ -460,7 +436,6 @@ defmodule ChamWeb.DashboardLive.DetailHelpers do
   def tab_label("pipeline"), do: "Pipeline"
   def tab_label("metadata"), do: "Metadata"
   def tab_label("files"), do: "Files"
-  def tab_label("chat"), do: "Chat"
   def tab_label("actions"), do: "Actions"
   def tab_label(other), do: String.capitalize(other)
 end

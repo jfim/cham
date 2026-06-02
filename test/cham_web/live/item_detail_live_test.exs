@@ -48,7 +48,6 @@ defmodule ChamWeb.ItemDetailLiveTest do
       {:ok, _view, html} = live(conn, ~p"/items/#{item.id}")
       assert html =~ "Summary"
       assert html =~ "Metadata"
-      assert html =~ "Chat"
     end
 
     test "clicking a tab shows its content", %{conn: conn, item: item} do
@@ -94,14 +93,6 @@ defmodule ChamWeb.ItemDetailLiveTest do
       Process.sleep(100)
       html = render(view)
       assert html =~ "summarize"
-    end
-  end
-
-  describe "chat tab" do
-    test "shows no-content empty state when item has no artifacts", %{conn: conn, item: item} do
-      {:ok, view, _html} = live(conn, ~p"/items/#{item.id}")
-      html = view |> element("[data-tab=\"chat\"]") |> render_click()
-      assert html =~ "Chat is unavailable"
     end
   end
 end

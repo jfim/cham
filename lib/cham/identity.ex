@@ -37,14 +37,14 @@ defmodule Cham.Identity do
         p -> p
       end
 
-    %URI{
-      scheme: scheme,
-      userinfo: uri.userinfo,
-      host: host,
-      port: port,
-      path: path,
-      query: normalize_query(uri.query),
-      fragment: nil
+    %{
+      uri
+      | scheme: scheme,
+        host: host,
+        port: port,
+        path: path,
+        query: normalize_query(uri.query),
+        fragment: nil
     }
     |> URI.to_string()
   end

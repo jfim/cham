@@ -9,6 +9,14 @@ defmodule Cham.Plugin.Manifest do
   @phases [:bootstrap, :extract, :process]
 
   @type io_decl :: %{type: String.t(), labels: map()}
+  @type config_field :: %{
+          key: atom(),
+          type: atom(),
+          default: any(),
+          description: String.t(),
+          required: boolean(),
+          options: [any()] | nil
+        }
   @type t :: %__MODULE__{
           id: String.t(),
           kind: atom(),
@@ -20,7 +28,7 @@ defmodule Cham.Plugin.Manifest do
           outputs: [io_decl()],
           declares_types: [String.t()],
           entrypoints: %{perform: String.t() | nil, can_process: String.t() | nil},
-          config_schema: [map()],
+          config_schema: [config_field()],
           class: :subprocess | :in_process,
           source: {:dir, String.t()} | {:module, module()}
         }
@@ -57,7 +65,8 @@ defmodule Cham.Plugin.Manifest do
   def parse_string(content, {:dir, dir}) do
     with {:ok, raw} <- decode(content),
          {:ok, kind} <- fetch_kind(raw),
-         {:ok, phase} <- fetch_phase(raw, kind) do
+         {:ok, phase} <- fetch_phase(raw, kind),
+         {:ok, config_schema} <- parse_config_schema(Map.get(raw, "config_schema", [])) do
       manifest = %__MODULE__{
         id: Map.get(raw, "id"),
         kind: kind,
@@ -69,7 +78,7 @@ defmodule Cham.Plugin.Manifest do
         outputs: parse_io(Map.get(raw, "outputs", [])),
         declares_types: Map.get(raw, "declares_types", []),
         entrypoints: parse_entrypoints(Map.get(raw, "entrypoints", %{})),
-        config_schema: parse_config_schema(Map.get(raw, "config_schema", [])),
+        config_schema: config_schema,
         class: :subprocess,
         source: {:dir, dir}
       }
@@ -108,23 +117,15 @@ defmodule Cham.Plugin.Manifest do
   end
 
   defp fetch_kind(raw) do
-    result =
-      case Map.get(raw, "kind") do
-        k when is_binary(k) ->
-          try do
-            {:ok, String.to_existing_atom(k)}
-          rescue
-            ArgumentError -> {:error, "unknown kind: #{inspect(k)}"}
-          end
+    case Map.get(raw, "kind") do
+      k when is_binary(k) ->
+        case Enum.find(@kinds, fn kind -> Atom.to_string(kind) == k end) do
+          nil -> {:error, "unknown kind: #{inspect(k)}"}
+          kind -> {:ok, kind}
+        end
 
-        _ ->
-          {:error, "missing kind"}
-      end
-
-    case result do
-      {:ok, atom} when atom in @kinds -> {:ok, atom}
-      {:ok, atom} -> {:error, "unknown kind: #{inspect(atom)}"}
-      err -> err
+      _ ->
+        {:error, "missing kind"}
     end
   end
 
@@ -133,10 +134,9 @@ defmodule Cham.Plugin.Manifest do
   defp fetch_phase(raw, :stage) do
     case Map.get(raw, "phase") do
       p when is_binary(p) ->
-        try do
-          {:ok, String.to_existing_atom(p)}
-        rescue
-          ArgumentError -> {:error, "invalid phase: #{inspect(p)}"}
+        case Enum.find(@phases, fn phase -> Atom.to_string(phase) == p end) do
+          nil -> {:error, "invalid phase: #{inspect(p)}"}
+          phase -> {:ok, phase}
         end
 
       _ ->
@@ -158,15 +158,28 @@ defmodule Cham.Plugin.Manifest do
   end
 
   defp parse_config_schema(list) when is_list(list) do
-    Enum.map(list, fn field ->
-      %{
-        key: field |> Map.fetch!("key") |> String.to_atom(),
-        type: field |> Map.fetch!("type") |> String.to_atom(),
-        default: Map.get(field, "default"),
-        description: Map.get(field, "description", ""),
-        required: Map.get(field, "required", false),
-        options: Map.get(field, "options")
-      }
+    list
+    |> Enum.reduce_while({:ok, []}, fn field, {:ok, acc} ->
+      case {Map.get(field, "key"), Map.get(field, "type")} do
+        {key, type} when is_binary(key) and is_binary(type) ->
+          parsed = %{
+            key: String.to_atom(key),
+            type: String.to_atom(type),
+            default: Map.get(field, "default"),
+            description: Map.get(field, "description", ""),
+            required: Map.get(field, "required", false),
+            options: Map.get(field, "options")
+          }
+
+          {:cont, {:ok, [parsed | acc]}}
+
+        _ ->
+          {:halt, {:error, "config_schema entry missing required 'key' or 'type'"}}
+      end
     end)
+    |> case do
+      {:ok, fields} -> {:ok, Enum.reverse(fields)}
+      {:error, _} = err -> err
+    end
   end
 end

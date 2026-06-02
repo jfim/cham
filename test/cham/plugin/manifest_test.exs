@@ -71,4 +71,32 @@ defmodule Cham.Plugin.ManifestTest do
   test "returns an error for malformed TOML" do
     assert {:error, _} = Manifest.parse_string("id = = =", {:dir, "/tmp/bad"})
   end
+
+  test "accepts the subscription kind with a perform entrypoint" do
+    toml = ~s(id = "feed"\nkind = "subscription"\n[entrypoints]\nperform = "true"\n)
+    assert {:ok, m} = Manifest.parse_string(toml, {:dir, "/tmp/feed"})
+    assert m.kind == :subscription
+    assert m.phase == nil
+  end
+
+  test "rejects a subprocess subscription missing the perform entrypoint" do
+    toml = ~s(id = "feed"\nkind = "subscription"\n)
+    assert {:error, msg} = Manifest.parse_string(toml, {:dir, "/tmp/feed"})
+    assert msg =~ "missing required entrypoint: perform"
+  end
+
+  test "parse/1 returns an error for a nonexistent file" do
+    assert {:error, msg} =
+             Manifest.parse("test/support/plugin_fixtures/does_not_exist/manifest.toml")
+
+    assert msg =~ "cannot read"
+  end
+
+  test "rejects a config_schema entry missing key or type" do
+    toml =
+      ~s(id = "x"\nkind = "stage"\nphase = "extract"\n[entrypoints]\nperform = "true"\n[[config_schema]]\ndefault = 1\n)
+
+    assert {:error, msg} = Manifest.parse_string(toml, {:dir, "/tmp/x"})
+    assert msg =~ "config_schema"
+  end
 end

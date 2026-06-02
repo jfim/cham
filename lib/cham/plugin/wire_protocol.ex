@@ -114,6 +114,9 @@ defmodule Cham.Plugin.WireProtocol do
     end
   end
 
+  def decode_stage_result(%{"outcome" => "failed"}),
+    do: {:error, "failed outcome is missing required category"}
+
   def decode_stage_result(%{"outcome" => other}),
     do: {:error, "unknown outcome: #{inspect(other)}"}
 

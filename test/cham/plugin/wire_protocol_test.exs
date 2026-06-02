@@ -107,6 +107,11 @@ defmodule Cham.Plugin.WireProtocolTest do
                WireProtocol.decode_stage_result(%{"outcome" => "failed", "category" => "weird"})
     end
 
+    test "rejects a failed outcome that is missing its category" do
+      assert {:error, msg} = WireProtocol.decode_stage_result(%{"outcome" => "failed"})
+      assert msg =~ "missing required category"
+    end
+
     test "rejects an unknown outcome" do
       assert {:error, _} = WireProtocol.decode_stage_result(%{"outcome" => "exploded"})
     end

@@ -2,7 +2,7 @@ defmodule Cham.ArchiveTest do
   use Cham.DataCase, async: false
 
   alias Cham.Archive
-  alias Cham.Archive.{Artifact, Component, Item, Layout, Snapshot, UrlIdentity}
+  alias Cham.Archive.{Item, Layout, Snapshot, UrlIdentity}
   alias Cham.Identity
 
   @url "https://example.com/article"

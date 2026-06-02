@@ -127,6 +127,10 @@ defmodule Cham.Archive do
   @doc """
   Insert `url_identities(role: redirect_alias)` rows for already-normalized URLs
   (used by the capture stage in Phase 5). Returns `{:ok, [rows]}`.
+
+  Not transactional across the list: each row is inserted with `Repo.insert!/1`,
+  so a mid-list failure (e.g. a duplicate `url_hash`) raises after committing the
+  earlier rows. Callers passing multi-URL batches must tolerate partial inserts.
   """
   @spec add_redirect_aliases(Item.t(), [String.t()]) :: {:ok, [UrlIdentity.t()]}
   def add_redirect_aliases(%Item{id: item_id}, normalized_urls) when is_list(normalized_urls) do

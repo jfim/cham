@@ -42,44 +42,45 @@ defmodule Cham.Archive.LayoutTest do
     assert Layout.item_abs_path("2026/06/01/ingest-a1b2c3d4") ==
              "./archive/2026/06/01/ingest-a1b2c3d4"
   end
+end
 
-  describe "filesystem ops" do
-    @describetag :tmp_dir
+defmodule Cham.Archive.LayoutFilesystemTest do
+  # async: false — these tests mutate the global :cham, :archive_root app env,
+  # so they must not run concurrently with tests that read it.
+  use ExUnit.Case, async: false
 
-    setup %{tmp_dir: tmp_dir} do
-      prev = Application.get_env(:cham, :archive_root)
-      Application.put_env(:cham, :archive_root, tmp_dir)
-      on_exit(fn -> Application.put_env(:cham, :archive_root, prev) end)
-      :ok
-    end
+  alias Cham.Archive.Layout
 
-    test "atomic_write/2 writes complete content and leaves no .tmp file", %{tmp_dir: tmp_dir} do
-      path = Path.join(tmp_dir, "nested/deep/artifact.json")
-      assert :ok = Layout.atomic_write(path, ~s({"ok":true}))
-      assert File.read!(path) == ~s({"ok":true})
-      # No leftover temp file in the dir.
-      assert Path.dirname(path) |> File.ls!() == ["artifact.json"]
-    end
+  @moduletag :tmp_dir
 
-    test "create_item_dir/2 makes the dir and returns the relative archive_path" do
-      dt = ~U[2026-06-01 09:07:05Z]
-      assert {:ok, "2026/06/01/ingest-a1b2c3d4"} = Layout.create_item_dir("ingest-a1b2c3d4", dt)
-      assert File.dir?(Layout.item_abs_path("2026/06/01/ingest-a1b2c3d4"))
-    end
+  setup %{tmp_dir: tmp_dir} do
+    prev = Application.get_env(:cham, :archive_root)
+    Application.put_env(:cham, :archive_root, tmp_dir)
+    on_exit(fn -> Application.put_env(:cham, :archive_root, prev) end)
+    :ok
+  end
 
-    test "re_slugify/2 renames the leaf within the same date dir and returns the new path" do
-      dt = ~U[2026-06-01 09:07:05Z]
-      {:ok, archive_path} = Layout.create_item_dir("ingest-a1b2c3d4", dt)
-      # drop a marker file to prove the dir contents move with the rename
-      File.write!(Path.join(Layout.item_abs_path(archive_path), "marker"), "x")
+  test "atomic_write/2 writes complete content and leaves no .tmp file", %{tmp_dir: tmp_dir} do
+    path = Path.join(tmp_dir, "nested/deep/artifact.json")
+    assert :ok = Layout.atomic_write(path, ~s({"ok":true}))
+    assert File.read!(path) == ~s({"ok":true})
+    assert Path.dirname(path) |> File.ls!() == ["artifact.json"]
+  end
 
-      assert {:ok, "2026/06/01/my-title-a1b2c3d4"} = Layout.re_slugify(archive_path, "My Title!")
-      refute File.dir?(Layout.item_abs_path(archive_path))
-      assert File.dir?(Layout.item_abs_path("2026/06/01/my-title-a1b2c3d4"))
+  test "create_item_dir/2 makes the dir and returns the relative archive_path" do
+    dt = ~U[2026-06-01 09:07:05Z]
+    assert {:ok, "2026/06/01/ingest-a1b2c3d4"} = Layout.create_item_dir("ingest-a1b2c3d4", dt)
+    assert File.dir?(Layout.item_abs_path("2026/06/01/ingest-a1b2c3d4"))
+  end
 
-      assert File.exists?(
-               Path.join(Layout.item_abs_path("2026/06/01/my-title-a1b2c3d4"), "marker")
-             )
-    end
+  test "re_slugify/2 renames the leaf within the same date dir and returns the new path" do
+    dt = ~U[2026-06-01 09:07:05Z]
+    {:ok, archive_path} = Layout.create_item_dir("ingest-a1b2c3d4", dt)
+    File.write!(Path.join(Layout.item_abs_path(archive_path), "marker"), "x")
+
+    assert {:ok, "2026/06/01/my-title-a1b2c3d4"} = Layout.re_slugify(archive_path, "My Title!")
+    refute File.dir?(Layout.item_abs_path(archive_path))
+    assert File.dir?(Layout.item_abs_path("2026/06/01/my-title-a1b2c3d4"))
+    assert File.exists?(Path.join(Layout.item_abs_path("2026/06/01/my-title-a1b2c3d4"), "marker"))
   end
 end

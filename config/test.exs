@@ -39,3 +39,5 @@ config :cham, :start_tracker, false
 config :cham, :start_orchestrator, false
 config :cham, :start_queue_scaler, false
 config :cham, :skip_migrations, true
+
+config :cham, :archive_root, "."

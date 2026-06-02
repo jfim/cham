@@ -5,5 +5,7 @@
   # Ecto.Multi uses an opaque type internally; dialyzer raises call_without_opaque
   # when building a pipeline with Ecto.Multi.new() |> Ecto.Multi.insert(...).
   # This is a well-known Ecto/dialyzer false positive — the code is correct.
-  {"lib/cham/archive.ex", :call_without_opaque}
+  # Scoped to the insert description (not file-wide :call_without_opaque) so it
+  # can't mask an unrelated opaque-type bug elsewhere in this module.
+  {"lib/cham/archive.ex", "Type mismatch in call without opaque term in insert."}
 ]

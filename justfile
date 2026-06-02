@@ -25,6 +25,10 @@ fmt-check:
 credo:
     mix credo --strict
 
+# Run sobelow (security scan)
+sobelow:
+    mix sobelow --exit low
+
 # Run dialyzer (static analysis)
 dialyzer:
     mix dialyzer
@@ -37,5 +41,8 @@ test:
 server:
     iex -S mix phx.server
 
+# Fast checks — everything except dialyzer (mirrored by the CI `check` job)
+check-fast: fmt-check compile credo sobelow test
+
 # Run all checks (CI equivalent)
-check: fmt-check compile credo dialyzer test
+check: check-fast dialyzer

@@ -17,27 +17,8 @@ defmodule ChamWeb.Router do
   scope "/", ChamWeb do
     pipe_through :browser
 
-    live "/", DashboardLive, :index
-    live "/items/:id", DashboardLive, :detail
     live "/config", ConfigLive
     live "/subscriptions", SubscriptionIndexLive
-    live "/subscriptions/:id", SubscriptionShowLive
-  end
-
-  scope "/api/v1", ChamWeb do
-    pipe_through :api
-
-    resources "/items", ItemController, only: [:create, :index, :show, :delete]
-    post "/items/:id/reprocess", ItemController, :reprocess
-    post "/items/:id/cancel", ItemController, :cancel
-    post "/items/:id/retry", ItemController, :retry
-    get "/items/:id/events", EventController, :stream
-
-    post "/tags/clear", TagController, :clear
-  end
-
-  scope "/api/v1", ChamWeb do
-    get "/items/:id/files/*filename", FileController, :show
   end
 
   scope "/", ChamWeb do

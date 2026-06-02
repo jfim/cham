@@ -41,16 +41,6 @@ defmodule ChamWeb.SubscriptionIndexLive do
   def render(assigns) do
     ~H"""
     <div style="min-height: 100vh; background: var(--cham-surface-page);">
-      <div class="item-topbar">
-        <.link
-          navigate={~p"/"}
-          class="iconbtn"
-          style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 4px 8px; font-size: var(--cham-text-sm); color: var(--cham-fg-muted);"
-        >
-          <ChamWeb.CoreComponents.icon name="hero-arrow-left-mini" class="h-4 w-4" /> Back to archive
-        </.link>
-      </div>
-
       <main style="max-width: 64rem; margin: 0 auto; padding: var(--cham-space-12) var(--cham-space-8) var(--cham-space-8); overflow-x: auto;">
         <h1 style="font: var(--cham-fw-normal) var(--cham-text-3xl)/1.2 var(--cham-font-display); color: var(--cham-fg-strong); letter-spacing: var(--cham-track-tight); margin: 0 0 var(--cham-space-6);">
           Subscriptions
@@ -87,12 +77,9 @@ defmodule ChamWeb.SubscriptionIndexLive do
                 style="border-bottom: 1px solid var(--cham-border-subtle); vertical-align: top;"
               >
                 <td style="padding: var(--cham-space-3) var(--cham-space-3) var(--cham-space-3) 0;">
-                  <.link
-                    navigate={~p"/subscriptions/#{sub.id}"}
-                    style="font: var(--cham-fw-semibold) var(--cham-text-base)/1.3 var(--cham-font-display); color: var(--cham-fg-strong); letter-spacing: var(--cham-track-tight); text-decoration: none;"
-                  >
+                  <span style="font: var(--cham-fw-semibold) var(--cham-text-base)/1.3 var(--cham-font-display); color: var(--cham-fg-strong); letter-spacing: var(--cham-track-tight);">
                     {sub.title}
-                  </.link>
+                  </span>
                 </td>
                 <td style="padding: var(--cham-space-3) var(--cham-space-3) var(--cham-space-3) 0; font-family: var(--cham-font-mono); font-size: var(--cham-text-xs); color: var(--cham-fg-soft); word-break: break-all;">
                   {sub.source_url}

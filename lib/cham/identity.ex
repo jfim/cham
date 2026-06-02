@@ -8,6 +8,9 @@ defmodule Cham.Identity do
   compose `hash(normalize(url))`.
   """
 
+  alias Cham.Repo
+  alias Cham.Archive.UrlIdentity
+
   @normalization_version 1
 
   # Denylist v1 — pure trackers only. Ambiguous load-bearing params (e.g. "ref")
@@ -53,6 +56,20 @@ defmodule Cham.Identity do
   @spec hash(String.t()) :: String.t()
   def hash(normalized_url) when is_binary(normalized_url) do
     :crypto.hash(:sha256, normalized_url) |> Base.encode16(case: :lower)
+  end
+
+  @doc """
+  Resolve a URL to its item id via the `url_identities` hash set, or `nil`.
+  Single index hit on `url_hash`.
+  """
+  @spec lookup_item_by_url(String.t()) :: Ecto.UUID.t() | nil
+  def lookup_item_by_url(url) when is_binary(url) do
+    h = hash(normalize(url))
+
+    case Repo.get_by(UrlIdentity, url_hash: h) do
+      nil -> nil
+      %UrlIdentity{item_id: item_id} -> item_id
+    end
   end
 
   defp drop_default_port("http", 80), do: nil

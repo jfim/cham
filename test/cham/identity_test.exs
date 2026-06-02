@@ -75,3 +75,45 @@ defmodule Cham.IdentityTest do
     assert Identity.normalization_version() == 1
   end
 end
+
+defmodule Cham.Identity.LookupTest do
+  use Cham.DataCase, async: true
+
+  alias Cham.Identity
+  alias Cham.Archive.{Item, UrlIdentity}
+
+  setup do
+    {:ok, item} =
+      %Item{}
+      |> Item.create_changeset(%{
+        slug: "ingest-a1b2c3d4",
+        archive_path: "2026/06/01/ingest-a1b2c3d4",
+        first_captured_at: ~U[2026-06-01 12:00:00Z]
+      })
+      |> Repo.insert()
+
+    url = "https://example.com/known"
+
+    {:ok, _} =
+      %UrlIdentity{}
+      |> UrlIdentity.changeset(%{
+        item_id: item.id,
+        url_hash: Identity.hash(Identity.normalize(url)),
+        normalized_url: Identity.normalize(url),
+        role: "submitted"
+      })
+      |> Repo.insert()
+
+    %{item: item, url: url}
+  end
+
+  test "returns the item_id for a known URL (normalization-insensitive)", %{item: item, url: url} do
+    # Trailing tracking param + uppercase host must resolve to the same hash.
+    assert Identity.lookup_item_by_url("HTTPS://Example.com/known?utm_source=x") == item.id
+    assert Identity.lookup_item_by_url(url) == item.id
+  end
+
+  test "returns nil for an unknown URL" do
+    assert Identity.lookup_item_by_url("https://example.com/never-seen") == nil
+  end
+end

@@ -21,16 +21,6 @@ defmodule ChamWeb.SubscriptionIndexLive do
     {:noreply, assign(socket, :subscriptions, Subscriptions.list_subscriptions())}
   end
 
-  def handle_event("poll_now", %{"id" => id}, socket) do
-    sub = Subscriptions.get_subscription!(id)
-    {:ok, _} = Subscriptions.enqueue_poll(sub)
-
-    {:noreply,
-     socket
-     |> put_flash(:info, "Polling \"#{sub.title}\" now…")
-     |> assign(:subscriptions, Subscriptions.list_subscriptions())}
-  end
-
   def handle_event("delete", %{"id" => id}, socket) do
     sub = Subscriptions.get_subscription!(id)
     {:ok, _} = Subscriptions.delete_subscription(sub)
@@ -127,16 +117,6 @@ defmodule ChamWeb.SubscriptionIndexLive do
                 </td>
                 <td style="padding: var(--cham-space-3) 0;">
                   <div style="display: flex; align-items: center; gap: 2px;">
-                    <button
-                      type="button"
-                      phx-click="poll_now"
-                      phx-value-id={sub.id}
-                      title="Poll now"
-                      aria-label="Poll now"
-                      class="iconbtn"
-                    >
-                      <ChamWeb.CoreComponents.icon name="hero-arrow-path" class="h-4 w-4" />
-                    </button>
                     <button
                       type="button"
                       phx-click="toggle_active"

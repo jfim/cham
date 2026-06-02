@@ -63,11 +63,7 @@ config :cham, Oban,
   ],
   plugins: [
     {Oban.Plugins.Pruner, interval: :timer.hours(1)},
-    {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)},
-    {Oban.Plugins.Cron,
-     crontab: [
-       {"* * * * *", Cham.Subscriptions.PollScheduler}
-     ]}
+    {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)}
   ]
 
 # Import environment specific config. This must remain at the bottom

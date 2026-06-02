@@ -9,7 +9,7 @@ defmodule Cham.Archive do
   is Phase 4 — not here.
   """
 
-  alias Cham.Archive.{Item, Layout, Snapshot, UrlIdentity}
+  alias Cham.Archive.{Artifact, Component, Item, Layout, Snapshot, UrlIdentity}
   alias Cham.Identity
   alias Cham.Repo
 
@@ -118,5 +118,70 @@ defmodule Cham.Archive do
       })
 
     Layout.atomic_write(record_path, content)
+  end
+
+  @doc "Resolve a URL to its item id (or nil). Delegates to Cham.Identity."
+  @spec lookup_item_by_url(String.t()) :: Ecto.UUID.t() | nil
+  def lookup_item_by_url(url), do: Identity.lookup_item_by_url(url)
+
+  @doc """
+  Insert `url_identities(role: redirect_alias)` rows for already-normalized URLs
+  (used by the capture stage in Phase 5). Returns `{:ok, [rows]}`.
+  """
+  @spec add_redirect_aliases(Item.t(), [String.t()]) :: {:ok, [UrlIdentity.t()]}
+  def add_redirect_aliases(%Item{id: item_id}, normalized_urls) when is_list(normalized_urls) do
+    rows =
+      Enum.map(normalized_urls, fn normalized_url ->
+        %UrlIdentity{}
+        |> UrlIdentity.changeset(%{
+          item_id: item_id,
+          url_hash: Identity.hash(normalized_url),
+          normalized_url: normalized_url,
+          role: "redirect_alias"
+        })
+        |> Repo.insert!()
+      end)
+
+    {:ok, rows}
+  end
+
+  @doc """
+  Re-slugify an item from its first title. Rename-first (Layout), DB-second.
+  Returns `{:ok, updated_item}`.
+  """
+  @spec re_slugify(Item.t(), String.t()) :: {:ok, Item.t()} | {:error, Ecto.Changeset.t()}
+  def re_slugify(%Item{} = item, title) when is_binary(title) do
+    {:ok, new_archive_path} = Layout.re_slugify(item.archive_path, title)
+    new_slug = Path.basename(new_archive_path)
+
+    item
+    |> Item.update_changeset(%{slug: new_slug, archive_path: new_archive_path})
+    |> Repo.update()
+  end
+
+  @doc "Insert a snapshot for an item."
+  @spec create_snapshot(Item.t(), map()) :: {:ok, Snapshot.t()} | {:error, Ecto.Changeset.t()}
+  def create_snapshot(%Item{id: item_id}, attrs) do
+    %Snapshot{}
+    |> Snapshot.changeset(Map.put(attrs, :item_id, item_id))
+    |> Repo.insert()
+  end
+
+  @doc "Insert a component for a snapshot."
+  @spec create_component(Snapshot.t(), map()) ::
+          {:ok, Component.t()} | {:error, Ecto.Changeset.t()}
+  def create_component(%Snapshot{id: snapshot_id}, attrs) do
+    %Component{}
+    |> Component.changeset(Map.put(attrs, :snapshot_id, snapshot_id))
+    |> Repo.insert()
+  end
+
+  @doc "Insert an artifact under a snapshot (component_id optional in attrs)."
+  @spec record_artifact(Snapshot.t(), map()) ::
+          {:ok, Artifact.t()} | {:error, Ecto.Changeset.t()}
+  def record_artifact(%Snapshot{id: snapshot_id}, attrs) do
+    %Artifact{}
+    |> Artifact.changeset(Map.put(attrs, :snapshot_id, snapshot_id))
+    |> Repo.insert()
   end
 end

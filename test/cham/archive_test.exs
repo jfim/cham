@@ -2,7 +2,7 @@ defmodule Cham.ArchiveTest do
   use Cham.DataCase, async: false
 
   alias Cham.Archive
-  alias Cham.Archive.{Item, Layout, Snapshot, UrlIdentity}
+  alias Cham.Archive.{Artifact, Component, Item, Layout, Snapshot, UrlIdentity}
   alias Cham.Identity
 
   @url "https://example.com/article"
@@ -57,5 +57,68 @@ defmodule Cham.ArchiveTest do
     assert {:ok, _item, _snap} = Archive.create_item_with_identity(@url, @provenance)
     dup = "HTTPS://Example.com/article?utm_source=x"
     assert {:error, :exists} = Archive.create_item_with_identity(dup, @provenance)
+  end
+
+  @tag :tmp_dir
+  test "lookup_item_by_url delegates to Identity (item_id or nil)" do
+    {:ok, item, _snap} = Archive.create_item_with_identity(@url, @provenance)
+    assert Archive.lookup_item_by_url(@url) == item.id
+    assert Archive.lookup_item_by_url("https://example.com/other") == nil
+  end
+
+  @tag :tmp_dir
+  test "add_redirect_aliases inserts redirect_alias rows for normalized URLs" do
+    {:ok, item, _snap} = Archive.create_item_with_identity(@url, @provenance)
+    alias_url = Identity.normalize("https://example.com/redirected")
+
+    assert {:ok, [alias_row]} = Archive.add_redirect_aliases(item, [alias_url])
+    assert alias_row.role == "redirect_alias"
+    assert alias_row.item_id == item.id
+    assert alias_row.url_hash == Identity.hash(alias_url)
+  end
+
+  @tag :tmp_dir
+  test "re_slugify renames the dir and updates slug + archive_path (rename-first)" do
+    {:ok, item, _snap} = Archive.create_item_with_identity(@url, @provenance)
+    old_path = item.archive_path
+    shorthash = Layout.shorthash(item.id)
+
+    assert {:ok, updated} = Archive.re_slugify(item, "My Great Title!")
+    assert updated.slug == "my-great-title-#{shorthash}"
+    assert updated.archive_path =~ ~r{/my-great-title-#{shorthash}\z}
+    assert Repo.get!(Item, item.id).archive_path == updated.archive_path
+    refute File.dir?(Layout.item_abs_path(old_path))
+    assert File.dir?(Layout.item_abs_path(updated.archive_path))
+  end
+
+  @tag :tmp_dir
+  test "thin insert helpers round-trip snapshot/component/artifact" do
+    {:ok, item, snapshot} = Archive.create_item_with_identity(@url, @provenance)
+
+    {:ok, snap2} =
+      Archive.create_snapshot(item, %{
+        captured_at: DateTime.utc_now() |> DateTime.truncate(:second),
+        provenance: @provenance,
+        snapshot_path: "snapshots/20260601T100000Z"
+      })
+
+    assert snap2.item_id == item.id
+
+    {:ok, component} = Archive.create_component(snapshot, %{content_type: "article"})
+    assert component.snapshot_id == snapshot.id
+    assert component.content_type == "article"
+
+    {:ok, artifact} =
+      Archive.record_artifact(snapshot, %{
+        component_id: component.id,
+        category: "extracted",
+        stage: "extract_article",
+        path: "snapshots/x/components/article",
+        version: 1
+      })
+
+    assert artifact.snapshot_id == snapshot.id
+    assert artifact.component_id == component.id
+    assert artifact.status == "produced"
   end
 end

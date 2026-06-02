@@ -8,8 +8,8 @@ defmodule Cham.Identity do
   compose `hash(normalize(url))`.
   """
 
-  alias Cham.Repo
   alias Cham.Archive.UrlIdentity
+  alias Cham.Repo
 
   @normalization_version 1
 

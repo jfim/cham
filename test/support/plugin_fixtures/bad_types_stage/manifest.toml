@@ -1,0 +1,7 @@
+id = "bad_types_stage"
+kind = "stage"
+phase = "extract"
+inputs = [ { type = "ghost" } ]
+
+[entrypoints]
+perform = "true"

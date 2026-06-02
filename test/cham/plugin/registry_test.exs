@@ -55,6 +55,19 @@ defmodule Cham.Plugin.RegistryTest do
       Registry.discover(opts([]))
       assert_receive {:config_registered, "plugins.extract_article", [%{key: :min_words}]}
     end
+
+    test "skips an in-process module whose manifest/0 raises, without crashing discovery" do
+      {catalog, _vocab} =
+        Registry.discover(opts(in_process_modules: [Cham.PluginFixtures.RaisingStage, FakeStage]))
+
+      # discovery did not crash; the raising module is skipped, the good one kept
+      refute Enum.any?(
+               Map.values(catalog),
+               &match?(%{source: {:module, Cham.PluginFixtures.RaisingStage}}, &1)
+             )
+
+      assert Map.has_key?(catalog, "fake_stage")
+    end
   end
 
   describe "GenServer API" do

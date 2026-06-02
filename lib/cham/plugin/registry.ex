@@ -170,18 +170,27 @@ defmodule Cham.Plugin.Registry do
   end
 
   defp load_in_process(modules) do
-    Enum.flat_map(modules, fn module ->
-      manifest = %{module.manifest() | class: :in_process, source: {:module, module}}
+    Enum.flat_map(modules, &load_in_process_module/1)
+  end
 
-      case Manifest.validate(manifest) do
-        {:ok, m} ->
-          [m]
+  defp load_in_process_module(module) do
+    manifest = %{module.manifest() | class: :in_process, source: {:module, module}}
 
-        {:error, reason} ->
-          Logger.warning("skipping in-process plugin #{inspect(module)}: #{reason}")
-          []
-      end
-    end)
+    case Manifest.validate(manifest) do
+      {:ok, m} ->
+        [m]
+
+      {:error, reason} ->
+        Logger.warning("skipping in-process plugin #{inspect(module)}: #{reason}")
+        []
+    end
+  rescue
+    e ->
+      Logger.warning(
+        "skipping in-process plugin #{inspect(module)}: manifest/0 raised #{Exception.message(e)}"
+      )
+
+      []
   end
 
   defp valid_types?(manifest, vocabulary) do

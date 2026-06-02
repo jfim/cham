@@ -15,36 +15,73 @@ defmodule Cham.Plugin.WireProtocol do
     @moduledoc "One input artifact reference handed to a stage."
     @enforce_keys [:type]
     defstruct [:type, :input_path, labels: %{}, filenames: []]
+
+    @type t :: %__MODULE__{
+            type: String.t(),
+            input_path: String.t() | nil,
+            labels: map(),
+            filenames: [String.t()]
+          }
   end
 
   defmodule PerformRequest do
     @moduledoc "Stage `perform` request."
     @enforce_keys [:item_id]
     defstruct [:item_id, config: %{}, inputs: []]
+
+    @type t :: %__MODULE__{
+            item_id: String.t(),
+            config: map(),
+            inputs: [map()]
+          }
   end
 
   defmodule CanProcessRequest do
     @moduledoc "Stage `can_process` probe request."
     @enforce_keys [:item_id]
     defstruct [:item_id, inputs: []]
+
+    @type t :: %__MODULE__{
+            item_id: String.t(),
+            inputs: [map()]
+          }
   end
 
   defmodule SubscriptionRequest do
     @moduledoc "Subscription `perform` request carrying the opaque checkpoint."
     @enforce_keys [:subscription_id]
     defstruct [:subscription_id, config: %{}, checkpoint: nil]
+
+    @type t :: %__MODULE__{
+            subscription_id: String.t(),
+            config: map(),
+            checkpoint: term()
+          }
   end
 
   defmodule StageResult do
     @moduledoc "Decoded terminal result of a stage `perform`."
     @enforce_keys [:outcome]
     defstruct [:outcome, :category, artifacts: [], item_metadata: %{}, provenance: %{}]
+
+    @type t :: %__MODULE__{
+            outcome: :produced | :not_applicable | :failed,
+            category: nil | :blocked | :unsupported | :bad_input | :error,
+            artifacts: [map()],
+            item_metadata: map(),
+            provenance: map()
+          }
   end
 
   defmodule SubscriptionResult do
     @moduledoc "Decoded result of a subscription `perform`."
     @enforce_keys [:items, :checkpoint]
     defstruct [:items, :checkpoint]
+
+    @type t :: %__MODULE__{
+            items: [map()],
+            checkpoint: term()
+          }
   end
 
   @doc "Known closed set of plugin-reportable failure categories."

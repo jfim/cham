@@ -1,0 +1,22 @@
+id = "extract_article"
+kind = "stage"
+phase = "extract"
+version = 3
+queue = "general"
+max_attempts = 3
+
+inputs  = [ { type = "html_capture", labels = { origin = "original" } } ]
+outputs = [ { type = "article_markdown", labels = { format = "text" } } ]
+
+declares_types = ["article_markdown"]
+
+[entrypoints]
+perform = "sh perform.sh"
+can_process = "sh check.sh"
+
+[[config_schema]]
+key = "min_words"
+type = "integer"
+default = 20
+description = "Minimum word count to treat content as an article."
+required = false

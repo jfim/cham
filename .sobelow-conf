@@ -20,15 +20,21 @@
 #   the TOML config by computed paths. Sobelow flags every File.* call here as
 #   Traversal.FileModule (Low Confidence). These are by-design, single-user
 #   local file operations -- not traversal from untrusted external input.
+#   Manifest.ex also uses String.to_atom for config_schema key/type fields;
+#   these come from operator-authored manifest.toml files in the archive (not
+#   from untrusted external users), so the DOS.StringToAtom warning is a
+#   deliberate accepted risk under the single-user localhost threat model.
 #     - lib/cham/archive/layout.ex              (archive path construction + read/write)
 #     - lib/cham/config/manager.ex              (TOML config file read/write)
+#     - lib/cham/plugin/manifest.ex             (manifest.toml read + config_schema atoms)
 [
   exit: "low",
   format: "txt",
   ignore: ["Config.HTTPS", "Config.CSP"],
   ignore_files: [
     "lib/cham/archive/layout.ex",
-    "lib/cham/config/manager.ex"
+    "lib/cham/config/manager.ex",
+    "lib/cham/plugin/manifest.ex"
   ],
   out: nil,
   private: false,

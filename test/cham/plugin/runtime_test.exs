@@ -1,7 +1,7 @@
 defmodule Cham.Plugin.RuntimeTest do
   use ExUnit.Case, async: true
-  alias Cham.Plugin.{Runtime, Registry, ArtifactType}
-  alias Cham.Plugin.WireProtocol.{PerformRequest, CanProcessRequest, StageResult}
+  alias Cham.Plugin.{ArtifactType, Registry, Runtime}
+  alias Cham.Plugin.WireProtocol.{CanProcessRequest, PerformRequest, StageResult}
   alias Cham.PluginFixtures.FakeStage
 
   @root "test/support/plugin_fixtures"

@@ -27,6 +27,9 @@
 #     - lib/cham/archive/layout.ex              (archive path construction + read/write)
 #     - lib/cham/config/manager.ex              (TOML config file read/write)
 #     - lib/cham/plugin/manifest.ex             (manifest.toml read + config_schema atoms)
+#     - lib/cham/plugin/transport/subprocess.ex  (one-shot plugin port: request.json/output.json
+#                                                  read/write + Port spawn + kill of the local subprocess)
+#     - lib/cham/plugin/registry.ex              (scans the configured plugins root for manifests)
 [
   exit: "low",
   format: "txt",
@@ -34,7 +37,9 @@
   ignore_files: [
     "lib/cham/archive/layout.ex",
     "lib/cham/config/manager.ex",
-    "lib/cham/plugin/manifest.ex"
+    "lib/cham/plugin/manifest.ex",
+    "lib/cham/plugin/transport/subprocess.ex",
+    "lib/cham/plugin/registry.ex"
   ],
   out: nil,
   private: false,

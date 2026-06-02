@@ -1,6 +1,6 @@
 defmodule Cham.Plugin.RegistryTest do
   use ExUnit.Case, async: true
-  alias Cham.Plugin.{Registry, ArtifactType}
+  alias Cham.Plugin.{ArtifactType, Registry}
   alias Cham.PluginFixtures.FakeStage
 
   @root "test/support/plugin_fixtures"

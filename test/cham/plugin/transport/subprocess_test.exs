@@ -1,9 +1,9 @@
 defmodule Cham.Plugin.Transport.SubprocessTest do
   use ExUnit.Case, async: true
-  alias Cham.Plugin.Transport.Subprocess
-  alias Cham.Plugin.Manifest
-  alias Cham.Plugin.WireProtocol.{PerformRequest, CanProcessRequest, StageResult}
   alias Cham.Plugin.Events.PluginEvent
+  alias Cham.Plugin.Manifest
+  alias Cham.Plugin.Transport.Subprocess
+  alias Cham.Plugin.WireProtocol.{CanProcessRequest, PerformRequest, StageResult}
 
   @fixtures "test/support/plugin_fixtures"
 

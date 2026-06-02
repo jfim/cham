@@ -1,6 +1,6 @@
 defmodule Cham.Plugin.SubscriptionContractTest do
   use ExUnit.Case, async: true
-  alias Cham.Plugin.{Runtime, Registry, ArtifactType}
+  alias Cham.Plugin.{ArtifactType, Registry, Runtime}
   alias Cham.Plugin.WireProtocol.{SubscriptionRequest, SubscriptionResult}
   alias Cham.PluginFixtures.FakeSubscription
 

@@ -3,11 +3,11 @@ defmodule Cham.Plugin.WireProtocolTest do
   alias Cham.Plugin.WireProtocol
 
   alias Cham.Plugin.WireProtocol.{
-    PerformRequest,
     CanProcessRequest,
-    SubscriptionRequest,
     Input,
+    PerformRequest,
     StageResult,
+    SubscriptionRequest,
     SubscriptionResult
   }
 

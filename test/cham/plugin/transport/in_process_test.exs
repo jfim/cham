@@ -1,8 +1,8 @@
 defmodule Cham.Plugin.Transport.InProcessTest do
   use ExUnit.Case, async: true
-  alias Cham.Plugin.Transport.InProcess
-  alias Cham.Plugin.WireProtocol.{PerformRequest, CanProcessRequest, StageResult}
   alias Cham.Plugin.Events.PluginEvent
+  alias Cham.Plugin.Transport.InProcess
+  alias Cham.Plugin.WireProtocol.{CanProcessRequest, PerformRequest, StageResult}
   alias Cham.PluginFixtures.FakeStage
 
   test "perform returns the module's result struct and forwards emit events" do

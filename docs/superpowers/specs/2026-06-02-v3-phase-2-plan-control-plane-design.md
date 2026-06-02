@@ -26,7 +26,6 @@ All modules are pure (no process, no I/O):
   stage manifests plus config-derived orderings/mappings.
 - `Cham.Plan.Facts` — the per-snapshot `facts` value.
 - `Cham.Plan.Outcome` — the durable outcome record's in-memory shape.
-- `Cham.Plan.Invalidate` — a pure `facts → facts` transform for versioned reprocessing.
 
 ### 1.2 Contract ownership
 
@@ -45,8 +44,10 @@ index / on-disk archive; Phase 4 (executor) *records* outcomes into that shape a
   *within one snapshot* but does not spawn new items.
 - The **durable persistence** of outcomes and probe results (Phase 3/4). Phase 2 only
   documents where they live (§4.3).
-- The **trigger** for invalidation (CLI / executor, Phase 4/8). Phase 2 ships only the
-  pure transform.
+- The **invalidation operation** for versioned reprocessing — the transform that prunes
+  stale outcomes, its trigger (CLI / executor), and its cascade semantics (Phase 4/8).
+  Phase 2 contributes only the `version` field on `Outcome` and `plan`'s reopen-on-missing
+  behavior (§9).
 
 ## 2. Reconciliations applied
 
@@ -293,22 +294,28 @@ passe-partout is the capture floor — making the all-`not_applicable` row rare.
 already accommodates it: it is just another extract candidate that satisfies the
 extraction goal.
 
-## 9. Versioned reprocessing — `Cham.Plan.Invalidate`
+## 9. Versioned reprocessing (Phase 2's contribution only)
 
-```
-Cham.Plan.Invalidate.invalidate(facts, stage_id, max_version) :: Cham.Plan.Facts.t()
-```
+The full reprocessing story (base-spec §10): fix a parser, bump its stage `version`, and
+re-run that stage on the *bytes already on disk* — no re-fetch. The mechanism is that
+`plan`'s eligibility is "no *valid* terminal outcome recorded," so removing the stale
+outcomes from the facts reopens exactly those nodes on the next `plan` call.
 
-A pure transform that drops every `Outcome` where `stage_id` matches and
-`version <= max_version`. Because eligibility is "no *valid* terminal outcome recorded,"
-the affected nodes reopen on the next `plan` call, reusing all upstream artifacts (bytes
-already on disk — no re-fetch, no `failed` latch to fight). This is base-spec §10's
-invalidation query, expressed as a pure facts edit.
+**`plan` itself is not version-aware and never compares versions.** An invalidated node
+and a never-run node are identical to `plan` — both simply lack an outcome — so the
+reopen behavior is inherent to the candidate walk (§6). Phase 2 therefore contributes
+only two things to reprocessing, both already in the design:
 
-The **trigger** (a CLI command or executor path that builds the modified facts and
-re-plans) is deferred to Phase 4/8. **Automatic** reopening on any version bump stays
-deferred (it risks surprise mass-reprocessing on deploy); if ever added it is opt-in per
-stage (base-spec §10).
+- `Outcome` carries the producing stage's **`version`** (§4.2), so the future trigger can
+  target which outcomes to prune.
+- `plan` **reopens any node lacking a valid outcome** — its default behavior.
+
+The actual **invalidation operation** — the `facts → facts` prune transform, its trigger
+(a `mix cham.reprocess`-style CLI / executor path), and its **cascade semantics** (when
+`extract_article` reopens, whether the still-versioned downstream `summary`/`tags`
+outcomes also reopen) — lives with its consumer in **Phase 4/8**, not here. **Automatic**
+reopening on any version bump stays deferred (it risks surprise mass-reprocessing on
+deploy); if ever added it is opt-in per stage (base-spec §10).
 
 ## 10. Testing strategy
 
@@ -329,8 +336,9 @@ decision (base-spec §14). No Oban, no clock, no DB. Coverage:
   wins); different-output independent producers (both run).
 - **Terminal tiers:** every row of §8, including the category split on the
   no-extraction tier.
-- **Invalidation:** `invalidate/3` drops matching outcomes; the node reopens on replan;
-  non-matching outcomes (and upstream artifacts) are preserved.
+- **Reopen on missing outcome:** a node with no outcome for the relevant
+  `(stage_id, component_id)` — whether never-run or invalidated upstream — reappears in the
+  frontier, while nodes with valid outcomes do not re-run.
 - **Determinism:** the same `(catalog, facts)` yields the same decision.
 
 ## 11. Open questions carried forward
@@ -338,6 +346,7 @@ decision (base-spec §14). No Oban, no clock, no DB. Coverage:
 - **Probe-result persistence** — the durable home (a lightweight row vs. reusing the
   outcome channel). *(Phase 4.)*
 - **`facts` source** — projected from the DB index, from disk, or both. *(Phase 3.)*
-- **Invalidation trigger surface** — CLI shape, batch scope. *(Phase 4/8.)*
+- **Invalidation operation** — the prune transform, trigger (CLI shape, batch scope), and
+  cascade semantics. *(Phase 4/8.)*
 - **Multiple same-type components** — index-discriminator scheme; blocked by the current
   `unique(snapshot_id, content_type)`. *(Phase 6, Part E.)*

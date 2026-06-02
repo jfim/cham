@@ -55,4 +55,48 @@ defmodule Cham.Archive.Layout do
   @doc "Relative snapshot dir (under the item dir): `snapshots/<ts>`."
   @spec snapshot_path(String.t()) :: String.t()
   def snapshot_path(ts) when is_binary(ts), do: Path.join("snapshots", ts)
+
+  @doc """
+  Atomic write: temp file + rename, so the file is complete-or-absent.
+  Creates parent directories.
+  """
+  @spec atomic_write(String.t(), iodata()) :: :ok | {:error, File.posix()}
+  def atomic_write(path, content) do
+    dir = Path.dirname(path)
+    File.mkdir_p!(dir)
+    tmp_path = path <> ".tmp.#{:erlang.unique_integer([:positive])}"
+
+    with :ok <- File.write(tmp_path, content) do
+      File.rename(tmp_path, path)
+    end
+  end
+
+  @doc """
+  Create the item dir `<root>/archive/YYYY/MM/DD/<slug>/`. Returns the relative
+  `archive_path`.
+  """
+  @spec create_item_dir(String.t(), DateTime.t()) :: {:ok, String.t()}
+  def create_item_dir(slug, %DateTime{} = dt) do
+    archive_path = item_archive_path(slug, dt)
+    File.mkdir_p!(item_abs_path(archive_path))
+    {:ok, archive_path}
+  end
+
+  @doc """
+  Rename the leaf `ingest-<shorthash>` -> `<slugify(title)>-<shorthash>` within
+  the same date dir (atomic, same filesystem). Returns the new relative
+  `archive_path`. Set-once: the leaf is always `ingest-<shorthash>` at call time
+  (reconciliation B3).
+  """
+  @spec re_slugify(String.t(), String.t()) :: {:ok, String.t()}
+  def re_slugify(archive_path, title) when is_binary(title) do
+    leaf = Path.basename(archive_path)
+    date_dir = Path.dirname(archive_path)
+    shorthash = String.replace_prefix(leaf, "ingest-", "")
+    new_leaf = "#{slugify(title)}-#{shorthash}"
+    new_archive_path = Path.join(date_dir, new_leaf)
+
+    :ok = File.rename(item_abs_path(archive_path), item_abs_path(new_archive_path))
+    {:ok, new_archive_path}
+  end
 end

@@ -199,8 +199,10 @@ re-homing the RSS backend); **`subscriber`** and **`integration`** are **reserve
 accepts them, no invocation path). The **`waiting_for_input`** seam was reduced from a
 resume mechanism to a **reserved outcome** — returning it fails the item as `:unsupported`;
 no resume request kind and no `waiting` lifecycle state (consistent with the B2 status enum).
-The wire protocol is **JSONL** (streamed `status`/`progress`/`log` events forwarded to the
-EventBus + a terminal `result`), and `can_process` is an **optional separate lightweight
+The wire protocol is **`request.json` in / `output.json` out** via `working_dir` (the
+atomic `output.json` is the authoritative result; absent/garbage → `failed(:error)`,
+catching OOM/crash), with **optional** JSONL `status`/`progress`/`log` events streamed on
+stdout and forwarded to the EventBus; `can_process` is an **optional separate lightweight
 entrypoint** (so a metadata probe need not pay model-load cost). The remaining genuinely
 folded-in seam is the **typed-artifact contract** (validated, config/manifest-extensible
 type vocabulary living in `artifacts.labels["type"]`; on-disk typed layouts still deferred).
@@ -208,7 +210,7 @@ type vocabulary living in `artifacts.labels["type"]`; on-disk typed layouts stil
 | Phase | Scope | Depends on |
 |---|---|---|
 | **0 — Data-model substrate** | Postgres schema + migrations (`items`, `url_identities`, `snapshots`, `components`, `artifacts`, `edges`); Ecto schemas/contexts; on-disk layout module (path construction, create-in-archive, atomic `artifact.json`, re-slugify rename); URL normalization (versioned denylist) + hashing + hash-set lookup. | — |
-| **1 — Plugin runtime** | Manifest-described, JSONL one-shot wire protocol; kind × class with class = transport (in-process fast path / external subprocess); **`stage` kind in full** (typed I/O, phase, version, optional `can_process` probe entrypoint, `perform`); **`subscription` invocation contract** (opaque-checkpoint round-trip); `subscriber`/`integration` **reserved**; registry/discovery + config-schema registration. Folds in the **typed-artifact contract** seam; freezes the **`{:query_can_process}`** planner seam (impl Phase 2/4). `waiting_for_input` is a **reserved** outcome (→ `:unsupported`), not a resume seam. **See `2026-06-01-v3-plugin-runtime-design.md`.** | 0 (Layout for working dirs) |
+| **1 — Plugin runtime** | Manifest-described one-shot wire protocol (`request.json` in / `output.json` out + optional stdout progress); kind × class with class = transport (in-process fast path / external subprocess); **`stage` kind in full** (typed I/O, phase, version, optional `can_process` probe entrypoint, `perform`); **`subscription` invocation contract** (opaque-checkpoint round-trip); `subscriber`/`integration` **reserved**; registry/discovery + config-schema registration. Folds in the **typed-artifact contract** seam; freezes the **`{:query_can_process}`** planner seam (impl Phase 2/4). `waiting_for_input` is a **reserved** outcome (→ `:unsupported`), not a resume seam. **See `2026-06-01-v3-plugin-runtime-design.md`.** | 0 (Layout for working dirs) |
 | **2 — Pure control plane** | `plan(config, facts)`: candidate walk, phase selection, conflict resolution, classification→desired-artifacts, terminal tiers, version invalidation. Pure unit tests, no Oban/DB. Reasons over Phase 1's stage-declaration contract. | shape of 0, 1 |
 | **3 — Projection + reindex** | Build `facts` from disk/DB; the shared disk→DB projection (used by both finalizer and reindex); reindex (`--full`/`--upsert`). **Stub** for `search_vector` population (real FTS deferred). | 0 |
 | **4 — Executor** | Replaces `Orchestrator`. Oban scheduling from `plan` decisions; in-flight dedup; same-tool retry; liveness→terminal; one durable outcome channel; re-slugify side-effect; submit path (item + `url_identities(submitted)` + eager input record) with unique-constraint dedup; finalization step; **`waiting_for_input` resume**. Invokes stages via the Phase 1 runtime. | 0, 1, 2, 3 |

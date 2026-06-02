@@ -20,7 +20,8 @@ one.
 
 **In scope:**
 - The plugin **manifest** (static declarative contract) + directory packaging + registry/discovery.
-- The **wire protocol**: one-shot, JSON request on stdin, JSONL event stream on stdout.
+- The **wire protocol**: one-shot, `request.json` in / `output.json` out (via `working_dir`),
+  with optional JSONL progress events streamed on stdout.
 - Two **transports** sharing one contract: in-process Elixir (fast path) and external subprocess.
 - The **`stage`** kind in full: typed I/O contract, the optional `can_process` probe, `perform`, the outcome taxonomy.
 - The **`subscription`** kind's *invocation contract* (checkpoint round-trip), testable in isolation.
@@ -123,32 +124,42 @@ skipped**, never fatal to boot.
 
 ## 4. Wire Protocol
 
-**One-shot per invocation.** The host spawns an entrypoint, writes exactly one **JSON
-request object** to the process's stdin (then closes stdin), and reads a **JSONL event
-stream** from stdout until the process exits.
+**One-shot per invocation.** The host writes the request to
+**`working_dir/request.json`**, spawns the entrypoint with **`working_dir` as its sole
+argument**, and reads a **JSONL event stream** from stdout until the process exits. (This
+mirrors v2's `working_dir`-as-argument convention; the plugin just reads a file — trivial
+in any language, no stdin/EOF plumbing — and the request stays on disk for debugging.)
 
-- **stdout = JSONL events.** Each line is one JSON object with an `"event"` field. The
-  plugin streams progress as it works; the **last protocol event is the terminal
-  `result`**:
+- **`output.json` = the authoritative result.** The plugin writes
+  `working_dir/output.json` (atomically: temp file + rename) containing the terminal
+  result — the `outcome` + `artifacts`/`item_metadata`/`provenance` (or `{ "applicable":
+  … }` for a probe; see §5–§6). The host deletes any pre-existing `output.json` before
+  invoking, so a reused `working_dir` cannot yield a stale read.
+- **stdout = optional JSONL progress events.** Each line is one JSON object with an
+  `"event"` field; emitting any is optional (a plain bash plugin emits none). These are
+  *not* the result — they are live progress, forwarded to the EventBus:
   - `{ "event": "status", "message": "Loading model" }`
   - `{ "event": "progress", "value": 80, "eta": "32s" }`
   - `{ "event": "log", "level": "warn", "message": "..." }`
-  - `{ "event": "result", ... }` — the terminal event; shape depends on kind/request (§5–§6).
 - **stderr = raw logs** (non-protocol; captured to the stage's log file like v2).
-- **Files cross via the shared `working_dir`** carried in the request — not over the wire.
-- **Exit codes:** exit `0` *with* a terminal `result` event = protocol completed (even
-  `not_applicable` / `failed` are valid *results*). Non-zero exit, exit `0` *without* a
-  terminal `result`, or malformed JSON = protocol violation → the executor records
-  `failed(:error)`. Timeout is executor-owned (kill + `failed(:error)`).
+- **Files cross via the shared `working_dir`** (the entrypoint's sole argument; holds
+  `request.json`, the input artifacts, `output.json`, and the produced outputs) — never
+  over the wire.
+- **Completion/failure detection.** After the process exits the host reads `output.json`:
+  present + valid → its `outcome` (including a plugin-*reported* `failed(category)`);
+  **absent or unparseable → `failed(:error)`** — this catches OOM-kill, hard crashes, and
+  bugs. The exit code refines the error *message*, but `output.json` presence is what's
+  authoritative. Timeout is executor-owned (kill → `failed(:error)`).
 
-**EventBus forwarding.** Non-terminal events (`status`/`progress`/`log`) are republished
-on the EventBus (UI/observability), exactly as v2's `ScriptRunner.run_async` publishes
-`ScriptOutput`. The terminal `result` is consumed by the runtime, not forwarded as a
-stream event.
+**EventBus forwarding.** stdout `status`/`progress`/`log` events are republished on the
+EventBus (UI/observability), exactly as v2's `ScriptRunner.run_async` publishes
+`ScriptOutput`. They carry no result data — the result is read from `output.json` after
+exit.
 
 **In-process fast path.** An in-process Elixir plugin receives the **same request struct**
-and an **`emit` function** (for `status`/`progress`/`log`), and **returns the terminal
-result struct** — no serialization, no process. The runtime dispatches to the in-process
+and an **`emit` function** (for `status`/`progress`/`log`), and **returns the result
+struct** (the in-process equivalent of writing `output.json`) — no serialization, no
+process, no files. The runtime dispatches to the in-process
 or subprocess transport purely on the plugin's `class`; callers and `plan` never know
 which.
 
@@ -191,16 +202,16 @@ not pay `perform`'s cost (e.g. `uv run` + CUDA/model load):
 - A `[entrypoints].can_process` (or, in-process, an optional `can_process/1` callback)
   **advertises the cheap-probe capability**. Absent ⇒ no probe; the stage is route-and-run
   and `not_applicable` arrives post-hoc from `perform`.
-- **Request:** `{ "request": "can_process", "item_id", "working_dir", "inputs": [{type, labels, filenames, input_path}] }`.
-- **Terminal result:** `{ "event": "result", "applicable": true | false }`. Binary —
-  inputs are already determined by labels/types, so the probe only judges applicability.
+- **Request (`request.json`):** `{ "request": "can_process", "item_id", "inputs": [{type, labels, filenames, input_path}] }`.
+- **Result (`output.json`):** `{ "applicable": true | false }`. Binary — inputs are
+  already determined by labels/types, so the probe only judges applicability.
 
 ### 5.3 `perform`
 
-- **Request:** `{ "request": "perform", "item_id", "working_dir", "config": {…resolved plugin config…}, "inputs": [{type, labels, filenames, input_path}] }`.
-- **Terminal result (success):**
+- **Request (`request.json`):** `{ "request": "perform", "item_id", "config": {…resolved plugin config…}, "inputs": [{type, labels, filenames, input_path}] }`.
+- **Result (`output.json`, success):**
   ```json
-  { "event": "result", "outcome": "produced",
+  { "outcome": "produced",
     "artifacts": [ { "type": "article_markdown", "labels": { "format": "text" }, "filenames": ["content.md"] } ],
     "item_metadata": { "title": "…" },
     "provenance": { "tool": "readability-lxml" } }
@@ -211,13 +222,15 @@ not pay `perform`'s cost (e.g. `uv run` + CUDA/model load):
 
 ### 5.4 Outcome taxonomy
 
-The terminal `result.outcome` is one of (the stage assigns it; §6 of ingestion-rework):
+The `output.json` `outcome` is one of (the stage assigns it; §6 of ingestion-rework):
 
 - **`produced`** — artifacts exist.
 - **`not_applicable`** — "I looked; nothing here for me." Advances the candidate walk
   without burning the item.
 - **`failed`** with a **`category`** from the closed set `:blocked | :unsupported |
-  :bad_input | :error`. The executor assigns `:error` on crash/timeout/protocol violation.
+  :bad_input | :error`. A plugin reports `:blocked`/`:unsupported`/`:bad_input` via
+  `output.json`; the executor assigns `:error` itself when `output.json` is
+  absent/unparseable (crash, OOM, timeout).
 - **`waiting_for_input`** — **reserved**. Documented for a future phase (a stage needing a
   human: login wall, CAPTCHA, manual upload). In Phase 1, returning it makes the executor
   **fail the item as `:unsupported`** (recorded faithfully so logs distinguish it from a
@@ -265,11 +278,10 @@ item-creating `poll_worker` with a note that it re-wires "to the v3 submit path 
 one-shot invocation, and the checkpoint request/response — fully testable by invoking a
 subscription plugin and asserting it returns items + a new checkpoint.
 
-- **Request:** `{ "request": "perform", "subscription_id", "working_dir", "config": {…}, "checkpoint": <opaque|null> }`.
-- **Terminal result:**
+- **Request (`request.json`):** `{ "request": "perform", "subscription_id", "config": {…}, "checkpoint": <opaque|null> }`.
+- **Result (`output.json`):**
   ```json
-  { "event": "result",
-    "items": [ { "url": "https://…", "metadata": { … } } ],
+  { "items": [ { "url": "https://…", "metadata": { … } } ],
     "checkpoint": <opaque new value> }
   ```
 - The **checkpoint is opaque to the host** — the plugin decides its meaning (timestamp,
@@ -320,8 +332,8 @@ dispatch table.
 ## 9. Error Capture & Observability
 
 - **stderr** is captured to the stage's log file (v2 parity).
-- **Crashes / timeouts / protocol violations** → `failed(:error)`; the executor owns the
-  timeout (kill the process, like `ScriptRunner.kill_port`).
+- **Crashes / timeouts / OOM-kill** → no or unparseable `output.json` → `failed(:error)`;
+  the executor owns the timeout (kill the process, like `ScriptRunner.kill_port`).
 - **Progress** is visible live via the EventBus forwarding of `status`/`progress`/`log`
   events.
 
@@ -332,10 +344,11 @@ dispatch table.
 - **In-process stage:** a fake `Cham.Plugin.Stage` exercised through the registry +
   runtime for both request kinds (`can_process` → applicable/not_applicable; `perform` →
   produced / not_applicable / failed(category)); assert the `emit` callback streams events.
-- **Subprocess stage:** a tiny real entrypoint (shell or Python) that echoes canned JSONL —
-  proves stdin-request / stdout-JSONL parsing, terminal-result detection, `working_dir`
-  file exchange, EventBus forwarding, exit-0-without-result → `failed(:error)`, and
-  non-zero exit → `failed(:error)`.
+- **Subprocess stage:** a tiny real entrypoint (shell or Python) that reads `request.json`
+  and writes `output.json` — proves request-file reading, optional stdout
+  `status`/`progress` forwarding to the EventBus, `output.json` result parsing,
+  `working_dir` file exchange, and **missing/garbage `output.json` → `failed(:error)`**
+  (the crash/OOM path).
 - **Subscription invocation:** a fake subscription plugin (both classes) returning
   `{items, checkpoint}`; assert the checkpoint round-trips (null in → value out → same
   value in next call).
@@ -380,8 +393,9 @@ dispatch table.
 - `Cham.Plugin.ArtifactType` — vocabulary (seeded ∪ declared) + validation.
 - `Cham.Plugin.Registry` — discovery scan, in-process module registration, config-schema
   registration, the catalog + dispatch table.
-- `Cham.Plugin.Runtime` — invocation: builds requests, dispatches by class, parses the
-  JSONL stream, forwards events, returns the terminal result.
+- `Cham.Plugin.Runtime` — invocation: writes `request.json`, dispatches by class, forwards
+  stdout progress events to the EventBus, reads `output.json` after exit, returns the
+  result (or `failed(:error)` when it's missing/unparseable).
 - `Cham.Plugin.Transport.Subprocess` / `Cham.Plugin.Transport.InProcess` — the two
   transports behind one internal interface (reuse `ScriptRunner` port handling).
 - `Cham.Plugin.WireProtocol` — request/response/event JSON encode/decode + struct defs.

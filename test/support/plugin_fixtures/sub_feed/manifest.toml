@@ -1,0 +1,6 @@
+id = "sub_feed"
+kind = "subscription"
+version = 1
+
+[entrypoints]
+perform = "sh perform.sh"

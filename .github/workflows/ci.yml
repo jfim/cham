@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Format / compile / credo / sobelow / test
+    runs-on: ubuntu-latest
+    env:
+      MIX_ENV: test
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: erlef/setup-beam@v1
+        with:
+          version-file: .tool-versions
+          version-type: strict
+
+      - name: Cache deps and _build
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-test-${{ hashFiles('**/mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-test-
+
+      - run: mix deps.get
+      - run: mix deps.compile
+
+      # Mirrors `just check-fast`.
+      - run: mix format --check-formatted
+      - run: mix compile --warnings-as-errors
+      - run: mix credo --strict
+      - run: mix sobelow --exit low
+      - run: mix test
+
+  dialyzer:
+    name: Dialyzer (non-blocking until PLT cache is stable)
+    runs-on: ubuntu-latest
+    # TODO(0c+): once this job is green on two consecutive runs with a warm PLT
+    # cache, remove continue-on-error to make dialyzer a blocking gate.
+    continue-on-error: true
+    env:
+      MIX_ENV: dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: erlef/setup-beam@v1
+        with:
+          version-file: .tool-versions
+          version-type: strict
+
+      - name: Cache deps and _build (dev)
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-dev-${{ hashFiles('**/mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-dev-
+
+      - name: Cache dialyzer PLT
+        uses: actions/cache@v4
+        with:
+          path: priv/plts
+          key: ${{ runner.os }}-plt-${{ hashFiles('**/mix.lock') }}
+          restore-keys: ${{ runner.os }}-plt-
+
+      - run: mix deps.get
+      - run: mkdir -p priv/plts && mix dialyzer --plt
+      - run: mix dialyzer

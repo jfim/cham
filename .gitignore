@@ -58,3 +58,6 @@ cli/build/
 
 # Environment secrets
 .env
+
+# Dialyzer PLTs (cached, not committed)
+/priv/plts/

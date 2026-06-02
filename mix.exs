@@ -9,6 +9,13 @@ defmodule Cham.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
+      dialyzer: [
+        plt_local_path: "priv/plts/local.plt",
+        plt_core_path: "priv/plts/core.plt",
+        plt_add_apps: [:mix, :ex_unit],
+        ignore_warnings: ".dialyzer_ignore.exs",
+        list_unused_filters: true
+      ],
       deps: deps(),
       releases: [
         cham: [

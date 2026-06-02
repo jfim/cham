@@ -6,9 +6,6 @@ defmodule Cham.MCP.Server do
     version: "0.1.0",
     capabilities: [:tools]
 
-  component(Cham.MCP.Tools.GetArticleMarkdown)
-  component(Cham.MCP.Tools.SearchArticles)
-
   @impl true
   def init(_client_info, frame), do: {:ok, frame}
 end

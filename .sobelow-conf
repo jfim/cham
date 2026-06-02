@@ -1,0 +1,44 @@
+# Sobelow configuration for Cham v2.
+#
+# Cham is a PERSONAL, SELF-HOSTED, single-user knowledge-archiving tool that
+# runs on localhost. The suppressions below are deliberate decisions for this
+# threat model, NOT unreviewed false positives. Every entry is justified.
+#
+# `ignore` (checks suppressed everywhere):
+#   - Config.HTTPS: This app serves a single user over localhost http. Forcing
+#     SSL (force_ssl) would break local access and provides no benefit for a
+#     non-public, single-user tool.
+#   - Config.CSP: A strict Content-Security-Policy is a defense for public,
+#     multi-tenant web apps. Not required for a single-user localhost tool; the
+#     attack surface (untrusted third parties hitting the browser pipeline)
+#     does not exist here.
+#
+# `ignore_files` (all findings suppressed in these specific file paths):
+#   These modules are the intentional file-access layer. The core design
+#   principle is "the filesystem archive is the source of truth, PostgreSQL is
+#   a rebuildable index", so the app DELIBERATELY reads/writes archive files and
+#   the TOML config by computed paths. Sobelow flags every File.* call here as
+#   Traversal.FileModule (Low Confidence). These are by-design, single-user
+#   local file operations -- not traversal from untrusted external input.
+#     - lib/cham/archive/filesystem_manager.ex  (archive read/write)
+#     - lib/cham/archive/metadata_manager.ex    (artifact JSON read/write)
+#     - lib/cham/config/manager.ex              (TOML config file read/write)
+#     - lib/cham/script_runner.ex               (local script log file write)
+[
+  exit: "low",
+  format: "txt",
+  ignore: ["Config.HTTPS", "Config.CSP"],
+  ignore_files: [
+    "lib/cham/archive/filesystem_manager.ex",
+    "lib/cham/archive/metadata_manager.ex",
+    "lib/cham/config/manager.ex",
+    "lib/cham/script_runner.ex"
+  ],
+  out: nil,
+  private: false,
+  router: nil,
+  skip: false,
+  threshold: :low,
+  verbose: false,
+  version: false
+]

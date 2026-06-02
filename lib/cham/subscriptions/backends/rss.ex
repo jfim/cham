@@ -1,4 +1,8 @@
 defmodule Cham.Subscriptions.Backends.RSS do
+  @moduledoc """
+  Subscription backend that polls an RSS/Atom feed and returns its entries as
+  ingestable items.
+  """
   @behaviour Cham.Subscriptions.Backend
 
   alias Cham.Subscriptions.RssParser
@@ -65,13 +69,11 @@ defmodule Cham.Subscriptions.Backends.RSS do
   @config_namespace "subscriptions.cham_rss"
 
   defp user_agent do
-    try do
-      case Cham.Config.Manager.read_all(@config_namespace) do
-        {:ok, %{user_agent: v}} when is_binary(v) and v != "" -> v
-        _ -> @default_user_agent
-      end
-    rescue
+    case Cham.Config.Manager.read_all(@config_namespace) do
+      {:ok, %{user_agent: v}} when is_binary(v) and v != "" -> v
       _ -> @default_user_agent
     end
+  rescue
+    _ -> @default_user_agent
   end
 end

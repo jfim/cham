@@ -50,20 +50,7 @@ defmodule ChamWeb.UIComponents do
   attr :status, :string, required: true
 
   def status_badge(assigns) do
-    {label, color} =
-      case assigns.status do
-        "bootstrapping" -> {"Bootstrapping", "bg-blue-100 text-blue-800"}
-        "processing" -> {"Processing", "bg-amber-100 text-amber-800"}
-        "complete" -> {"Complete", "bg-green-100 text-green-800"}
-        "incomplete" -> {"Incomplete", "bg-yellow-100 text-yellow-800"}
-        "failed" -> {"Failed", "bg-red-100 text-red-800"}
-        "crashed" -> {"Crashed", "bg-red-100 text-red-800"}
-        "started" -> {"Started", "bg-blue-100 text-blue-800"}
-        "completed" -> {"Completed", "bg-green-100 text-green-800"}
-        "snoozed" -> {"Snoozed", "bg-yellow-100 text-yellow-800"}
-        other -> {other, "bg-gray-100 text-gray-800"}
-      end
-
+    {label, color} = status_label_and_color(assigns.status)
     assigns = assign(assigns, label: label, color: color)
 
     ~H"""
@@ -72,6 +59,17 @@ defmodule ChamWeb.UIComponents do
     </span>
     """
   end
+
+  defp status_label_and_color("bootstrapping"), do: {"Bootstrapping", "bg-blue-100 text-blue-800"}
+  defp status_label_and_color("processing"), do: {"Processing", "bg-amber-100 text-amber-800"}
+  defp status_label_and_color("complete"), do: {"Complete", "bg-green-100 text-green-800"}
+  defp status_label_and_color("incomplete"), do: {"Incomplete", "bg-yellow-100 text-yellow-800"}
+  defp status_label_and_color("failed"), do: {"Failed", "bg-red-100 text-red-800"}
+  defp status_label_and_color("crashed"), do: {"Crashed", "bg-red-100 text-red-800"}
+  defp status_label_and_color("started"), do: {"Started", "bg-blue-100 text-blue-800"}
+  defp status_label_and_color("completed"), do: {"Completed", "bg-green-100 text-green-800"}
+  defp status_label_and_color("snoozed"), do: {"Snoozed", "bg-yellow-100 text-yellow-800"}
+  defp status_label_and_color(other), do: {other, "bg-gray-100 text-gray-800"}
 
   @doc """
   Renders a colored badge for pipeline stage names.
@@ -117,29 +115,8 @@ defmodule ChamWeb.UIComponents do
   attr :at, :any, required: true
 
   def relative_time(assigns) do
-    now = DateTime.utc_now()
-
-    diff_seconds =
-      case assigns.at do
-        %DateTime{} = dt -> DateTime.diff(now, dt)
-        _ -> 0
-      end
-
-    display =
-      cond do
-        diff_seconds < 60 -> "just now"
-        diff_seconds < 3600 -> "#{div(diff_seconds, 60)}m ago"
-        diff_seconds < 86_400 -> "#{div(diff_seconds, 3600)}h ago"
-        diff_seconds < 2_592_000 -> "#{div(diff_seconds, 86_400)}d ago"
-        true -> format_date(assigns.at)
-      end
-
-    iso =
-      case assigns.at do
-        %DateTime{} = dt -> DateTime.to_iso8601(dt)
-        _ -> ""
-      end
-
+    display = relative_display(assigns.at)
+    iso = to_iso8601(assigns.at)
     title = format_date(assigns.at)
 
     assigns = assign(assigns, display: display, iso: iso, title: title)
@@ -149,23 +126,28 @@ defmodule ChamWeb.UIComponents do
     """
   end
 
-  defp format_date(%DateTime{} = dt) do
-    month =
-      case dt.month do
-        1 -> "Jan"
-        2 -> "Feb"
-        3 -> "Mar"
-        4 -> "Apr"
-        5 -> "May"
-        6 -> "Jun"
-        7 -> "Jul"
-        8 -> "Aug"
-        9 -> "Sep"
-        10 -> "Oct"
-        11 -> "Nov"
-        12 -> "Dec"
-      end
+  defp relative_display(%DateTime{} = dt) do
+    diff_seconds = DateTime.diff(DateTime.utc_now(), dt)
 
+    cond do
+      diff_seconds < 60 -> "just now"
+      diff_seconds < 3600 -> "#{div(diff_seconds, 60)}m ago"
+      diff_seconds < 86_400 -> "#{div(diff_seconds, 3600)}h ago"
+      diff_seconds < 2_592_000 -> "#{div(diff_seconds, 86_400)}d ago"
+      true -> format_date(dt)
+    end
+  end
+
+  defp relative_display(_), do: "just now"
+
+  defp to_iso8601(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
+  defp to_iso8601(_), do: ""
+
+  @month_names {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov",
+                "Dec"}
+
+  defp format_date(%DateTime{} = dt) do
+    month = elem(@month_names, dt.month - 1)
     "#{month} #{dt.day}, #{dt.year}"
   end
 

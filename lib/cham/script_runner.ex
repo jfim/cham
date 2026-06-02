@@ -1,4 +1,8 @@
 defmodule Cham.ScriptRunner do
+  @moduledoc """
+  Runs local executables (e.g. Python scripts via `uv`) as OS ports, collecting
+  output with a timeout and optionally logging to disk.
+  """
   alias Cham.ScriptRunner.Events.{ScriptExited, ScriptOutput, ScriptTimeout}
 
   def run_sync(command, args, opts) do
@@ -95,15 +99,13 @@ defmodule Cham.ScriptRunner do
   end
 
   defp kill_port(port) do
-    try do
-      {:os_pid, os_pid} = Port.info(port, :os_pid)
-      Port.close(port)
-      System.cmd("kill", ["-9", "#{os_pid}"])
-    rescue
-      _ -> :ok
-    catch
-      _, _ -> :ok
-    end
+    {:os_pid, os_pid} = Port.info(port, :os_pid)
+    Port.close(port)
+    System.cmd("kill", ["-9", "#{os_pid}"])
+  rescue
+    _ -> :ok
+  catch
+    _, _ -> :ok
   end
 
   defp write_log(path, content) do

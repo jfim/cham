@@ -64,7 +64,10 @@ defmodule Cham.Repo.Migrations.V3SchemaReset do
 
     create table(:components, primary_key: false) do
       add :id, :binary_id, primary_key: true
-      add :snapshot_id, references(:snapshots, type: :binary_id, on_delete: :delete_all), null: false
+
+      add :snapshot_id, references(:snapshots, type: :binary_id, on_delete: :delete_all),
+        null: false
+
       add :content_type, :text, null: false
 
       add :inserted_at, :utc_datetime, null: false, default: fragment("now()")
@@ -75,7 +78,10 @@ defmodule Cham.Repo.Migrations.V3SchemaReset do
 
     create table(:artifacts, primary_key: false) do
       add :id, :binary_id, primary_key: true
-      add :snapshot_id, references(:snapshots, type: :binary_id, on_delete: :delete_all), null: false
+
+      add :snapshot_id, references(:snapshots, type: :binary_id, on_delete: :delete_all),
+        null: false
+
       add :component_id, references(:components, type: :binary_id, on_delete: :delete_all)
       add :category, :text, null: false
       add :stage, :text, null: false
@@ -95,7 +101,10 @@ defmodule Cham.Repo.Migrations.V3SchemaReset do
 
     create table(:edges, primary_key: false) do
       add :id, :binary_id, primary_key: true
-      add :source_item_id, references(:items, type: :binary_id, on_delete: :delete_all), null: false
+
+      add :source_item_id, references(:items, type: :binary_id, on_delete: :delete_all),
+        null: false
+
       add :edge_type, :text, null: false
       add :target_url_hash, :text, null: false
       add :target_item_id, references(:items, type: :binary_id, on_delete: :nilify_all)

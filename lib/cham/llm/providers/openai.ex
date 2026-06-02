@@ -1,4 +1,8 @@
 defmodule Cham.LLM.Providers.OpenAI do
+  @moduledoc """
+  `Cham.LLM.Provider` implementation speaking the OpenAI-compatible chat
+  completions API (used by Ollama, Fireworks, and others).
+  """
   @behaviour Cham.LLM.Provider
 
   @impl true

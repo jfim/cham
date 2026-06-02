@@ -17,14 +17,12 @@ defmodule Cham.Subscriptions.RssParser do
           {:ok, %{title: String.t(), description: String.t() | nil, entries: [map()]}}
           | {:error, term()}
   def parse(xml) when is_binary(xml) do
-    try do
-      {doc, _rest} = :xmerl_scan.string(:binary.bin_to_list(xml), quiet: true)
-      parse_doc(doc)
-    rescue
-      e -> {:error, e}
-    catch
-      :exit, reason -> {:error, reason}
-    end
+    {doc, _rest} = :xmerl_scan.string(:binary.bin_to_list(xml), quiet: true)
+    parse_doc(doc)
+  rescue
+    e -> {:error, e}
+  catch
+    :exit, reason -> {:error, reason}
   end
 
   defp parse_doc(xmlElement(name: :rss) = el), do: parse_rss(el)
@@ -179,24 +177,8 @@ defmodule Cham.Subscriptions.RssParser do
 
   defp apply_tz_offset(dt, _), do: dt
 
-  defp month_num(<<a, b, c>>) do
-    month_num_lower(
-      <<a +
-          case a do
-            c when c >= ?A and c <= ?Z -> 32
-            _ -> 0
-          end,
-        b +
-          case b do
-            c when c >= ?A and c <= ?Z -> 32
-            _ -> 0
-          end,
-        c +
-          case c do
-            c when c >= ?A and c <= ?Z -> 32
-            _ -> 0
-          end>>
-    )
+  defp month_num(<<_, _, _>> = abbrev) do
+    month_num_lower(String.downcase(abbrev))
   end
 
   defp month_num(_), do: nil

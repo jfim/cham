@@ -1,4 +1,8 @@
 defmodule Cham.Subscriptions.BackendRegistry do
+  @moduledoc """
+  GenServer holding the set of registered subscription backend modules, keyed by
+  their backend id, for lookup at subscription time.
+  """
   use GenServer
 
   @default_name __MODULE__

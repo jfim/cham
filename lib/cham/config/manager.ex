@@ -1,9 +1,15 @@
 defmodule Cham.Config.Manager do
+  @moduledoc """
+  GenServer owning the runtime-mutable configuration. Holds per-namespace schemas,
+  persists values to the TOML config file, and broadcasts `ConfigChanged` events
+  when values are updated.
+  """
   use GenServer
   require Logger
 
-  alias Cham.Config.{Schema, TomlEncoder}
   alias Cham.Config.Events.ConfigChanged
+  alias Cham.Config.Schema
+  alias Cham.Config.TomlEncoder
 
   # --- Client API ---
 

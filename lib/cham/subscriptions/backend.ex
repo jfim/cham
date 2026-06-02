@@ -1,4 +1,8 @@
 defmodule Cham.Subscriptions.Backend do
+  @moduledoc """
+  Behaviour for subscription source backends (e.g. RSS) that produce ingestable
+  items, along with the shared item and config-field types.
+  """
   @type item :: %{
           source_item_id: String.t(),
           url: String.t(),

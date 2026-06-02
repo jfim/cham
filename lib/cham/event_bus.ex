@@ -1,4 +1,11 @@
 defmodule Cham.EventBus do
+  @moduledoc """
+  Thin wrapper around `Phoenix.PubSub` providing the system-wide event bus.
+
+  Publishing to a colon-namespaced topic (e.g. `"pipeline:stage_completed"`)
+  also broadcasts to the coarse parent topic (e.g. `"pipeline"`), so subscribers
+  can listen at either granularity.
+  """
   @pubsub Cham.PubSub
 
   @doc """

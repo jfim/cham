@@ -1,4 +1,8 @@
 defmodule Cham.Config.Schema do
+  @moduledoc """
+  Validates and coerces string-keyed config values (sourced from the on-disk
+  TOML file) against a field schema, applying defaults and type checks.
+  """
   @doc """
   Validate a map of string-keyed values against a schema.
   Returns {:ok, atom_keyed_map} or {:error, [error_strings]}.
@@ -44,7 +48,17 @@ defmodule Cham.Config.Schema do
   defp check_type(value, :float, _key) when is_integer(value), do: {:ok, value / 1}
   defp check_type(value, :boolean, _key) when is_boolean(value), do: {:ok, value}
   defp check_type(value, :atom, _key) when is_atom(value), do: {:ok, value}
-  defp check_type(value, :atom, _key) when is_binary(value), do: {:ok, String.to_atom(value)}
+
+  defp check_type(value, :atom, key) when is_binary(value) do
+    # Config values originate from the on-disk TOML file. Use
+    # String.to_existing_atom/1 to avoid unbounded atom-table growth (DoS) from
+    # arbitrary strings; an unknown atom is reported as a validation error.
+    {:ok, String.to_existing_atom(value)}
+  rescue
+    ArgumentError ->
+      {:error, "invalid atom value for :#{key}, got #{inspect(value)}"}
+  end
+
   defp check_type(value, :url, _key) when is_binary(value), do: {:ok, value}
 
   defp check_type(value, type, key),

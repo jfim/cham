@@ -223,7 +223,7 @@ defmodule ChamWeb.ConfigLive do
   defp input_type(:url), do: "url"
   defp input_type(_), do: "text"
 
-  defp is_long_text?(field) do
+  defp long_text?(field) do
     field.type == :string and is_binary(field.default) and String.length(field.default) > 80
   end
 

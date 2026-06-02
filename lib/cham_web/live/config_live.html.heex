@@ -209,7 +209,7 @@
                     </option>
                   </select>
                 <% else %>
-                  <%= if is_long_text?(field) do %>
+                  <%= if long_text?(field) do %>
                     <textarea
                       name={Atom.to_string(field.key)}
                       id={"config-#{field.key}"}

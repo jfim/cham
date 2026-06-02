@@ -1,4 +1,8 @@
 defmodule Cham.Config.TomlEncoder do
+  @moduledoc """
+  Serializes a nested config map (`%{section => %{key => value}}`) into a
+  deterministic, alphabetically-sorted TOML string.
+  """
   @doc """
   Encode a map of %{section_name => %{key => value}} into a TOML string.
   Sections are sorted alphabetically. Keys within sections are sorted alphabetically.

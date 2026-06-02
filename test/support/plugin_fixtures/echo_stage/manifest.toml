@@ -1,0 +1,11 @@
+id = "echo_stage"
+kind = "stage"
+phase = "extract"
+version = 1
+inputs  = [ { type = "html_capture" } ]
+outputs = [ { type = "article_markdown" } ]
+declares_types = ["article_markdown"]
+
+[entrypoints]
+perform = "sh perform.sh"
+can_process = "sh check.sh"

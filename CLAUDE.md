@@ -36,12 +36,13 @@ Track future improvements, ideas, and TODOs in `/home/jfim/sync/Obsidian Persona
 - `mix test` — run unit tests
 - `mix test --only integration` — run integration tests (may need network, uv, etc.)
 - `mix format` — format code (sole formatting authority)
+- `just check` — run the full quality gate (format check, compile, credo, sobelow, dialyzer, test)
 - `mix phx.server` — start dev server at http://localhost:4000
 
 ## Coding Conventions
 
 - Follow standard Elixir community conventions
-- `mix format` is the sole authority on code formatting — no Credo or other linters
+- `mix format` is the sole authority on *formatting*. Code-quality gates run via `just check` / CI: `credo --strict` (consistency/complexity), `dialyxir` (success typing), `sobelow` (Phoenix security). These lint and type-check; they never reformat — that stays `mix format`'s job.
 - Prefer stdlib and OTP over adding libraries
 - Phoenix, Ecto, and Oban are the core framework dependencies
 - Unit tests run without external dependencies (no network, no GPU, no Ollama)

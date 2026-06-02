@@ -79,8 +79,8 @@ end
 defmodule Cham.Identity.LookupTest do
   use Cham.DataCase, async: true
 
-  alias Cham.Identity
   alias Cham.Archive.{Item, UrlIdentity}
+  alias Cham.Identity
 
   setup do
     {:ok, item} =

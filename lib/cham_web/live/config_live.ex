@@ -2,7 +2,6 @@ defmodule ChamWeb.ConfigLive do
   use ChamWeb, :live_view
 
   alias Cham.Config.Manager, as: ConfigManager
-  alias Cham.Plugin.Registry
 
   @impl true
   def mount(_params, _session, socket) do
@@ -115,16 +114,9 @@ defmodule ChamWeb.ConfigLive do
   end
 
   defp load_plugins do
-    Registry.list_plugins()
-    |> Enum.map(fn entry ->
-      %{
-        namespace: "plugins.#{entry.plugin_id}",
-        name: entry.name,
-        description: entry.description,
-        schema: entry.config_schema,
-        kind: :plugin
-      }
-    end)
+    # The v2 plugin registry was removed in the v3 teardown; the plugin runtime
+    # returns in Phase 1, at which point this will list registered plugins again.
+    []
   end
 
   defp load_system_sections do

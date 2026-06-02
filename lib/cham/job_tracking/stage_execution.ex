@@ -15,7 +15,7 @@ defmodule Cham.JobTracking.StageExecution do
     field :error, :string
     field :snooze_reason, :string
 
-    belongs_to :item, Cham.Items.Item
+    field :item_id, :binary_id
   end
 
   @statuses ~w(started completed failed snoozed crashed)

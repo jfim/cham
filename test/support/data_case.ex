@@ -38,9 +38,6 @@ defmodule Cham.DataCase do
   def setup_sandbox(tags) do
     pid = Ecto.Adapters.SQL.Sandbox.start_owner!(Cham.Repo, shared: not tags[:async])
     on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
-    # The Ecto sandbox rolls back DB state between tests but global ETS caches
-    # survive. Drop the dashboard stats cache so each test sees fresh aggregates.
-    Cham.Items.StatsCache.invalidate()
   end
 
   @doc """

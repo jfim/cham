@@ -339,17 +339,8 @@ defmodule ChamWeb.UIComponents do
     ~H"""
     <aside class="w-64 shrink-0 bg-white border-r border-gray-200 flex flex-col">
       <div class="px-4 py-5 border-b border-gray-100">
-        <.link navigate={~p"/"} class="text-xl font-bold text-indigo-600 hover:text-indigo-500">
+        <.link navigate={~p"/config"} class="text-xl font-bold text-indigo-600 hover:text-indigo-500">
           Cham
-        </.link>
-      </div>
-
-      <div class="px-4 py-3 border-b border-gray-100">
-        <.link
-          navigate={~p"/"}
-          class="flex items-center gap-2 px-2 py-1.5 rounded text-sm text-gray-600 hover:bg-gray-50"
-        >
-          <ChamWeb.CoreComponents.icon name="hero-home" class="h-4 w-4 text-gray-400" /> Dashboard
         </.link>
       </div>
 

@@ -33,6 +33,7 @@ defmodule Cham.Archive.Layout do
     |> String.replace(~r/[\s\-]+/, "-")
     |> String.trim("-")
     |> String.slice(0, 80)
+    |> String.trim_trailing("-")
   end
 
   @doc "ISO8601-basic UTC timestamp, e.g. `20260601T090705Z`."

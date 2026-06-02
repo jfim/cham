@@ -15,6 +15,12 @@ defmodule Cham.Archive.LayoutTest do
     assert String.length(Layout.slugify(String.duplicate("a", 200))) == 80
   end
 
+  test "slugify/1 does not leave a trailing hyphen when the 80-char cap lands on one" do
+    result = Layout.slugify(String.duplicate("a", 79) <> "-extra")
+    assert String.length(result) <= 80
+    refute String.ends_with?(result, "-")
+  end
+
   test "timestamp/1 is ISO8601-basic UTC" do
     assert Layout.timestamp(@dt) == "20260601T090705Z"
   end
@@ -34,6 +40,6 @@ defmodule Cham.Archive.LayoutTest do
   test "item_abs_path/1 joins archive_root + archive/ + the relative archive_path" do
     # archive_root defaults to "." in test config.
     assert Layout.item_abs_path("2026/06/01/ingest-a1b2c3d4") ==
-             Path.join([Layout.archive_root(), "archive", "2026/06/01/ingest-a1b2c3d4"])
+             "./archive/2026/06/01/ingest-a1b2c3d4"
   end
 end

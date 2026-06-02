@@ -22,15 +22,13 @@
 #   local file operations -- not traversal from untrusted external input.
 #     - lib/cham/archive/layout.ex              (archive path construction + read/write)
 #     - lib/cham/config/manager.ex              (TOML config file read/write)
-#     - lib/cham/script_runner.ex               (local script log file write)
 [
   exit: "low",
   format: "txt",
   ignore: ["Config.HTTPS", "Config.CSP"],
   ignore_files: [
     "lib/cham/archive/layout.ex",
-    "lib/cham/config/manager.ex",
-    "lib/cham/script_runner.ex"
+    "lib/cham/config/manager.ex"
   ],
   out: nil,
   private: false,

@@ -61,7 +61,7 @@ defmodule Cham.Identity do
 
   # Drop denylisted keys by raw key match; keep the rest in original order and
   # original encoding (split/rejoin on "&", no re-encoding).
-  defp normalize_query(nil), do: nil
+  defp normalize_query(query) when query in [nil, ""], do: nil
 
   defp normalize_query(query) do
     kept =

@@ -52,6 +52,10 @@ defmodule Cham.IdentityTest do
       u = "https://example.com/a?x=1&y=2"
       assert Identity.normalize(u) == Identity.normalize(u)
     end
+
+    test "drops an empty query (no trailing ?)" do
+      assert Identity.normalize("https://example.com/p?") == "https://example.com/p"
+    end
   end
 
   describe "hash/1" do

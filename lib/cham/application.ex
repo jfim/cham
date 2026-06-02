@@ -1,6 +1,4 @@
 defmodule Cham.Application do
-  # See https://hexdocs.pm/elixir/Application.html
-  # for more information on OTP Applications
   @moduledoc false
 
   use Application
@@ -16,31 +14,19 @@ defmodule Cham.Application do
       Cham.Repo,
       {DNSCluster, query: Application.get_env(:cham, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Cham.PubSub},
-      Cham.Items.Cache,
-      Cham.Items.StatsCache,
       {Cham.Config.Manager,
        toml_path: Application.get_env(:cham, :config_toml_path, "config/cham.toml"),
        event_bus: Cham.PubSub},
-      {Cham.Plugin.Registry, name: Cham.Plugin.Registry, plugin_order: []},
       Cham.Subscriptions.Supervisor,
-      Cham.Pipeline.Supervisor,
       {Cham.MCP.Server, transport: :streamable_http},
-      # Start to serve requests, typically the last entry
       ChamWeb.Endpoint
     ]
 
-    # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Cham.Supervisor]
 
     case Supervisor.start_link(children, opts) do
       {:ok, pid} ->
-        register_core_plugins()
-        register_pipeline_config()
-        register_desired_artifacts_config()
-        register_enabled_plugins_config()
         register_display_config()
-        register_chat_config()
         Cham.Subscriptions.BackendRegistry.register(Cham.Subscriptions.Backends.RSS)
         register_subscription_backend_config(Cham.Subscriptions.Backends.RSS)
         {:ok, pid}
@@ -66,99 +52,6 @@ defmodule Cham.Application do
       :ok -> Logger.info("Database created")
       {:error, :already_up} -> :ok
       {:error, reason} -> Logger.warning("Could not create database: #{inspect(reason)}")
-    end
-  end
-
-  defp register_core_plugins do
-    core_plugins = [
-      Cham.Plugins.GenericDownloadUrl,
-      Cham.Plugins.ContentTypeRouter,
-      Cham.Plugins.ExtractArticle,
-      Cham.Plugins.ExtractPlaintext,
-      Cham.Plugins.ExtractFeedItems,
-      Cham.Plugins.ExtractPdf,
-      Cham.Plugins.ExtractAudio,
-      Cham.Plugins.TranscribeWhisper,
-      Cham.Plugins.TranscribeFireworks,
-      Cham.Plugins.SummarizeOllama,
-      Cham.Plugins.AutoTag,
-      Cham.Plugins.CleanTitle,
-      Cham.Plugins.ExtractThumbnail,
-      Cham.Plugins.DownloadImages,
-      Cham.Plugins.AlambicCleanMarkdown
-    ]
-
-    for mod <- core_plugins do
-      case Cham.Plugin.Registry.register_plugin(mod, %{}) do
-        :ok ->
-          register_plugin_config(mod)
-
-        {:error, reason} ->
-          Logger.warning("Failed to register plugin #{mod.plugin_id()}: #{inspect(reason)}")
-      end
-    end
-  end
-
-  defp register_pipeline_config do
-    schema = [
-      %{
-        key: :fallback_bootstrap_stage,
-        type: :string,
-        default: "generic_download_url",
-        description:
-          "Plugin ID of the bootstrap stage to use when no specialized downloader matches the URL",
-        required: false,
-        options: nil
-      }
-    ]
-
-    Cham.Config.Manager.register("pipeline", schema)
-  end
-
-  defp register_desired_artifacts_config do
-    defaults = Cham.Pipeline.DesiredStages.defaults()
-
-    schema =
-      Enum.map(defaults, fn {content_type, labels} ->
-        types = Enum.map_join(labels, ", ", fn m -> m["type"] end)
-
-        %{
-          key: String.to_atom(content_type),
-          type: :string,
-          default: types,
-          description:
-            "Comma-separated desired artifact types for #{content_type} items (e.g. content, summary, tags, transcript, clean_title)",
-          required: false,
-          options: nil
-        }
-      end)
-
-    Cham.Config.Manager.register("desired_artifacts", schema)
-  end
-
-  defp register_enabled_plugins_config do
-    plugins = Cham.Plugin.Registry.list_plugins()
-
-    schema =
-      Enum.map(plugins, fn entry ->
-        %{
-          key: String.to_atom(entry.plugin_id),
-          type: :boolean,
-          default: plugin_default_enabled?(entry.module),
-          description: entry.description,
-          required: false,
-          options: nil
-        }
-      end)
-
-    Cham.Config.Manager.register("enabled_plugins", schema)
-  end
-
-  defp plugin_default_enabled?(module) do
-    if function_exported?(module, :default_enabled?, 0) do
-      module.default_enabled?()
-    else
-      true
     end
   end
 
@@ -204,54 +97,6 @@ defmodule Cham.Application do
     end
   end
 
-  defp register_chat_config do
-    schema = [
-      %{
-        key: :model,
-        type: :string,
-        default: "llama3.1:8b",
-        description: "LLM model name for item chat",
-        required: false,
-        options: nil
-      },
-      %{
-        key: :url,
-        type: :string,
-        default: "http://localhost:11434",
-        description: "OpenAI-compatible base URL for item chat",
-        required: false,
-        options: nil
-      },
-      %{
-        key: :api_key,
-        type: :string,
-        default: nil,
-        description: "Optional bearer token for item chat",
-        required: false,
-        options: nil
-      },
-      %{
-        key: :max_input_tokens,
-        type: :integer,
-        default: 32_000,
-        description: "Maximum input token estimate (chars / 4) for item chat content",
-        required: false,
-        options: nil
-      },
-      %{
-        key: :system_prompt,
-        type: :string,
-        default: Cham.Chat.default_system_prompt(),
-        description:
-          "System prompt template. Use {{content_type}}, {{title}}, {{content}} as placeholders.",
-        required: false,
-        options: nil
-      }
-    ]
-
-    Cham.Config.Manager.register("chat", schema)
-  end
-
   defp register_subscription_backend_config(mod) do
     schema = if function_exported?(mod, :config_schema, 0), do: mod.config_schema(), else: []
 
@@ -267,25 +112,6 @@ defmodule Cham.Application do
 
         {:error, reason} ->
           Logger.warning("Failed to register config for backend #{mod.id()}: #{inspect(reason)}")
-      end
-    end
-  end
-
-  defp register_plugin_config(mod) do
-    schema = mod.config_schema()
-
-    if schema != [] do
-      namespace = "plugins.#{mod.plugin_id()}"
-
-      case Cham.Config.Manager.register(namespace, schema) do
-        :ok ->
-          :ok
-
-        {:error, :already_registered} ->
-          :ok
-
-        {:error, reason} ->
-          Logger.warning("Failed to register config for #{mod.plugin_id()}: #{inspect(reason)}")
       end
     end
   end

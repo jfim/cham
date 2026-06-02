@@ -17,6 +17,7 @@ defmodule Cham.Application do
       {Cham.Config.Manager,
        toml_path: Application.get_env(:cham, :config_toml_path, "config/cham.toml"),
        event_bus: Cham.PubSub},
+      {Cham.Plugin.Registry, in_process_modules: []},
       Cham.Subscriptions.Supervisor,
       {Cham.MCP.Server, transport: :streamable_http},
       ChamWeb.Endpoint

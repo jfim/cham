@@ -37,6 +37,11 @@ defmodule Cham.Archive.LayoutTest do
     assert Layout.snapshot_path("20260601T090705Z") == "snapshots/20260601T090705Z"
   end
 
+  test "stage_path builds stages/<stage_id>-<ts>" do
+    assert Cham.Archive.Layout.stage_path("extract_article", "20260601T090705Z") ==
+             "stages/extract_article-20260601T090705Z"
+  end
+
   test "item_abs_path/1 joins archive_root + archive/ + the relative archive_path" do
     # archive_root defaults to "." in test config.
     assert Layout.item_abs_path("2026/06/01/ingest-a1b2c3d4") ==

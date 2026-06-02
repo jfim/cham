@@ -56,6 +56,11 @@ defmodule Cham.Archive.Layout do
   @spec snapshot_path(String.t()) :: String.t()
   def snapshot_path(ts) when is_binary(ts), do: Path.join("snapshots", ts)
 
+  @doc "Relative stage working dir (under the item dir): `stages/<stage_id>-<ts>`."
+  @spec stage_path(String.t(), String.t()) :: String.t()
+  def stage_path(stage_id, ts) when is_binary(stage_id) and is_binary(ts),
+    do: Path.join("stages", "#{stage_id}-#{ts}")
+
   @doc """
   Atomic write: temp file + rename, so the file is complete-or-absent.
   Creates parent directories.

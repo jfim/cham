@@ -58,11 +58,77 @@ defmodule Cham.Plugin.Registry do
 
   # --- GenServer callbacks ---
 
+  @plugins_namespace "plugins"
+
   @impl true
   def init(opts) do
-    {catalog, vocabulary} = discover(opts)
+    {catalog, vocabulary} = discover(resolve_runtime_opts(opts))
     {:ok, %{catalog: catalog, vocabulary: vocabulary}}
   end
+
+  # Tests pass :seeded_types explicitly and skip config entirely. The supervised
+  # app instance reads the `plugins` namespace (registering it on first use).
+  defp resolve_runtime_opts(opts) do
+    if Keyword.has_key?(opts, :seeded_types) do
+      opts
+    else
+      config = read_plugins_config()
+
+      seeded =
+        ArtifactType.default_seeded() ++ parse_list(Map.get(config, :seeded_artifact_types))
+
+      opts
+      |> Keyword.put_new(:plugins_root, Map.get(config, :plugins_root, "plugins"))
+      |> Keyword.put(:seeded_types, seeded)
+      |> Keyword.put(:disabled, parse_list(Map.get(config, :disabled)))
+    end
+  end
+
+  defp read_plugins_config do
+    _ =
+      case Cham.Config.Manager.register(@plugins_namespace, plugins_config_schema()) do
+        :ok -> :ok
+        {:error, :already_registered} -> :ok
+      end
+
+    case Cham.Config.Manager.read_all(@plugins_namespace) do
+      {:ok, map} -> map
+      _ -> %{}
+    end
+  end
+
+  defp plugins_config_schema do
+    [
+      %{
+        key: :plugins_root,
+        type: :string,
+        default: "plugins",
+        description: "Directory scanned for subprocess plugin manifests.",
+        required: false,
+        options: nil
+      },
+      %{
+        key: :seeded_artifact_types,
+        type: :string,
+        default: "",
+        description: "Comma-separated artifact types added to the seeded vocabulary.",
+        required: false,
+        options: nil
+      },
+      %{
+        key: :disabled,
+        type: :string,
+        default: "",
+        description: "Comma-separated plugin ids to parse but exclude from the catalog.",
+        required: false,
+        options: nil
+      }
+    ]
+  end
+
+  defp parse_list(nil), do: []
+  defp parse_list(""), do: []
+  defp parse_list(str), do: str |> String.split(",", trim: true) |> Enum.map(&String.trim/1)
 
   @impl true
   def handle_call({:lookup, id}, _from, state) do
